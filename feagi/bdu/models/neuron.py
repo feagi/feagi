@@ -12,57 +12,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""Module for neuron mapping interfaces.
+"""Module for neuron-related constants.
 
-This module provides the NeuronMappingProvider interface used by components
-to work with external mapping systems (like ConnectomeManager).
-The old NeuronArray has been replaced by NPU-owned data structures.
+ARCHITECTURE NOTE:
+All neuron data is stored in Rust NPU (Structure-of-Arrays layout).
+Python never stores neuron data - only metadata and configuration.
+
+Legacy interfaces removed - neurons follow same architecture as synapses:
+- No Python interface layer (was redundant)
+- No Python tracking dictionaries (neuron_id == array_index always)
+- Direct access to Rust NPU for all neuron operations
 """
-
-from abc import ABC, abstractmethod
-from typing import List, Optional
 
 # MEMORY OPTIMIZATION: Invalid cortical area index for uint16 optimization
 INVALID_CORTICAL_IDX = 65535  # Max value for uint16, used instead of -1
-
-
-class NeuronMappingProvider(ABC):
-    """Interface for providing neuron ID-to-index mappings.
-
-    This allows components to work with external mapping systems (like
-    ConnectomeManager) instead of maintaining their own redundant mappings.
-    """
-
-    @abstractmethod
-    def get_neuron_index(self, neuron_id: int) -> Optional[int]:
-        """Get the array index for a neuron ID."""
-        pass
-
-    @abstractmethod
-    def get_neuron_id(self, index: int) -> Optional[int]:
-        """Get the neuron ID for an array index."""
-        pass
-
-    @abstractmethod
-    def set_neuron_mapping(self, neuron_id: int, index: int) -> None:
-        """Set a neuron ID to index mapping."""
-        pass
-
-    @abstractmethod
-    def remove_neuron_mapping(self, neuron_id: int) -> None:
-        """Remove a neuron mapping."""
-        pass
-
-    @abstractmethod
-    def has_neuron(self, neuron_id: int) -> bool:
-        """Check if a neuron ID exists."""
-        pass
-
-    @abstractmethod
-    def get_all_neuron_ids(self) -> List[int]:
-        """Get all neuron IDs."""
-        pass
-
-
-# Legacy Neuron class removed - unused in codebase
-# All neuron data now managed by Rust NPU with Structure-of-Arrays layout

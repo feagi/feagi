@@ -196,11 +196,14 @@ class RustNPUIntegration:
             # Note: snooze_countdown removed - now unified in refractory_countdown
             cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown = state
             
-            # Get cortical_idx from neuron_to_area mapping (no Python array needed!)
+            # Get cortical_idx from Rust NPU (single source of truth)
             cortical_idx = -1
             if hasattr(self.connectome_manager, '_npu_interface'):
                 npu_interface = self.connectome_manager._npu_interface
-                cortical_idx = npu_interface.neuron_to_area.get(neuron_id, -1)
+                try:
+                    cortical_idx = npu_interface.get_neuron_cortical_idx(neuron_id)
+                except Exception:
+                    cortical_idx = -1
             
             logger.info("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
             logger.info("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 

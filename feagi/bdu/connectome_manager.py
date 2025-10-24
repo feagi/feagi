@@ -17,7 +17,6 @@ from feagi.core.state_manager import get_state_manager
 from feagi.bdu.models.cortical_area import CorticalArea
 
 # Import models
-from feagi.bdu.models.neuron import NeuronMappingProvider
 from feagi.npu.data_structures import NeuronArray, SynapseArray, BackendType
 
 # Import utility functions
@@ -42,7 +41,7 @@ class NeuronPropertyType(Enum):
     ACTIVE = "is_active"
 
 
-class ConnectomeManager(NeuronMappingProvider):
+class ConnectomeManager:
     """Manager for creating and manipulating the neural connectome with GPU/CPU
     optimization.
 
@@ -249,11 +248,6 @@ class ConnectomeManager(NeuronMappingProvider):
         # REMOVED: Legacy _neuron_to_position dictionary (dead code)
         # NPU interface owns neuron_to_position mapping as single source of truth
 
-        #  Initialize neuron ID mappings - ConnectomeManager is single source
-        #  of truth
-        self._neuron_id_to_index_map: Dict[int, int] = {}
-        self._index_to_neuron_id_map: Dict[int, int] = {}
-
         #  Cache management for property-based access (prevents memory
         #  corruption)
         self._cache_invalidated = True
@@ -293,53 +287,19 @@ class ConnectomeManager(NeuronMappingProvider):
         )
 
     #  ============================================================================
-    # NeuronMappingProvider Interface Implementation - Single Source of Truth
+    # Neuron Existence Checks - Delegates to Rust NPU (Single Source of Truth)
     #  ============================================================================
 
-    def get_neuron_index(self, neuron_id: int) -> Optional[int]:
-        """Get the array index for a neuron ID.
-
-        ✅ Uses NPU interface clean API (future Rust-compatible).
-        """
-        # Check if neuron exists via NPU interface
-        if self._npu_interface and self._npu_interface.neuron_exists(neuron_id):
-            # For now, return neuron_id as index (Rust NPU uses ID as internal index)
-            return neuron_id
-        
-        # Legacy mapping (will be removed after full migration)
-        return self._neuron_id_to_index_map.get(neuron_id)
-
-    def get_neuron_id(self, index: int) -> Optional[int]:
-        """Get the neuron ID for an array index."""
-        return self._index_to_neuron_id_map.get(index)
-
-    def set_neuron_mapping(self, neuron_id: int, index: int) -> None:
-        """Set a neuron ID to index mapping."""
-        self._neuron_id_to_index_map[neuron_id] = index
-        self._index_to_neuron_id_map[index] = neuron_id
-
-    def remove_neuron_mapping(self, neuron_id: int) -> None:
-        """Remove a neuron mapping."""
-        if neuron_id in self._neuron_id_to_index_map:
-            index = self._neuron_id_to_index_map.pop(neuron_id)
-            self._index_to_neuron_id_map.pop(index, None)
-
     def has_neuron(self, neuron_id: int) -> bool:
-        """Check if a neuron ID exists (NPU mapping authoritative)."""
-        try:
-            # ✅ Use NPU interface to check neuron existence
-            if self._npu_interface and neuron_id in self._npu_interface.neuron_id_to_index:
-                return True
-            if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
-                if neuron_id in self.memory_neuron_array.neuron_id_to_index:
-                    return True
-        except Exception:
-            pass
-        return neuron_id in self._neuron_id_to_index_map
-
-    def get_all_neuron_ids(self) -> List[int]:
-        """Get all neuron IDs."""
-        return list(self._neuron_id_to_index_map.keys())
+        """Check if a neuron ID exists.
+        
+        ARCHITECTURE: neuron_id == array_index, so just check if neuron exists in Rust NPU.
+        """
+        if self._npu_interface:
+            return self._npu_interface.neuron_exists(neuron_id)
+        if hasattr(self, "memory_neuron_array") and self.memory_neuron_array:
+            return neuron_id in self.memory_neuron_array.neuron_id_to_index
+        return False
 
     def _get_fcl_manager(self):
         """Get FCL manager from NPU BurstEngine.
@@ -1755,12 +1715,12 @@ class ConnectomeManager(NeuronMappingProvider):
         Raises:
             KeyError: If either neuron doesn't exist
         """
-        # Check both neurons exist
-        if self.get_neuron_index(pre_neuron_id) is None:
+        # Check both neurons exist (via Rust NPU)
+        if not self.has_neuron(pre_neuron_id):
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if self.get_neuron_index(post_neuron_id) is None:
+        if not self.has_neuron(post_neuron_id):
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -1948,11 +1908,11 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If either neuron doesn't exist
         """
         # Check both neurons exist using NPU-owned mapping
-        if self.get_neuron_index(pre_neuron_id) is None:
+        if not self.has_neuron(pre_neuron_id):
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if self.get_neuron_index(post_neuron_id) is None:
+        if not self.has_neuron(post_neuron_id):
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -1983,11 +1943,11 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If either neuron doesn't exist
         """
         # Check both neurons exist using NPU-owned mapping
-        if self.get_neuron_index(pre_neuron_id) is None:
+        if not self.has_neuron(pre_neuron_id):
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if self.get_neuron_index(post_neuron_id) is None:
+        if not self.has_neuron(post_neuron_id):
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2015,11 +1975,11 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If either neuron doesn't exist
         """
         # Check both neurons exist using NPU-owned mapping
-        if self.get_neuron_index(pre_neuron_id) is None:
+        if not self.has_neuron(pre_neuron_id):
             raise KeyError(
                 f"Pre-synaptic neuron {pre_neuron_id} does not exist"
             )
-        if self.get_neuron_index(post_neuron_id) is None:
+        if not self.has_neuron(post_neuron_id):
             raise KeyError(
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
@@ -2044,7 +2004,7 @@ class ConnectomeManager(NeuronMappingProvider):
             KeyError: If the neuron doesn't exist
         """
         # Validate existence using NPU mapping
-        if self.get_neuron_index(neuron_id) is None:
+        if not self.has_neuron(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Use NPU SynapseArray for fast outgoing connection lookup
@@ -3668,12 +3628,8 @@ class ConnectomeManager(NeuronMappingProvider):
 
         # CRITICAL: Invalidate lookup arrays after bulk neuron deletion
         if delete_neurons and neurons_to_delete:
-            #  Clear the lookup maps that may be inconsistent after neuron
-            #  deletion
-            self._neuron_id_to_index_map.clear()
-            self._index_to_neuron_id_map.clear()
             logger.info(
-                f"Invalidated lookup arrays after deleting {len(neurons_to_delete)} neurons"
+                f"Deleted {len(neurons_to_delete)} neurons (neuron IDs managed by Rust NPU)"
             )
 
         logger.info(f"Deleted cortical area {cortical_id} ({area_name})")
@@ -4418,8 +4374,8 @@ class ConnectomeManager(NeuronMappingProvider):
             return []
 
         # Register neurons with cortical area
-        # NOTE: NPU interface already tracks neuron_to_area and neuron_to_position
-        # ConnectomeManager only maintains CorticalArea's neuron registry
+        # NOTE: Rust NPU now tracks all neuron data (area, position, properties)
+        # ConnectomeManager only maintains CorticalArea's neuron registry for genome operations
         for i, neuron_id in enumerate(neuron_ids):
             area.add_neuron(neuron_id, positions[i])
             
@@ -5652,22 +5608,13 @@ class ConnectomeManager(NeuronMappingProvider):
                         "🦀 [RUST-NPU] Skipping neuron array reset - Rust NPU will be re-initialized during genome load",
                         status="[OK]",
                     )
-                    # Clear Python-side mappings only
-                    self._neuron_id_to_index_map.clear()
-                    self._index_to_neuron_id_map.clear()
-                    if self._npu_interface:
-                        self._npu_interface.neuron_to_area.clear()
-                        self._npu_interface.neuron_id_to_index.clear()
-                        self._npu_interface.index_to_neuron_id.clear()
+                    # Note: neuron_id tracking now in Rust NPU only (no Python dictionaries to clear)
                 else:
                     # Legacy Python neuron array reset (should not be reached)
                     logger.warning("Legacy neuron array reset path - this should not be reached with Rust NPU")
                     
             except Exception as e:
                 logger.warning(f"Error during neuron data reset: {e}")
-                # Clear mappings as fallback
-                self._neuron_id_to_index_map.clear()
-                self._index_to_neuron_id_map.clear()
 
         # 5. Clear all ID mappings in one operation
         if hasattr(self, "neuron_id_to_index"):
@@ -6016,12 +5963,9 @@ class ConnectomeManager(NeuronMappingProvider):
                 neuron_array.next_index = 0
                 neuron_array.neuron_count = 0
                 neuron_array.free_indices = set()
-                # ✅ REMOVED: Neuron ID tracking and cortical indices now in Rust NPU only
-                # Reset Python-side mappings
-                self._neuron_id_to_index_map.clear()
-                self._index_to_neuron_id_map.clear()
+                # ✅ Neuron ID tracking now in Rust NPU only
                 logger.info(
-                    "Post-reallocation Python mappings reset confirmed",
+                    "Post-reallocation completed (neuron IDs managed by Rust NPU)",
                     status="[OK]",
                 )
         else:
@@ -6116,27 +6060,22 @@ class ConnectomeManager(NeuronMappingProvider):
     @property
     def neuron_id_to_index(self):
         """Return NPU-owned neuron_id->index mapping for compatibility.
-
-        Prefer the NPU mapping; legacy map kept only as last resort.
+        
+        ARCHITECTURE NOTE: neuron_id == index in Rust NPU (identity mapping).
         """
-        try:
-            # ✅ Use NPU interface's neuron_id_to_index directly (no proxy)
-            if hasattr(self, "_npu_interface") and self._npu_interface:
-                return self._npu_interface.neuron_id_to_index
-        except Exception:
-            pass
-        return getattr(self, "_neuron_id_to_index_map", {})
+        if hasattr(self, "_npu_interface") and self._npu_interface:
+            return self._npu_interface.neuron_id_to_index
+        return {}
 
     @property
     def index_to_neuron_id(self):
-        """Return NPU-owned index->neuron_id mapping for compatibility."""
-        try:
-            # ✅ Use NPU interface's index_to_neuron_id directly (no proxy)
-            if hasattr(self, "_npu_interface") and self._npu_interface:
-                return self._npu_interface.index_to_neuron_id
-        except Exception:
-            pass
-        return getattr(self, "_index_to_neuron_id_map", {})
+        """Return NPU-owned index->neuron_id mapping for compatibility.
+        
+        ARCHITECTURE NOTE: neuron_id == index in Rust NPU (identity mapping).
+        """
+        if hasattr(self, "_npu_interface") and self._npu_interface:
+            return self._npu_interface.index_to_neuron_id
+        return {}
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
@@ -6185,12 +6124,17 @@ class ConnectomeManager(NeuronMappingProvider):
             List of neuron IDs with thresholds in the specified range
         """
         neuron_ids = []
-        for neuron_id in self._neuron_id_to_index_map.keys():
-            threshold = self.get_neuron_property(
-                neuron_id, NeuronPropertyType.THRESHOLD
-            )
-            if min_threshold <= threshold <= max_threshold:
-                neuron_ids.append(neuron_id)
+        # ✅ Get all valid neuron IDs from Rust NPU (single source of truth)
+        if self._npu_interface:
+            neuron_count = self._npu_interface.rust_npu.get_neuron_count()
+            for neuron_id in range(neuron_count):
+                if not self._npu_interface.neuron_exists(neuron_id):
+                    continue
+                threshold = self.get_neuron_property(
+                    neuron_id, NeuronPropertyType.THRESHOLD
+                )
+                if min_threshold <= threshold <= max_threshold:
+                    neuron_ids.append(neuron_id)
         return neuron_ids
 
     def query_neurons_by_area_and_position(
@@ -6227,12 +6171,14 @@ class ConnectomeManager(NeuronMappingProvider):
 
     def check_neuron_index_uniqueness(self) -> bool:
         """Check that all neuron indices are unique.
+        
+        ARCHITECTURE NOTE: In Rust NPU, neuron_id == index always (identity mapping),
+        so indices are unique by definition. This method is kept for compatibility.
 
         Returns:
-            True if all indices are unique, False otherwise
+            True (always, as neuron_id == index in Rust NPU)
         """
-        indices = list(self._neuron_id_to_index_map.values())
-        return len(indices) == len(set(indices))
+        return True
 
     def get_neurons_at_position(
         self, cortical_id: str, position: Tuple[int, int, int]
@@ -7042,13 +6988,14 @@ class ConnectomeManager(NeuronMappingProvider):
     def _serialize_neuron_data(self) -> Dict[str, Any]:
         """Serialize neuron data for saving."""
         try:
-            # ✅ Get all valid neuron IDs from Python-side mapping (Rust NPU is source of truth)
-            neuron_ids = list(self._neuron_id_to_index_map.keys())
-
-            # Serialize neuron properties
+            # ✅ Get all valid neuron IDs from Rust NPU (single source of truth)
             neuron_data = {}
-            for neuron_id in neuron_ids:
-                neuron_data[neuron_id] = self.get_neuron(neuron_id)
+            if self._npu_interface:
+                neuron_count = self._npu_interface.rust_npu.get_neuron_count()
+                for neuron_id in range(neuron_count):
+                    if not self._npu_interface.neuron_exists(neuron_id):
+                        continue
+                    neuron_data[neuron_id] = self.get_neuron(neuron_id)
 
             return {
                 "neurons": neuron_data,
@@ -7064,17 +7011,21 @@ class ConnectomeManager(NeuronMappingProvider):
         try:
             synapses = []
 
-            # ✅ Get all synapses from Python-side mapping (Rust NPU is source of truth)
-            for neuron_id in self._neuron_id_to_index_map.keys():
-                outgoing = self.get_outgoing_connections(neuron_id)
-                for target_id, weight in outgoing:
-                    synapses.append(
-                        {
-                            "pre_neuron_id": neuron_id,
-                            "post_neuron_id": target_id,
-                            "weight": weight,
-                        }
-                    )
+            # ✅ Get all synapses from Rust NPU (single source of truth)
+            if self._npu_interface:
+                neuron_count = self._npu_interface.rust_npu.get_neuron_count()
+                for neuron_id in range(neuron_count):
+                    if not self._npu_interface.neuron_exists(neuron_id):
+                        continue
+                    outgoing = self.get_outgoing_connections(neuron_id)
+                    for target_id, weight in outgoing:
+                        synapses.append(
+                            {
+                                "pre_neuron_id": neuron_id,
+                                "post_neuron_id": target_id,
+                                "weight": weight,
+                            }
+                        )
 
             return {"synapses": synapses}
 
@@ -7094,10 +7045,10 @@ class ConnectomeManager(NeuronMappingProvider):
             for neuron_id_str, neuron_props in neuron_data.items():
                 neuron_id = int(neuron_id_str)
 
-                # Get neuron index from mapping
-                if neuron_id not in self._neuron_id_to_index_map:
+                # ✅ Check neuron existence via Rust NPU (single source of truth)
+                if not self.has_neuron(neuron_id):
                     logger.warning(
-                        f"Neuron {neuron_id} not found in mapping, skipping"
+                        f"Neuron {neuron_id} not found in Rust NPU, skipping"
                     )
                     continue
 
@@ -7426,12 +7377,7 @@ class ConnectomeManager(NeuronMappingProvider):
             z=int(position[2])
         )
         
-        # Update NPU Interface mappings
-        # NOTE: These mappings are owned by NPU interface, not Rust NPU itself
-        self._npu_interface.neuron_id_to_index[neuron_id] = neuron_id
-        self._npu_interface.index_to_neuron_id[neuron_id] = neuron_id
-        self._npu_interface.neuron_to_area[neuron_id] = cortical_idx
-        self._npu_interface.neuron_to_position[neuron_id] = position
+        # ARCHITECTURE: All neuron data now in Rust NPU (no Python tracking needed)
         
         # Update state manager with new neuron count
         self._update_neuron_count_only()

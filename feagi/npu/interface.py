@@ -227,10 +227,16 @@ class NPUInterface:
         Returns:
             True if neuron exists, False otherwise
         """
-        return neuron_id in self.neuron_to_area
+        try:
+            cortical_idx = self.rust_npu.get_neuron_cortical_area(neuron_id)
+            return cortical_idx != 65535  # INVALID_CORTICAL_IDX
+        except Exception:
+            return False
     
     def get_neurons_in_cortical_area(self, cortical_idx: int) -> List[int]:
         """Get all neuron IDs in a specific cortical area.
+        
+        ARCHITECTURE: Queries Rust NPU directly (single source of truth).
         
         Args:
             cortical_idx: The cortical area index
@@ -238,13 +244,8 @@ class NPUInterface:
         Returns:
             List of neuron IDs in that cortical area
         """
-        if not hasattr(self, 'neuron_to_area'):
-            logger.warning("neuron_to_area not initialized!")
-            return []
-        
         logger.debug(f"🔍 [NPU-API] Looking for neurons in cortical_idx={cortical_idx}")
-        
-        result = [nid for nid, cidx in self.neuron_to_area.items() if cidx == cortical_idx]
+        result = self.rust_npu.get_neurons_in_cortical_area(cortical_idx)
         logger.debug(f"🔍 [NPU-API] Found {len(result)} neurons")
         return result
     
@@ -555,7 +556,8 @@ class NPUInterface:
                 source = int(request.source_neuron_ids[i])
                 target = int(request.target_neuron_ids[i])
                 
-                if source not in self.neuron_to_area or target not in self.neuron_to_area:
+                # ARCHITECTURE: Check neuron existence via Rust NPU
+                if not self.neuron_exists(source) or not self.neuron_exists(target):
                     failed_indices.append(i)
                 else:
                     valid_indices.append(i)
@@ -724,14 +726,12 @@ class NPUInterface:
     def get_neurons_by_area(self, cortical_idx: int) -> List[int]:
         """Get list of neuron IDs in a cortical area.
         
+        ARCHITECTURE: Delegates to get_neurons_in_cortical_area (Rust NPU).
+        
         Returns:
             List of neuron IDs
         """
-        neurons = []
-        for neuron_id, area_idx in self.neuron_to_area.items():
-            if area_idx == cortical_idx:
-                neurons.append(neuron_id)
-        return neurons
+        return self.get_neurons_in_cortical_area(cortical_idx)
     
     def get_cortical_idx_by_id(self, cortical_id: str) -> Optional[int]:
         """Get cortical index from cortical ID string.
@@ -762,11 +762,15 @@ class NPUInterface:
             return
         
         # Map XYZ coordinates to neuron IDs for this cortical area
+        # ARCHITECTURE: Query Rust NPU for neurons in this area, then check coordinates
         neuron_potentials = []
+        neurons_in_area = self.get_neurons_in_cortical_area(cortical_idx)
+        
         for (x, y, z), potential in xyzp_data:
             # Find neuron at this position in this cortical area
-            for neuron_id, pos in self.neuron_to_position.items():
-                if self.neuron_to_area.get(neuron_id) == cortical_idx and pos == (x, y, z):
+            for neuron_id in neurons_in_area:
+                pos = self.get_neuron_position(neuron_id)
+                if pos == (x, y, z):
                     neuron_potentials.append((neuron_id, potential))
                     break
         
