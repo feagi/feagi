@@ -13,7 +13,7 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools-rust>=1.2.0"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -72,6 +72,9 @@ dependencies = [
     "python-multipart>=0.0.5",
     "psutil>=5.8.0",
     "packaging>=21.0.0",
+    # Rust acceleration (optional but highly recommended for performance)
+    # Install separately: pip install feagi-rust-py-libs
+    # Or for local dev: pip install -e ../feagi-rust-py-libs
 ]
 
 [project.optional-dependencies]

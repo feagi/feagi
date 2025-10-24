@@ -11,10 +11,16 @@ import time
 from feagi.utils.logger import setup_logger
 
 try:
-    import feagi_rust
+    # Import from new feagi-rust-py-libs package
+    from feagi_rust_py_libs import feagi_python as feagi_rust
     RUST_AVAILABLE = True
 except ImportError:
-    RUST_AVAILABLE = False
+    # Try backward compatibility import
+    try:
+        import feagi_rust  # type: ignore # Old import path
+        RUST_AVAILABLE = True
+    except ImportError:
+        RUST_AVAILABLE = False
 
 logger = setup_logger(__name__)
 

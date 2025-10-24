@@ -1,14 +1,26 @@
-"""Rust integration for FEAGI."""
+"""
+Rust integration for FEAGI.
 
-# This module will contain bindings to Rust code
-# The actual Rust code will be compiled during package installation
+MIGRATION NOTE: Rust code has been moved to separate packages:
+- Pure Rust libraries → feagi-core repository
+- PyO3 Python bindings → feagi-rust-py-libs package
+
+This module serves as a compatibility shim for backward compatibility.
+"""
+
+import warnings
 
 try:
-    from feagi.rust.feagi_rust import *  # type: ignore
-except ImportError:
-    import warnings
-
+    # Import from new feagi-rust-py-libs package
+    from feagi_rust_py_libs.feagi_python import *  # noqa: F401, F403
+    RUST_AVAILABLE = True
+except ImportError as e:
+    RUST_AVAILABLE = False
     warnings.warn(
-        "Failed to import Rust extensions. Some functionality may be unavailable. "
-        "This could be due to missing Rust compiler or failed compilation during installation."
+        f"Failed to import Rust extensions from feagi-rust-py-libs: {e}\n"
+        "Install with: pip install feagi-rust-py-libs\n"
+        "Some high-performance functionality may be unavailable."
     )
+
+# Re-export for backward compatibility
+__all__ = ["RUST_AVAILABLE"]

@@ -61,7 +61,8 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: 'PATH="$HOME/.cargo/bin:$PATH"'
           
           # Run tests after building
-          CIBW_TEST_COMMAND: "python -c \"import feagi; from feagi import feagi_rust; print('✅ Wheel works!')\""
+          # Note: feagi_rust moved to separate feagi-rust-py-libs package
+          CIBW_TEST_COMMAND: "python -c \"import feagi; print('✅ Wheel works!')\""
           
           # Repair wheels for better compatibility
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: "auditwheel repair -w {dest_dir} {wheel}"
@@ -164,7 +165,7 @@ jobs:
         run: |
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ feagi
           python -c "import feagi; print(f'✅ FEAGI {feagi.__version__} installed successfully')"
-          python -c "from feagi import feagi_rust; print('✅ Rust extensions loaded')"
+          # Note: Rust extensions now in separate feagi-rust-py-libs package
 
       - name: Verify no compilation occurred
         run: |
