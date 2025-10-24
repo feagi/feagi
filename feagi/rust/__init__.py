@@ -30,12 +30,17 @@ try:
     test_simple_function = feagi_python.test_simple_function
     RUST_AVAILABLE = True
 except (ImportError, AttributeError) as e:
-    RUST_AVAILABLE = False
-    warnings.warn(
-        f"Failed to import Rust extensions from feagi-rust-py-libs: {e}\n"
-        "Install with: pip install feagi-rust-py-libs\n"
-        "Some high-performance functionality may be unavailable."
-    )
+    # NO FALLBACKS - FAIL FAST
+    raise RuntimeError(
+        f"🦀 [RUST] CRITICAL: Failed to import Rust extensions from feagi-rust-py-libs: {e}\n"
+        "FEAGI REQUIRES Rust components to run. Install with:\n"
+        "  cd /path/to/feagi-rust-py-libs\n"
+        "  cargo build --release\n"
+        "  cp target/release/libfeagi_rust_py_libs.dylib feagi_data_processing.so\n"
+        "  (add to PYTHONPATH or install package)\n"
+        "\n"
+        "FEAGI WILL NOT RUN WITHOUT RUST COMPONENTS - NO FALLBACKS ALLOWED"
+    ) from e
 
 # Re-export for backward compatibility
 __all__ = ["RUST_AVAILABLE"]

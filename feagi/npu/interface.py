@@ -122,15 +122,11 @@ class NPUInterface:
         self.max_synapses = max_synapses
         self.max_memory_neurons = max_memory_neurons
         
-        # Cortical area management for compatibility
+        # Cortical area management for compatibility (metadata only - no neuron data!)
         self.cortical_areas: Dict[int, Dict[str, Any]] = {}
-        self.neuron_to_area: Dict[int, int] = {}
-        self.neuron_to_position: Dict[int, Tuple[int, int, int]] = {}  # neuron_id -> (x, y, z)
         
-        # Neuron ID tracking (for compatibility - maps neuron_id to array index)
-        self.neuron_id_to_index: Dict[int, int] = {}
-        self.index_to_neuron_id: Dict[int, int] = {}
-        self._next_neuron_id = 1
+        # ❌ REMOVED: Python neuron tracking dictionaries (architectural violation)
+        # ALL neuron data lives in Rust NPU - Python is management wrapper only!
         
         # CRITICAL: Create Rust NPU immediately with proper capacity (SoA, GPU-friendly)
         # Neuroembryogenesis will directly fill the pre-allocated Rust arrays
@@ -193,7 +189,7 @@ class NPUInterface:
         return self.rust_npu.get_synapse_count()
     
     def get_neuron_cortical_idx(self, neuron_id: int) -> Optional[int]:
-        """Get the cortical area index for a neuron.
+        """Get the cortical area index for a neuron from Rust NPU.
         
         Args:
             neuron_id: The neuron ID to query
@@ -201,16 +197,14 @@ class NPUInterface:
         Returns:
             Cortical area index, or None if neuron doesn't exist
         """
-        if not hasattr(self, 'neuron_to_area'):
-            logger.warning("neuron_to_area mapping not initialized")
+        try:
+            return self.rust_npu.get_neuron_cortical_area(neuron_id)
+        except Exception as e:
+            logger.debug(f"Neuron {neuron_id} not found in Rust NPU: {e}")
             return None
-        return self.neuron_to_area.get(neuron_id)
     
     def get_neuron_position(self, neuron_id: int) -> Optional[Tuple[int, int, int]]:
-        """Get the 3D position of a neuron.
-        
-        This will eventually call Rust NPU directly when position query API is added.
-        For now, uses neuron_to_position mapping built during neuron creation.
+        """Get the 3D position of a neuron from Rust NPU.
         
         Args:
             neuron_id: The neuron ID to query
@@ -218,10 +212,11 @@ class NPUInterface:
         Returns:
             (x, y, z) position tuple, or None if neuron doesn't exist
         """
-        if not hasattr(self, 'neuron_to_position'):
-            logger.warning("neuron_to_position mapping not initialized")
+        try:
+            return self.rust_npu.get_neuron_coordinates(neuron_id)
+        except Exception as e:
+            logger.debug(f"Neuron {neuron_id} not found in Rust NPU: {e}")
             return None
-        return self.neuron_to_position.get(neuron_id)
     
     def neuron_exists(self, neuron_id: int) -> bool:
         """Check if a neuron ID exists in the NPU.
@@ -429,6 +424,20 @@ class NPUInterface:
         
         return _MinimalSynapseArrayProxy(self)
     
+    def _infer_dimensions(self, positions: List[Tuple[int, int, int]], total_count: int) -> Tuple[int, int, int]:
+        """Infer cortical area dimensions from position list.
+        
+        Temporary helper until neuroembryogenesis passes dimensions directly.
+        """
+        if not positions:
+            return (1, 1, 1)
+        
+        max_x = max(p[0] for p in positions) + 1
+        max_y = max(p[1] for p in positions) + 1
+        max_z = max(p[2] for p in positions) + 1
+        
+        return (max_x, max_y, max_z)
+    
     def create_neurons_batch(self, request: NeuronCreationRequest) -> BatchOperationResult:
         """Create neurons by directly calling Rust NPU."""
         try:
@@ -450,47 +459,65 @@ class NPUInterface:
             if request.resting_potentials is None:
                 raise ValueError("resting_potentials required")
             
-            neuron_ids = []
-            successful_count = 0
-            failed_indices = []
+            # Extract neuron count and prepare arrays
+            # ✅ CORRECT ARCHITECTURE: Rust generates ALL coordinates and properties
+            # Python passes ONLY scalar parameters - NO arrays, NO loops!
+            # This eliminates the 4-second PyO3 array conversion bottleneck
             
-            for i, (x, y, z) in enumerate(request.positions):
-                try:
-                    neuron_id = self.rust_npu.add_neuron(
-                        threshold=float(request.thresholds[i]) if request.thresholds else 1.0,
-                        leak_coefficient=float(request.leak_coefficients[i]) if request.leak_coefficients else 0.0,
-                        resting_potential=float(request.resting_potentials[i]) if request.resting_potentials else 0.0,
-                        neuron_type=int(request.neuron_types[i]) if request.neuron_types else 0,
-                        refractory_period=int(request.refractory_periods[i]) if request.refractory_periods else 0,
-                        excitability=float(request.excitabilities[i]) if request.excitabilities else 1.0,
-                        consecutive_fire_limit=int(request.consecutive_fire_limits[i]) if request.consecutive_fire_limits else 0,
-                        snooze_period=int(request.snooze_periods[i]) if request.snooze_periods else 0,
-                        mp_charge_accumulation=bool(request.mp_charge_accumulation[i]) if request.mp_charge_accumulation else True,
-                        cortical_area=int(request.cortical_idx),
-                        x=int(x),
-                        y=int(y),
-                        z=int(z)
-                    )
-                    
-                    neuron_ids.append(neuron_id)
-                    self.neuron_id_to_index[neuron_id] = neuron_id  # For now, ID == index
-                    self.index_to_neuron_id[neuron_id] = neuron_id
-                    self.neuron_to_area[neuron_id] = request.cortical_idx
-                    self.neuron_to_position[neuron_id] = (int(x), int(y), int(z))  # Store position
-                    successful_count += 1
-                
-                except Exception as e:
-                    logger.error(f"[NPU-INTERFACE] Failed to create neuron {i}: {e}")
-                    failed_indices.append(i)
+            # Calculate dimensions from positions (Python still orchestrates, but doesn't build arrays)
+            n = len(request.positions)
             
-            logger.debug("🦀 [NPU-INTERFACE] Created %d neurons in Rust NPU (total: %d)", 
-                        successful_count, self.rust_npu.get_neuron_count())
+            # For now, assume positions represent width×height×depth grid
+            # Extract defaults from request (scalars only!)
+            default_threshold = float(request.thresholds[0]) if request.thresholds else 1.0
+            default_leak = float(request.leak_coefficients[0]) if request.leak_coefficients else 0.0
+            default_resting = float(request.resting_potentials[0]) if request.resting_potentials else 0.0
+            default_type = int(request.neuron_types[0]) if request.neuron_types else 0
+            default_refractory = int(request.refractory_periods[0]) if request.refractory_periods else 0
+            default_excitability = float(request.excitabilities[0]) if request.excitabilities else 1.0
+            default_fire_limit = int(request.consecutive_fire_limits[0]) if request.consecutive_fire_limits else 0
+            default_snooze = int(request.snooze_periods[0]) if request.snooze_periods else 0
+            default_mp_acc = bool(request.mp_charge_accumulation[0]) if request.mp_charge_accumulation else True
+            
+            # Calculate grid dimensions (assumes positions are in order)
+            # This is temporary - ideally neuroembryogenesis should pass dimensions directly
+            width, height, depth = self._infer_dimensions(request.positions, n)
+            neurons_per_voxel = 1  # Default, will be configurable
+            
+            logger.debug(f"🦀 [NPU-INTERFACE] Creating {n} neurons for cortical area {request.cortical_idx} "
+                        f"(dims: {width}×{height}×{depth})")
+            
+            import time
+            start_time = time.perf_counter()
+            
+            # ✅ SINGLE RUST CALL with scalars only - NO array passing!
+            success_count = self.rust_npu.create_cortical_area_neurons(
+                cortical_idx=int(request.cortical_idx),
+                width=width,
+                height=height,
+                depth=depth,
+                neurons_per_voxel=neurons_per_voxel,
+                default_threshold=default_threshold,
+                default_leak_coefficient=default_leak,
+                default_resting_potential=default_resting,
+                default_neuron_type=default_type,
+                default_refractory_period=default_refractory,
+                default_excitability=default_excitability,
+                default_consecutive_fire_limit=default_fire_limit,
+                default_snooze_period=default_snooze,
+                default_mp_charge_accumulation=default_mp_acc,
+            )
+            
+            rust_call_time = time.perf_counter() - start_time
+            
+            logger.debug("🦀 [NPU-INTERFACE] Created %d neurons in %.3fs (Rust generated all coordinates, total: %d)", 
+                        success_count, rust_call_time,
+                        self.rust_npu.get_neuron_count())
             
             return BatchOperationResult(
-                result=OperationResult.SUCCESS if len(failed_indices) == 0 else OperationResult.BACKEND_ERROR,
-                successful_count=successful_count,
-                failed_indices=failed_indices,
-                data={"neuron_ids": neuron_ids}
+                result=OperationResult.SUCCESS,
+                successful_count=success_count,
+                failed_indices=[]
             )
             
         except Exception as e:

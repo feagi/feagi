@@ -25,7 +25,7 @@ data_dir = ""  # Must be set via environment variable or configuration override
 #   - Windows: ✅ Full support via SetProcessAffinityMask()
 #   - macOS: ❌ Not supported (macOS removed pthread_setaffinity_np)
 #            On macOS, use 'sudo renice -n -10 -p <pid>' or taskpolicy instead
-cpu_affinity = [0,1,2,3]  # Empty = use all cores
+cpu_affinity = []  # Empty = use all cores
 
 # Process priority: Increase FEAGI's scheduling priority for better real-time performance
 # Higher values = higher priority = more CPU time allocated by the OS scheduler

@@ -1257,22 +1257,9 @@ class NeuroEmbryogenesis:
                     if not result.is_success:
                         raise RuntimeError(f"Failed to create neurons via NPU Interface: {result.result}")
                     
+                    # ✅ Verify correct count was created (Rust owns all neuron data)
                     if result.successful_count != area_neuron_count:
                         raise RuntimeError(f"Expected {area_neuron_count} neurons created, got {result.successful_count}")
-                    
-                    # Use actual neuron IDs returned by NPU Interface
-                    try:
-                        neuron_ids = list(result.data.get("neuron_ids", [])) if result.data else []
-                    except Exception:
-                        neuron_ids = []
-                    if len(neuron_ids) != area_neuron_count:
-                        # As a fallback, query NPU for neurons by cortical area
-                        try:
-                            neuron_ids = npu_interface.get_neurons_by_area(area.cortical_idx)
-                        except Exception:
-                            neuron_ids = []
-                    if len(neuron_ids) != area_neuron_count:
-                        raise RuntimeError(f"Could not retrieve neuron IDs for area {cortical_id}; expected {area_neuron_count}, got {len(neuron_ids)}")
                     
                 finally:
                     # Always unlock the cortical area, even on exception
@@ -1280,64 +1267,11 @@ class NeuroEmbryogenesis:
                         state_manager.unlock_cortical_area(area.cortical_idx, locked_by="BDU")
                         logger.debug(f"[NEUROGENESIS] Unlocked cortical area {area.cortical_idx} after batch neuron creation")
                 
-                # NPU Interface batch creation handles all neuron property setting
-                # Position-based variations and other advanced features can be added later
-                # through NPU Interface update methods if needed
+                logger.debug(f"[NEUROGENESIS] Successfully created {area_neuron_count} neurons for area {cortical_id}")
                 
-                logger.debug(f"[NEUROGENESIS] Successfully created {len(neuron_ids)} neurons for area {cortical_id}")
-
-                # Authoritative verification via NPU interface. If zero, fail-fast.
-                verified_ids = npu_interface.get_neurons_by_area(area.cortical_idx)
-                if len(verified_ids) != area_neuron_count:
-                    raise RuntimeError(
-                        f"Neurogenesis verification failed for {cortical_id}: expected {area_neuron_count}, got {len(verified_ids)}"
-                    )
-                
-                # TODO: Implement position-based variations through NPU Interface if needed:
-                # - fire_increment based on Z coordinate  
-                # - leak_variability
-                # - Other property variations
-
-                # FAST: Update voxel mapping efficiently
-                if cortical_id not in self.voxel_neuron_map:
-                    self.voxel_neuron_map[cortical_id] = {}
-
-                neuron_idx = 0
-                for x in range(width):
-                    for y in range(height):
-                        for z in range(depth):
-                            position = (x, y, z)
-                            voxel_neurons = []
-                            for _ in range(neurons_per_voxel):
-                                if neuron_idx < len(neuron_ids):
-                                    voxel_neurons.append(
-                                        neuron_ids[neuron_idx]
-                                    )
-                                    neuron_idx += 1
-                            self.voxel_neuron_map[cortical_id][
-                                position
-                            ] = voxel_neurons
-
-                #  CRITICAL FIX: Sync neurons with cortical area objects using
-                #  vectorized operations
-                #  PERFORMANCE: Use bulk set operations and dict comprehensions
-                #  instead of loops
-                #  Add all created neurons to cortical area in one bulk
-                #  operation
-                area._neuron_indices.update(neuron_ids)
-                
-                #  PERFORMANCE: Bulk update position mappings using zip and
-                #  dict operations
-                #  The positions list is already calculated above in vectorized
-                #  fashion
-                area._position_map.update(zip(neuron_ids, positions))
-                
-                #  PERFORMANCE: Bulk update position-to-neurons mapping using
-                #  defaultdict-style logic
-                for neuron_id, position in zip(neuron_ids, positions):
-                    if position not in area._position_to_neurons:
-                        area._position_to_neurons[position] = []
-                    area._position_to_neurons[position].append(neuron_id)
+                # ✅ ARCHITECTURE FIX: All neuron data (IDs, positions, properties) live in Rust NPU
+                # Python no longer maintains voxel_neuron_map, _position_map, _neuron_indices
+                # Query Rust directly when needed via npu_interface.get_neuron_position(neuron_id)
 
                 # NPU Interface handles array state updates automatically
                 total_neurons += area_neuron_count
@@ -3857,28 +3791,14 @@ class NeuroEmbryogenesis:
     def _get_neuron_position(
         self, neuron_id: int, area_id: str
     ) -> Optional[Tuple[int, int, int]]:
-        """Get the 3D position of a neuron within its cortical area."""
+        """Get the 3D position of a neuron within its cortical area (queries Rust NPU)."""
         try:
-            # Check voxel mapping first if available
-            if (
-                hasattr(self, "voxel_neuron_map")
-                and area_id in self.voxel_neuron_map
-            ):
-                for position, neuron_list in self.voxel_neuron_map[
-                    area_id
-                ].items():
-                    if neuron_id in neuron_list:
-                        return position
-
-            # Fallback to connectome manager lookup
+            # ✅ Query Rust NPU directly (single source of truth)
             position = self.connectome_manager.get_neuron_position(neuron_id)
             if position:
                 return position
 
-            # If no position found, log debug info
-            logger.debug(
-                f"No position found for neuron {neuron_id} in area {area_id}"
-            )
+            logger.debug(f"No position found for neuron {neuron_id} in area {area_id}")
             return None
 
         except Exception as e:
@@ -3945,38 +3865,18 @@ class NeuroEmbryogenesis:
             (min_x, min_y, min_z), (max_x, max_y, max_z) = region
             neurons_in_region = []
 
-            # Try voxel mapping first if available
-            if (
-                hasattr(self, "voxel_neuron_map")
-                and area_id in self.voxel_neuron_map
-            ):
-                for position, neuron_list in self.voxel_neuron_map[
-                    area_id
-                ].items():
+            # ✅ Query Rust NPU: get all neurons in area and filter by position
+            all_neurons = self.connectome_manager.get_neurons_by_area(area_id)
+            for neuron_id in all_neurons:
+                position = self.connectome_manager.get_neuron_position(neuron_id)
+                if position:
                     x, y, z = position
                     if (
                         min_x <= x <= max_x
                         and min_y <= y <= max_y
                         and min_z <= z <= max_z
                     ):
-                        neurons_in_region.extend(neuron_list)
-            else:
-                # Fallback: get all neurons in area and check their positions
-                all_neurons = self.connectome_manager.get_neurons_by_area(
-                    area_id
-                )
-                for neuron_id in all_neurons:
-                    position = self.connectome_manager.get_neuron_position(
-                        neuron_id
-                    )
-                    if position:
-                        x, y, z = position
-                        if (
-                            min_x <= x <= max_x
-                            and min_y <= y <= max_y
-                            and min_z <= z <= max_z
-                        ):
-                            neurons_in_region.append(neuron_id)
+                        neurons_in_region.append(neuron_id)
 
             return neurons_in_region
 

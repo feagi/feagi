@@ -26,6 +26,15 @@ import sys
 import time
 from pathlib import Path
 
+# CRITICAL: Add feagi-rust-py-libs to Python path for Rust NPU (NO FALLBACKS!)
+_rust_libs_path = Path(__file__).parent.parent.parent / "feagi-rust-py-libs"
+if _rust_libs_path.exists():
+    sys.path.insert(0, str(_rust_libs_path))
+    print(f"🦀 Added Rust libs to path: {_rust_libs_path}")
+else:
+    print(f"⚠️  WARNING: feagi-rust-py-libs not found at {_rust_libs_path}")
+    print(f"⚠️  FEAGI WILL FAIL TO START - Rust components required!")
+
 from feagi.core.state_manager import FeagiStateManager
 from feagi.logging_config import setup_feagi_logging
 from feagi.process_manager import get_process_manager
