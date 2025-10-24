@@ -65,38 +65,6 @@ The implementation uses the ConnectomeManager API for efficient neuron and
 synapse management, and focuses on memory efficiency and thread-safety.
 """
 
-# Import modern synaptogenesis functions (no legacy dependencies)
-# (moved to top for ruff compliance)
-
-# Try both the old and new import paths for FCLbitmap
-try:
-    # New path in FEAGI 2.1
-    from feagi.bdu.bitmap import FCLBitmap
-except ImportError:
-    try:
-        # Old path
-        from feagi.src.bitmap import FCLBitmap
-    except ImportError:
-        # If both fail, use a minimal fallback implementation
-        class FCLBitmap:
-            """Minimal fallback implementation of FCLBitmap."""
-
-            def __init__(self, size=0):
-                self.bits = set()
-                self.size = size
-
-            def add(self, value):
-                self.bits.add(value)
-
-            def __contains__(self, value):
-                return value in self.bits
-
-            def __iter__(self):
-                return iter(self.bits)
-
-            def __len__(self):
-                return len(self.bits)
-
 
 # Custom types
 Position = Tuple[int, int, int]
@@ -119,32 +87,6 @@ class DevelopmentStage(Enum):
 
 
 class NeuroEmbryogenesis:
-    def _ensure_core_neurons(self) -> bool:
-        """Ensure core neurons (_death and _power) are created.
-
-        ✅ RUST NPU: This function now delegates to NPUInterface,
-        which buffers neuron creation until Rust NPU is ready.
-
-        Rust NPU auto-assigns neuron IDs, so we don't need to
-        manipulate specific indices like the old Python implementation.
-
-        Returns True if core neurons can be created, False otherwise.
-        """
-        try:
-            cm = self.connectome_manager
-            npu = getattr(cm, "_npu_interface", None)
-            if npu is None:
-                return False
-
-            # Core neurons will be created via normal neurogenesis path
-            # using NPUInterface.create_neurons_batch(), which handles
-            # buffering if Rust NPU isn't initialized yet
-            
-            # Just verify NPUInterface is available
-            return True
-            
-        except Exception:
-            return False
     """Manages the development of a brain from genome instructions.
 
     This class orchestrates the process of reading genome data and constructing
@@ -228,9 +170,6 @@ class NeuroEmbryogenesis:
         # Tracking data
         self.cortical_id_map = {}  # cortical_idx -> cortical_id
         self.reverse_cortical_id_map = {}  # cortical_id -> cortical_idx
-        self.voxel_neuron_map = (
-            {}
-        )  # Maps (area_id, position) to list of neuron IDs
 
         #  Add temporary method to ConnectomeManager to provide morphology
         #  information
@@ -1094,9 +1033,6 @@ class NeuroEmbryogenesis:
         )
 
         try:
-            # Ensure core neurons (_death index 0, _power index 1) exist before regular neurogenesis
-            if not self._ensure_core_neurons():
-                raise RuntimeError("Failed to initialize core neurons (_death/_power)")
             total_areas = len(self.connectome_manager.cortical_areas)
             total_neurons = 0
             start_time = datetime.datetime.now()
@@ -2897,6 +2833,84 @@ class NeuroEmbryogenesis:
             logger.error(f"Error updating cortical mapping: {e}")
             return False
 
+    def _batch_get_source_positions(
+        self, src_area_id: str, src_neurons: List[int]
+    ) -> Tuple[Dict[int, Tuple[int, int, int]], List[int]]:
+        """Batch retrieve source neuron positions from Rust NPU.
+        
+        Args:
+            src_area_id: Source cortical area ID
+            src_neurons: List of source neuron IDs
+            
+        Returns:
+            Tuple of (position_map, valid_neurons) where position_map is neuron_id -> (x, y, z)
+        """
+        src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+        all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+        src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
+        
+        # Filter to requested neurons
+        valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
+        return src_pos_map, valid_neurons
+
+    def _batch_get_destination_neurons(
+        self, dst_area_id: str, psc_multiplier: float
+    ) -> Dict[Tuple[int, int, int], List[Tuple[int, float]]]:
+        """Batch retrieve destination neurons and build position-to-neurons mapping.
+        
+        Args:
+            dst_area_id: Destination cortical area ID
+            psc_multiplier: Post-synaptic current multiplier
+            
+        Returns:
+            Dictionary mapping (x, y, z) -> [(neuron_id, weight), ...]
+        """
+        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
+        dst_pos_to_neurons = {}
+        for nid, x, y, z in all_dst_positions_data:
+            pos = (int(x), int(y), int(z))
+            if pos not in dst_pos_to_neurons:
+                dst_pos_to_neurons[pos] = []
+            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+        return dst_pos_to_neurons
+
+    def _propagate_memory_register(self, memory_register: Dict[str, set]) -> None:
+        """Propagate memory register mappings to ConnectomeManager.
+        
+        Args:
+            memory_register: Dictionary mapping memory_area_id -> set of upstream_area_ids
+        """
+        if not memory_register:
+            return
+            
+        logger.info(
+            f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}"
+        )
+        for memory_area_id, upstream_area_ids in memory_register.items():
+            logger.info(
+                f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}"
+            )
+            for upstream_area_id in upstream_area_ids:
+                try:
+                    logger.info(
+                        f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})"
+                    )
+                    self.connectome_manager.add_memory_area_mapping(
+                        upstream_area_id, memory_area_id
+                    )
+                    logger.info(
+                        f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}"
+                    )
+                    logger.exception("[MEMORY-PROPAGATION] Full exception trace:")
+        logger.info(
+            "[MEMORY-PROPAGATION] Completed processing all memory register entries"
+        )
+
     def _apply_morphology_mapping(
         self,
         src_area_id: str,
@@ -3006,40 +3020,8 @@ class NeuroEmbryogenesis:
                     f"[MEMORY-MORPHOLOGY] Memory register updated: {memory_register}"
                 )
                 
-                #  Propagate memory register to ConnectomeManager (same as
-                #  _process_function_morphology)
-                if memory_register:
-                    logger.info(
-                        f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}"
-                    )
-                    for (
-                        memory_area_id,
-                        upstream_area_ids,
-                    ) in memory_register.items():
-                        logger.info(
-                            f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}"
-                        )
-                        for upstream_area_id in upstream_area_ids:
-                            try:
-                                logger.info(
-                                    f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})"
-                                )
-                                self.connectome_manager.add_memory_area_mapping(
-                                    upstream_area_id, memory_area_id
-                                )
-                                logger.info(
-                                    f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}"
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}"
-                                )
-                                logger.exception(
-                                    "[MEMORY-PROPAGATION] Full exception trace:"
-                                )
-                    logger.info(
-                        "[MEMORY-PROPAGATION] Completed processing all memory register entries"
-                    )
+                # Propagate memory register to ConnectomeManager
+                self._propagate_memory_register(memory_register)
 
                 logger.info(
                     "[MEMORY-MORPHOLOGY] Memory morphology processing completed - 0 synapses created as expected"
@@ -3352,13 +3334,8 @@ class NeuroEmbryogenesis:
                 logger.warning("No valid patterns after conversion")
                 return 0
 
-            # Batch get all source positions
-            src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-            all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-            src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
-            
-            # Filter to requested neurons
-            valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
+            # Batch get all source positions (use helper)
+            src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, src_neurons)
             
             if not valid_neurons:
                 logger.warning("No valid source neurons with positions")
@@ -3366,15 +3343,8 @@ class NeuroEmbryogenesis:
 
             logger.info(f"🦀 RUST PATTERNS: Processing {len(valid_neurons)} neurons with {len(rust_patterns)} patterns")
             
-            # Batch get ALL destination neurons ONCE
-            dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
-            all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
-            dst_pos_to_neurons = {}
-            for nid, x, y, z in all_dst_positions_data:
-                pos = (int(x), int(y), int(z))
-                if pos not in dst_pos_to_neurons:
-                    dst_pos_to_neurons[pos] = []
-                dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+            # Batch get ALL destination neurons ONCE (use helper)
+            dst_pos_to_neurons = self._batch_get_destination_neurons(dst_area_id, psc_multiplier)
             
             # Process each source neuron with Rust pattern matching
             all_synapse_connections = []
@@ -3500,20 +3470,9 @@ class NeuroEmbryogenesis:
                     import time
                     start = time.time()
                     
-                    # Batch get ALL neuron positions from Rust NPU (1 call instead of 49K)
-                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-                    
-                    # Build map: neuron_id -> position
-                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
-                    
-                    # Filter to requested neurons
-                    valid_neurons = []
-                    neuron_positions = []
-                    for nid in src_neurons:
-                        if nid in src_pos_map:
-                            valid_neurons.append(nid)
-                            neuron_positions.append(src_pos_map[nid])
+                    # Batch get source positions (use helper)
+                    src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, src_neurons)
+                    neuron_positions = [src_pos_map[nid] for nid in valid_neurons]
                     
                     logger.info(f"🦀 Got {len(valid_neurons)} valid neurons with positions")
                     
@@ -3528,15 +3487,8 @@ class NeuroEmbryogenesis:
                         
                         logger.info(f"🦀 Rust batch projection complete, getting destination neurons")
                         
-                        # Batch get ALL destination positions (1 call instead of scanning each)
-                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
-                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
-                        dst_pos_to_neurons = {}
-                        for nid, x, y, z in all_dst_positions_data:
-                            pos = (int(x), int(y), int(z))
-                            if pos not in dst_pos_to_neurons:
-                                dst_pos_to_neurons[pos] = []
-                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        # Batch get destination neurons (use helper)
+                        dst_pos_to_neurons = self._batch_get_destination_neurons(dst_area_id, psc_multiplier)
                         
                         logger.info(f"🦀 Built destination map with {len(dst_pos_to_neurons)} positions")
                         
@@ -3569,17 +3521,9 @@ class NeuroEmbryogenesis:
                     import time
                     start = time.time()
                     
-                    # Batch get source positions
-                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
-                    
-                    valid_neurons = []
-                    neuron_positions = []
-                    for nid in src_neurons:
-                        if nid in src_pos_map:
-                            valid_neurons.append(nid)
-                            neuron_positions.append(src_pos_map[nid])
+                    # Batch get source positions (use helper)
+                    src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, src_neurons)
+                    neuron_positions = [src_pos_map[nid] for nid in valid_neurons]
                     
                     if valid_neurons:
                         # Batch expand all neurons at once
@@ -3589,15 +3533,8 @@ class NeuroEmbryogenesis:
                             src_area.dimensions, dst_area.dimensions
                         )
                         
-                        # Batch get destination neurons
-                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
-                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
-                        dst_pos_to_neurons = {}
-                        for nid, x, y, z in all_dst_positions_data:
-                            pos = (int(x), int(y), int(z))
-                            if pos not in dst_pos_to_neurons:
-                                dst_pos_to_neurons[pos] = []
-                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        # Batch get destination neurons (use helper)
+                        dst_pos_to_neurons = self._batch_get_destination_neurons(dst_area_id, psc_multiplier)
                         
                         # Match source to targets
                         for src_idx, src_neuron_id in enumerate(valid_neurons):
@@ -3627,17 +3564,9 @@ class NeuroEmbryogenesis:
                     # Get scaling factor from morphology
                     scaling_factor = morphology_scalar[0] if morphology_scalar else 10
                     
-                    # Batch get source positions
-                    src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-                    all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-                    src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
-                    
-                    valid_neurons = []
-                    neuron_positions = []
-                    for nid in src_neurons:
-                        if nid in src_pos_map:
-                            valid_neurons.append(nid)
-                            neuron_positions.append(src_pos_map[nid])
+                    # Batch get source positions (use helper)
+                    src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, src_neurons)
+                    neuron_positions = [src_pos_map[nid] for nid in valid_neurons]
                     
                     if valid_neurons:
                         # Batch process block connections
@@ -3650,15 +3579,8 @@ class NeuroEmbryogenesis:
                             )
                             mapped_positions.append(result)
                         
-                        # Batch get destination neurons
-                        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
-                        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
-                        dst_pos_to_neurons = {}
-                        for nid, x, y, z in all_dst_positions_data:
-                            pos = (int(x), int(y), int(z))
-                            if pos not in dst_pos_to_neurons:
-                                dst_pos_to_neurons[pos] = []
-                            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
+                        # Batch get destination neurons (use helper)
+                        dst_pos_to_neurons = self._batch_get_destination_neurons(dst_area_id, psc_multiplier)
                         
                         # Match source to targets
                         for src_idx, src_neuron_id in enumerate(valid_neurons):
@@ -3739,44 +3661,8 @@ class NeuroEmbryogenesis:
                     f"[BDU DEBUG] No synapses created for {len(src_neurons)} source neurons"
                 )
 
-            #  CRITICAL: Propagate memory register to ConnectomeManager for
-            #  memory area tracking
-            if memory_register:
-                logger.info(
-                    f"[MEMORY-PROPAGATION] Memory register found with {len(memory_register)} entries: {memory_register}"
-                )
-                for (
-                    memory_area_id,
-                    upstream_area_ids,
-                ) in memory_register.items():
-                    logger.info(
-                        f"[MEMORY-PROPAGATION] Processing memory area {memory_area_id} with upstream areas: {upstream_area_ids}"
-                    )
-                    for upstream_area_id in upstream_area_ids:
-                        try:
-                            logger.info(
-                                f"[MEMORY-PROPAGATION] Calling add_memory_area_mapping({upstream_area_id}, {memory_area_id})"
-                            )
-                            self.connectome_manager.add_memory_area_mapping(
-                                upstream_area_id, memory_area_id
-                            )
-                            logger.info(
-                                f"[MEMORY-PROPAGATION] Successfully registered memory mapping: {upstream_area_id} -> {memory_area_id}"
-                            )
-                        except Exception as e:
-                            logger.error(
-                                f"[MEMORY-PROPAGATION] Failed to register memory mapping {upstream_area_id} -> {memory_area_id}: {e}"
-                            )
-                            logger.exception(
-                                "[MEMORY-PROPAGATION] Full exception trace:"
-                            )
-                logger.info(
-                    "[MEMORY-PROPAGATION] Completed processing all memory register entries"
-                )
-            else:
-                logger.info(
-                    f"[MEMORY-PROPAGATION] No memory register found for morphology {morphology_id}"
-                )
+            # Propagate memory register to ConnectomeManager (if any)
+            self._propagate_memory_register(memory_register)
 
             return total_synapses
 
