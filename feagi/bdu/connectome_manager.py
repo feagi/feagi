@@ -17,7 +17,7 @@ from feagi.core.state_manager import get_state_manager
 from feagi.bdu.models.cortical_area import CorticalArea
 
 # Import models
-from feagi.npu.data_structures import NeuronArray, SynapseArray, BackendType
+from feagi.npu.data_structures import BackendType
 
 # Import utility functions
 from feagi.utils.logger import setup_logger
@@ -256,9 +256,8 @@ class ConnectomeManager:
         self.next_neuron_id = 1
 
         # CRITICAL: Do NOT create synapse array here - NPU Interface owns it
-        # ConnectomeManager will get reference to NPU Interface's synapse array
-        # when set_npu_interface() is called
-        self.synapse_array = None  # Will be set by NPU Interface
+        # ARCHITECTURE: Synapses managed directly by Rust NPU (no Python synapse_array)
+        # Access via self._npu_interface.rust_npu.* methods
 
         #  FCL manager is now owned by NPU BurstEngine, not BDU ConnectomeManager
         #  This maintains backward compatibility for any code that expects fcl_manager attribute
@@ -426,19 +425,8 @@ class ConnectomeManager:
                 self.max_neurons = optimal_neuron_size
                 self.max_synapses = optimal_synapse_size
 
-                # Get current backend before reinitializing
-                _ = getattr(self.neuron_array, "backend", "cpu")
-
-                # Reinitialize high-performance synapse storage with new size
-                self.synapse_array = SynapseArray(
-                    max_synapses=self.max_synapses
-                )
-
-                # Reinitialize neuron array with new capacity
-                self.neuron_array = NeuronArray(
-                    max_neurons=self.max_neurons,
-                    backend=BackendType.CPU,
-                )
+                # ARCHITECTURE: Neurons and synapses managed by Rust NPU (no Python arrays)
+                # Rust NPU is reinitialized via NPU Interface, not here
 
                 # Clear and reinitialize mappings
                 if hasattr(self, "neuron_id_to_index"):
@@ -1732,9 +1720,10 @@ class ConnectomeManager:
         conductance = kwargs.get('conductance', 1.0)  # Default from genome template postsynaptic_current
         delay = kwargs.get('delay', 1)  # Default 1 timestep delay
         
-        success = self.synapse_array.create_synapse(
-            source_neuron_id=pre_neuron_id,
-            target_neuron_id=post_neuron_id,
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        success = self._npu_interface.rust_npu.add_synapse(
+            source=pre_neuron_id,
+            target=post_neuron_id,
             weight=weight,
             synapse_type=synapse_type_int,
             delay=delay,
@@ -1807,7 +1796,8 @@ class ConnectomeManager:
         the overhead of updating neuron count unnecessarily.
         """
         try:
-            current_synapse_count = self.synapse_array.synapse_count
+            # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+            current_synapse_count = self._npu_interface.rust_npu.get_synapse_count()
             
             # Only update synapse count - more efficient
             self.state_manager.update_synapse_count(current_synapse_count)
@@ -1838,7 +1828,8 @@ class ConnectomeManager:
             # Get current counts
             cortical_area_count = len(self.cortical_areas)
             neuron_count = self.get_neuron_count()  # Use the safe method
-            synapse_count = self._npu_interface.synapse_array.synapse_count if self._npu_interface else 0
+            # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+            synapse_count = self._npu_interface.rust_npu.get_synapse_count() if self._npu_interface else 0
             
             # Calculate memory vs regular neuron counts
             memory_neuron_count = 0
@@ -1917,8 +1908,8 @@ class ConnectomeManager:
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use NPU SynapseArray for O(1) synapse deletion
-        success = self.synapse_array.delete_synapse(pre_neuron_id, post_neuron_id)
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        success = self._npu_interface.rust_npu.remove_synapse(pre_neuron_id, post_neuron_id)
         
         # Update state manager with new synapse count (optimized - synapse count only)
         if success:
@@ -1952,10 +1943,13 @@ class ConnectomeManager:
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use NPU SynapseArray for fast weight lookup
-        return self.synapse_array.get_synapse_weight(
-            pre_neuron_id, post_neuron_id
-        )
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        # Get all outgoing synapses from source and find the target
+        outgoing = self._npu_interface.rust_npu.get_outgoing_synapses(pre_neuron_id)
+        for target, weight, conductance, synapse_type in outgoing:
+            if target == post_neuron_id:
+                return weight
+        return None  # Synapse not found
 
     def update_synapse_weight(
         self, pre_neuron_id: int, post_neuron_id: int, new_weight: float
@@ -1984,9 +1978,11 @@ class ConnectomeManager:
                 f"Post-synaptic neuron {post_neuron_id} does not exist"
             )
 
-        # Use NPU SynapseArray for fast weight updates
-        return self.synapse_array.update_synapse_weight(
-            pre_neuron_id, post_neuron_id, new_weight
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        # Note: Rust expects u8 weight (0-255)
+        weight_u8 = int(max(0, min(255, new_weight)))
+        return self._npu_interface.rust_npu.update_synapse_weight(
+            pre_neuron_id, post_neuron_id, weight_u8
         )
 
     def get_outgoing_connections(
@@ -2007,18 +2003,10 @@ class ConnectomeManager:
         if not self.has_neuron(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use NPU SynapseArray for fast outgoing connection lookup
-        syn_array = getattr(self, "synapse_array", None)
-        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
-            # Rewire from NPU interface if not already set (no fallback, same NPU instance)
-            try:
-                self.synapse_array = self._npu_interface.synapse_array
-                syn_array = self.synapse_array
-            except Exception:
-                syn_array = None
-        if syn_array is None:
-            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
-        return syn_array.get_outgoing_connections(neuron_id)
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        outgoing = self._npu_interface.rust_npu.get_outgoing_synapses(neuron_id)
+        # Convert from (target, weight, conductance, synapse_type) to (target, weight)
+        return [(target, float(weight)) for target, weight, _, _ in outgoing]
 
     def get_incoming_connections(
         self, neuron_id: int
@@ -2037,17 +2025,10 @@ class ConnectomeManager:
         if neuron_id not in self.neuron_id_to_index:
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
-        # Use NPU SynapseArray for fast incoming connection lookup
-        syn_array = getattr(self, "synapse_array", None)
-        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
-            try:
-                self.synapse_array = self._npu_interface.synapse_array
-                syn_array = self.synapse_array
-            except Exception:
-                syn_array = None
-        if syn_array is None:
-            raise RuntimeError("SynapseArray is not configured on ConnectomeManager")
-        return syn_array.get_incoming_connections(neuron_id)
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        incoming = self._npu_interface.rust_npu.get_incoming_synapses(neuron_id)
+        # Convert from (source, weight, conductance, synapse_type) to (source, weight)
+        return [(source, float(weight)) for source, weight, _, _ in incoming]
 
     def get_synapse_count(self) -> int:
         """Get the total number of synapses in the connectome using
@@ -2056,19 +2037,9 @@ class ConnectomeManager:
         Returns:
             Number of synapses
         """
-        syn_array = getattr(self, "synapse_array", None)
-        if syn_array is None and hasattr(self, "_npu_interface") and self._npu_interface:
-            try:
-                syn_array = self._npu_interface.synapse_array
-            except Exception:
-                syn_array = None
-        if syn_array is None:
-            return 0
-        # Prefer explicit attribute; fall back to generic count
-        if hasattr(syn_array, "synapse_count"):
-            return int(getattr(syn_array, "synapse_count", 0))
-        if hasattr(syn_array, "count"):
-            return int(getattr(syn_array, "count", 0))
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        if hasattr(self, "_npu_interface") and self._npu_interface:
+            return self._npu_interface.rust_npu.get_synapse_count()
         return 0
 
     def _update_without_firing(self) -> List[int]:
@@ -5407,9 +5378,9 @@ class ConnectomeManager:
 
     @property
     def synapse_count(self) -> int:
-        """Get the total number of synapses in the connectome using
-        NPU SynapseArray."""
-        return self.synapse_array.synapse_count
+        """Get the total number of synapses in the connectome using Rust NPU."""
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        return self._npu_interface.rust_npu.get_synapse_count()
 
     @property
     def is_initialized(self) -> bool:
@@ -5441,8 +5412,10 @@ class ConnectomeManager:
         ):
             return False
 
-        # Use NPU SynapseArray for fast synapse existence check
-        return self.synapse_array.has_synapse(pre_neuron, post_neuron)
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
+        # Check if synapse exists by querying outgoing synapses
+        outgoing = self._npu_interface.rust_npu.get_outgoing_synapses(pre_neuron)
+        return any(target == post_neuron for target, _, _, _ in outgoing)
 
     def update_neuron_property(
         self, neuron_id: int, property_name: str, value: Any
@@ -7279,8 +7252,9 @@ class ConnectomeManager:
         Returns:
             Maximum number of synapses that can be stored
         """
+        # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
         if self._npu_interface:
-            return self._npu_interface.synapse_array.max_synapses
+            return self._npu_interface.max_synapses
         return 0
 
     def get_neurons_by_area(self, cortical_id: str) -> Optional[List[int]]:

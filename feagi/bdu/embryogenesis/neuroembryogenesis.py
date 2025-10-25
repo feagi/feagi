@@ -1275,13 +1275,7 @@ class NeuroEmbryogenesis:
 
         try:
             # Precondition: Ensure SynapseArray is initialized once before any synaptogenesis work
-            if (
-                not hasattr(self.connectome_manager, "synapse_array")
-                or self.connectome_manager.synapse_array is None
-            ):
-                raise RuntimeError(
-                    "SynapseArray is not initialized. Initialize NPU interface and set ConnectomeManager.synapse_array before synaptogenesis."
-                )
+            # ARCHITECTURE: Synapses managed by Rust NPU (no synapse_array check needed)
             len(self.connectome_manager.cortical_areas)
             total_synapses = 0
 
@@ -1945,12 +1939,7 @@ class NeuroEmbryogenesis:
                     cm._initialize_npu_interface(backend)
             # Optional: dynamic capacity sizing from genome/config (ConnectomeManager already supports it)
             # Here we ensure the CM exposes max_synapses consistent with NPU
-            if hasattr(cm, "_npu_interface") and cm._npu_interface is not None:
-                # Sync references to ensure synapse_array is available
-                if getattr(cm, "synapse_array", None) is None and hasattr(cm._npu_interface, "synapse_array"):
-                    cm.synapse_array = cm._npu_interface.synapse_array
-                if getattr(cm, "neuron_array", None) is None and hasattr(cm._npu_interface, "neuron_array"):
-                    cm.neuron_array = cm._npu_interface.neuron_array
+            # ARCHITECTURE: Synapses and neurons managed by Rust NPU (no array syncing needed)
         except Exception as npu_init_err:
             logger.error(f"Failed to ensure NPU/SynapseArray readiness: {npu_init_err}")
             return False
@@ -3338,7 +3327,7 @@ class NeuroEmbryogenesis:
                     all_synapse_connections
                 )
                 logger.info(
-                    f"✅ PATTERN BATCH: Created {total_synapses} synapses from {len(src_neurons)} source neurons"
+                    f"✅ PATTERN BATCH: Created {total_synapses} synapses from {len(valid_neurons)} source neurons"
                 )
 
             return total_synapses
