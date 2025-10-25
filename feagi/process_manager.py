@@ -1346,16 +1346,26 @@ class ProcessManager:
         """
         try:
             if mode == 'visualization':
-                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz (Rust burst loop handles FQ sampling + SHM write)")
+                # Check if shared memory mode is enabled via command-line flag
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                
+                # Only attach SHM writer if --shared-mem flag was set
+                # Otherwise, visualization uses ZMQ pub/sub pattern
+                shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                use_shared_memory = bool(shm_registry)  # Registry only exists if --shared-mem flag was set
+                
+                if not use_shared_memory:
+                    logger.info(f"🎨 [FQ-CREATE] Visualization using ZMQ mode (--shared-mem not set)")
+                    return True
+                
+                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz with shared memory (Rust burst loop handles FQ sampling + SHM write)")
                 
                 # Try to attach Rust NPU visualization SHM writer
                 # The Rust burst loop samples FQ every burst and writes to SHM
                 # Per-agent rate limiting happens in capability rate manager
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
                     try:
-                        from feagi.core.state_manager import FeagiStateManager
-                        sm = FeagiStateManager.instance()
-                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
                         viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
                         
                         self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)

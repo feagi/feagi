@@ -159,15 +159,19 @@ class BrainService(BaseService):
                         "🦀 [RUST-BURST] ✅ Rust burst loop started successfully!"
                     )
                     
-                    # Attach visualization SHM writer now that burst loop is running
+                    # Attach visualization SHM writer now that burst loop is running (only if --shared-mem flag set)
                     try:
                         from feagi.core.state_manager import FeagiStateManager
                         sm = FeagiStateManager.instance()
                         shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
                         
-                        rust_npu.attach_viz_shm_writer(viz_shm_path)
-                        self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
+                        # Only attach SHM writer if --shared-mem flag was set (registry will be empty otherwise)
+                        if shm_registry:
+                            viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                            rust_npu.attach_viz_shm_writer(viz_shm_path)
+                            self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
+                        else:
+                            self.logger.info(f"🎨 [RUST-BURST] Visualization using ZMQ mode (--shared-mem not set)")
                         
                         # Attach ZMQ publisher (publishes viz data to port 5562 for Bridge/remote clients)
                         self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: Attempting to attach ZMQ publisher...")
