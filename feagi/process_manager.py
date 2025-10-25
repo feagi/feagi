@@ -861,6 +861,25 @@ class ProcessManager:
                         try:
                             print("🔵 REST API thread started - creating FastAPI app...", file=sys.stderr, flush=True)
                             logger.info("🔵 REST API thread started - creating FastAPI app...")
+                            
+                            # ✅ CRITICAL: Limit asyncio thread pool to prevent GIL contention
+                            # Default is min(32, cpu_count + 4) which can create 30+ threads
+                            # This caused 4-second delays in Rust→Python returns during neurogenesis
+                            import asyncio
+                            import concurrent.futures
+                            import os
+                            
+                            max_workers = 8  # Reasonable for REST API + async operations
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            executor = concurrent.futures.ThreadPoolExecutor(
+                                max_workers=max_workers,
+                                thread_name_prefix="FEAGI-API-Worker"
+                            )
+                            loop.set_default_executor(executor)
+                            print(f"🔵 Configured asyncio thread pool: max_workers={max_workers}", file=sys.stderr, flush=True)
+                            logger.info(f"🔵 Configured asyncio thread pool: max_workers={max_workers}")
+                            
                             # Import FastAPI app here to avoid circular imports
                             from feagi.api.rest.app import create_rest_app
 
@@ -870,9 +889,6 @@ class ProcessManager:
                             logger.info("🔵 FastAPI app created successfully - starting uvicorn...")
 
                             import uvicorn
-
-                            # Determine Uvicorn log level based on debug flags
-                            import os
                             
                             # Check if API debugging is enabled
                             debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
@@ -1039,6 +1055,18 @@ class ProcessManager:
             def run_api_service():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                
+                # ✅ CRITICAL: Limit asyncio thread pool to prevent GIL contention
+                # Default is min(32, cpu_count + 4) which can create 30+ threads
+                # This caused 4-second delays in Rust→Python returns during neurogenesis
+                import concurrent.futures
+                max_workers = 8  # Reasonable for REST API + async operations
+                executor = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=max_workers,
+                    thread_name_prefix="FEAGI-API-Worker"
+                )
+                loop.set_default_executor(executor)
+                logger.info(f"🔵 Configured asyncio thread pool: max_workers={max_workers}")
 
                 try:
                     # Import and create FastAPI app with direct dependencies

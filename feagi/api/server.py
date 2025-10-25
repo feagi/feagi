@@ -115,6 +115,22 @@ def main():
         )
         logger.info(f"  - Stream port: {args.zmq_stream_port}", status="[NET]")
 
+    # ✅ CRITICAL: Limit asyncio thread pool to prevent GIL contention
+    # Default is min(32, cpu_count + 4) which can create 30+ threads
+    # This caused 4-second delays in Rust→Python returns during neurogenesis
+    import asyncio
+    import concurrent.futures
+    
+    max_workers = 8  # Reasonable for REST API + async operations
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="FEAGI-API-Worker"
+    )
+    loop.set_default_executor(executor)
+    logger.info(f"🔵 Configured asyncio thread pool: max_workers={max_workers}")
+    
     # Run the API server
     uvicorn.run(
         "feagi.api.rest.app:create_rest_app",
