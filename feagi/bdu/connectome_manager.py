@@ -427,20 +427,7 @@ class ConnectomeManager:
 
                 # ARCHITECTURE: Neurons and synapses managed by Rust NPU (no Python arrays)
                 # Rust NPU is reinitialized via NPU Interface, not here
-
-                # Clear and reinitialize mappings
-                if hasattr(self, "neuron_id_to_index"):
-                    self.neuron_id_to_index.clear()
-                else:
-                    self.neuron_id_to_index = {}
-
-                if hasattr(self, "index_to_neuron_id"):
-                    self.index_to_neuron_id.clear()
-                else:
-                    self.index_to_neuron_id = {}
-
-                # REMOVED: Legacy _neuron_to_position clear (dead code)
-                # NPU interface owns neuron_to_position mapping
+                # Note: No need to clear neuron_id_to_index - Rust NPU handles this internally
 
                 logger.info(
                     "✅ [DYNAMIC SIZING] Connectome resized successfully!"
@@ -1410,7 +1397,7 @@ class ConnectomeManager:
             KeyError: If the neuron_id doesn't exist
             KeyError: If the property doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        if not self._npu_interface.neuron_exists(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Handle property name as either string or enum
@@ -1463,7 +1450,7 @@ class ConnectomeManager:
             KeyError: If the neuron_id doesn't exist
             KeyError: If the property doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        if not self._npu_interface.neuron_exists(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # Handle property name as either string or enum
@@ -1617,11 +1604,11 @@ class ConnectomeManager:
             ValueError: If the neuron doesn't exist
         """
         # Check if neuron exists
-        if neuron_id not in self.neuron_id_to_index:
+        if not self._npu_interface.neuron_exists(neuron_id):
             raise ValueError(f"Neuron {neuron_id} does not exist")
 
-        # Get the neuron's index
-        neuron_index = self.neuron_id_to_index[neuron_id]
+        # Get the neuron's index (neuron_id == index in Rust NPU)
+        neuron_index = neuron_id  # Identity mapping
 
         # Delete outgoing synapses (synapses where this neuron is pre-synaptic)
         outgoing_connections = self.get_outgoing_connections(neuron_id)
@@ -1637,18 +1624,8 @@ class ConnectomeManager:
         # ✅ Mark neuron as inactive in Rust NPU
         if self._npu_interface and self._npu_interface.rust_npu:
             self._npu_interface.rust_npu.delete_neuron(neuron_id)
-
-        # Remove from ID-to-index mapping (legacy compatibility)
-        if (
-            hasattr(self, "neuron_id_to_index")
-            and neuron_id in self.neuron_id_to_index
-        ):
-            del self.neuron_id_to_index[neuron_id]
-        if (
-            hasattr(self, "index_to_neuron_id")
-            and neuron_index in self.index_to_neuron_id
-        ):
-            del self.index_to_neuron_id[neuron_index]
+        
+        # Note: No need to remove from mappings - Rust NPU handles this internally
 
     def get_neuron_position(self, neuron_id: int) -> Tuple[int, int, int]:
         """Get the position of a neuron.
@@ -2022,7 +1999,7 @@ class ConnectomeManager:
         Raises:
             KeyError: If the neuron doesn't exist
         """
-        if neuron_id not in self.neuron_id_to_index:
+        if not self._npu_interface.neuron_exists(neuron_id):
             raise KeyError(f"Neuron {neuron_id} does not exist")
 
         # ARCHITECTURE: Use Rust NPU directly (no deprecated synapse_array)
@@ -4391,10 +4368,10 @@ class ConnectomeManager:
                 "Position cannot be changed after neuron creation as per user requirements."
             )
 
-        # Validate neuron IDs
+        # Validate neuron IDs via NPU interface (neuron_id == index in Rust NPU)
         valid_mask = np.zeros(len(neuron_ids), dtype=bool)
         for i, neuron_id in enumerate(neuron_ids):
-            if neuron_id in self.neuron_id_to_index:
+            if self._npu_interface.neuron_exists(neuron_id):
                 valid_mask[i] = True
 
         if not np.any(valid_mask):
@@ -4403,9 +4380,9 @@ class ConnectomeManager:
             )
             return False
 
-        # Get indices for valid neuron IDs
+        # Get indices for valid neuron IDs (identity mapping: neuron_id == index)
         valid_ids = np.array(neuron_ids)[valid_mask]
-        indices = np.array([self.neuron_id_to_index[nid] for nid in valid_ids])
+        indices = valid_ids  # In Rust NPU, neuron_id == index
 
         # Handle single value vs. list of values
         if isinstance(values, (int, float)):
@@ -4491,9 +4468,9 @@ class ConnectomeManager:
         if not neuron_ids:
             return np.array([])
 
-        # Get indices for valid neuron IDs, with -1 for invalid IDs
+        # Get indices for valid neuron IDs, with -1 for invalid IDs (neuron_id == index in Rust NPU)
         indices = np.array(
-            [self.neuron_id_to_index.get(nid, -1) for nid in neuron_ids]
+            [nid if self._npu_interface.neuron_exists(nid) else -1 for nid in neuron_ids]
         )
         valid_mask = indices >= 0
 
@@ -5405,10 +5382,10 @@ class ConnectomeManager:
         Returns:
             True if the synapse exists, False otherwise
         """
-        # Check if both neurons exist
+        # Check if both neurons exist (use NPU interface)
         if (
-            pre_neuron not in self.neuron_id_to_index
-            or post_neuron not in self.neuron_id_to_index
+            not self._npu_interface.neuron_exists(pre_neuron)
+            or not self._npu_interface.neuron_exists(post_neuron)
         ):
             return False
 
@@ -5471,16 +5448,14 @@ class ConnectomeManager:
         # Vectorized bulk neuron deletion for RTOS/GPU compliance
         neuron_ids_array = np.array(neuron_ids, dtype=np.int32)
         valid_neuron_mask = np.array(
-            [nid in self.neuron_id_to_index for nid in neuron_ids_array]
+            [self._npu_interface.neuron_exists(nid) for nid in neuron_ids_array]
         )
         valid_neuron_ids = neuron_ids_array[valid_neuron_mask]
 
         deleted_count = 0
         if len(valid_neuron_ids) > 0:
-            # Vectorized index lookup
-            indices_to_delete = np.array(
-                [self.neuron_id_to_index[nid] for nid in valid_neuron_ids]
-            )
+            # Vectorized index lookup (neuron_id == index in Rust NPU)
+            indices_to_delete = valid_neuron_ids  # Identity mapping
 
             # ✅ Use Rust NPU for neuron deletion
             for neuron_id in valid_neuron_ids:
@@ -6023,26 +5998,6 @@ class ConnectomeManager:
                 f"Ignored (Rust NPU is source of truth)"
             )
         # Silently ignore - no-op
-    
-    @property
-    def neuron_id_to_index(self):
-        """Return NPU-owned neuron_id->index mapping for compatibility.
-        
-        ARCHITECTURE NOTE: neuron_id == index in Rust NPU (identity mapping).
-        """
-        if hasattr(self, "_npu_interface") and self._npu_interface:
-            return self._npu_interface.neuron_id_to_index
-        return {}
-
-    @property
-    def index_to_neuron_id(self):
-        """Return NPU-owned index->neuron_id mapping for compatibility.
-        
-        ARCHITECTURE NOTE: neuron_id == index in Rust NPU (identity mapping).
-        """
-        if hasattr(self, "_npu_interface") and self._npu_interface:
-            return self._npu_interface.index_to_neuron_id
-        return {}
 
     def _invalidate_mapping_cache(self):
         """Cache invalidation no longer needed - direct delegation to NeuronArray"""
@@ -6316,14 +6271,14 @@ class ConnectomeManager:
             neuron_ids: List of neuron IDs to get indices for
 
         Returns:
-            List of neuron indices
+            List of neuron indices (identity mapping: neuron_id == index in Rust NPU)
         """
         try:
-            # Use the neuron_id_to_index mapping to get indices
+            # In Rust NPU, neuron_id == index (identity mapping)
             indices = []
             for neuron_id in neuron_ids:
-                if neuron_id in self.neuron_id_to_index:
-                    indices.append(self.neuron_id_to_index[neuron_id])
+                if self._npu_interface.neuron_exists(neuron_id):
+                    indices.append(neuron_id)  # Identity mapping
             return indices
         except Exception as e:
             self.logger.error(f"Error getting neuron indices: {str(e)}")
