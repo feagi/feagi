@@ -2725,30 +2725,11 @@ class NeuroEmbryogenesis:
                                 )
                                 continue
 
-                            # DIAGNOSTIC: Log EXACT parameters being passed to _apply_morphology_mapping
-                            logger.info(
-                                "🧠 [API-DIAGNOSTIC] EXACT PARAMETERS for _apply_morphology_mapping:"
-                            )
-                            logger.info(f"   src_area_id: {src_area_id}")
-                            logger.info(f"   dst_area_id: {dst_area_id}")
-                            logger.info(f"   src_neurons count: {len(src_neurons)}")
-                            logger.info(f"   dst_neurons count: {len(dst_neurons)}")
-                            logger.info(f"   src_neurons sample: {sorted(src_neurons)[:5] if src_neurons else []}")
-                            logger.info(f"   dst_neurons sample: {sorted(dst_neurons)[:5] if dst_neurons else []}")
-                            logger.info(f"   morphology_id: {morphology_id}")
-                            logger.info(f"   morphology_scalar: {morphology_scalar}")
-                            logger.info(f"   psc_multiplier: {psc_multiplier}")
-                            logger.info(f"   plasticity_flag: {plasticity_flag}")
-                            logger.info(f"   plasticity_constant: {plasticity_constant}")
-                            logger.info(f"   ltp_multiplier: {ltp_multiplier}")
-                            logger.info(f"   ltd_multiplier: {ltd_multiplier}")
-                            
                             # Apply morphology-based synaptogenesis
+                            # ARCHITECTURE: Rust queries neurons internally
                             synapses_created = self._apply_morphology_mapping(
                                 src_area_id=src_area_id,
                                 dst_area_id=dst_area_id,
-                                src_neurons=src_neurons,
-                                dst_neurons=dst_neurons,
                                 morphology_id=morphology_id,
                                 morphology_scalar=morphology_scalar,
                                 psc_multiplier=psc_multiplier,
@@ -2834,8 +2815,13 @@ class NeuroEmbryogenesis:
         all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
         src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
         
-        # Filter to requested neurons
-        valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
+        # ARCHITECTURE: If src_neurons is empty, use ALL neurons from Rust
+        # This allows caller to pass [] to mean "process entire area"
+        if src_neurons:
+            valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
+        else:
+            valid_neurons = list(src_pos_map.keys())  # Use all neurons queried by Rust
+        
         return src_pos_map, valid_neurons
 
     def _batch_get_destination_neurons(
@@ -2900,8 +2886,6 @@ class NeuroEmbryogenesis:
         self,
         src_area_id: str,
         dst_area_id: str,
-        src_neurons: List[int],
-        dst_neurons: List[int],
         morphology_id: str,
         morphology_scalar: List[int],
         psc_multiplier: float,
@@ -2915,14 +2899,13 @@ class NeuroEmbryogenesis:
         ARCHITECTURE: Morphology-driven approach following FEAGI 2.0 principles.
         Gets morphology definition from genome and routes to appropriate processor
         based on morphology type ("vectors", "patterns", or "functions").
+        Rust NPU queries neurons internally as needed.
 
         PERFORMANCE: Vectorized operations for Rust/RTOS/SIMD/GPU compatibility.
 
         Args:
             src_area_id: Source cortical area ID
             dst_area_id: Destination cortical area ID
-            src_neurons: List of source neuron IDs
-            dst_neurons: List of destination neuron IDs
             morphology_id: Morphology template ID from genome
             morphology_scalar: Scaling factors [x, y, z]
             psc_multiplier: Post-synaptic current multiplier
@@ -3018,8 +3001,6 @@ class NeuroEmbryogenesis:
                 return self._process_vector_morphology(
                     src_area_id,
                     dst_area_id,
-                    src_neurons,
-                    dst_neurons,
                     morphology_def,
                     morphology_scalar,
                     psc_multiplier,
@@ -3033,8 +3014,6 @@ class NeuroEmbryogenesis:
                 return self._process_pattern_morphology(
                     src_area_id,
                     dst_area_id,
-                    src_neurons,
-                    dst_neurons,
                     morphology_def,
                     morphology_scalar,
                     psc_multiplier,
@@ -3048,8 +3027,6 @@ class NeuroEmbryogenesis:
                 return self._process_function_morphology(
                     src_area_id,
                     dst_area_id,
-                    src_neurons,
-                    dst_neurons,
                     morphology_id,
                     morphology_def,
                     morphology_scalar,
@@ -3077,8 +3054,6 @@ class NeuroEmbryogenesis:
         self,
         src_area_id: str,
         dst_area_id: str,
-        src_neurons: List[int],
-        dst_neurons: List[int],
         morphology_def: Dict[str, Any],
         morphology_scalar: List[int],
         psc_multiplier: float,
@@ -3089,14 +3064,13 @@ class NeuroEmbryogenesis:
     ) -> int:
         """Process vector-based morphology using numpy vectorized operations.
 
+        ARCHITECTURE: Rust NPU queries neurons internally.
         PERFORMANCE: Vectorized approach for massive performance improvement.
         Instead of processing 12,288 neurons one-by-one, processes ALL at once.
 
         Args:
             src_area_id: Source cortical area ID
             dst_area_id: Destination cortical area ID
-            src_neurons: List of source neuron IDs
-            dst_neurons: List of destination neuron IDs
             morphology_def: Morphology definition from genome
             morphology_scalar: Scaling factors [x, y, z]
             psc_multiplier: Post-synaptic current multiplier
@@ -3118,8 +3092,12 @@ class NeuroEmbryogenesis:
                 )
                 return 0
 
+            # ARCHITECTURE: Query all neurons from Rust
+            src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+            all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+            src_neurons = [int(nid) for nid, x, y, z in all_src_positions]
             if not src_neurons:
-                logger.debug("No source neurons to process")
+                logger.debug("No source neurons in area")
                 return 0
 
             logger.info(
@@ -3259,8 +3237,6 @@ class NeuroEmbryogenesis:
         self,
         src_area_id: str,
         dst_area_id: str,
-        src_neurons: List[int],
-        dst_neurons: List[int],
         morphology_def: Dict[str, Any],
         morphology_scalar: List[int],
         psc_multiplier: float,
@@ -3271,7 +3247,7 @@ class NeuroEmbryogenesis:
     ) -> int:
         """Process pattern-based morphology using Rust batch processing.
 
-        ARCHITECTURE: Uses Rust pattern matching for 100x+ performance.
+        ARCHITECTURE: Rust NPU queries neurons internally. Uses Rust pattern matching for 100x+ performance.
         PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
@@ -3319,8 +3295,8 @@ class NeuroEmbryogenesis:
                 logger.warning("No valid patterns after conversion")
                 return 0
 
-            # Batch get all source positions (use helper)
-            src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, src_neurons)
+            # Batch get all source positions (use helper - pass [] to query all from Rust)
+            src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, [])
             
             if not valid_neurons:
                 logger.warning("No valid source neurons with positions")
@@ -3380,8 +3356,6 @@ class NeuroEmbryogenesis:
         self,
         src_area_id: str,
         dst_area_id: str,
-        src_neurons: List[int],
-        dst_neurons: List[int],
         morphology_id: str,
         morphology_def: Dict[str, Any],
         morphology_scalar: List[int],
@@ -3393,13 +3367,18 @@ class NeuroEmbryogenesis:
     ) -> int:
         """Process function-based morphology with direct implementation.
 
-        ARCHITECTURE: Clean FEAGI 2.0 implementation without legacy dependencies.
+        ARCHITECTURE: Rust NPU queries neurons internally. Clean FEAGI 2.0 implementation without legacy dependencies.
         Supports all function morphologies including block_to_block.
 
         PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
         """
         try:
             total_synapses = 0
+            
+            # ARCHITECTURE: Query neurons from Rust (not passed as parameters)
+            src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+            all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
+            src_neurons = [int(nid) for nid, x, y, z in all_src_positions]
 
             # Use the modern find_candidate_neurons function
 
