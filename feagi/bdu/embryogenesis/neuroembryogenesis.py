@@ -2713,7 +2713,7 @@ class NeuroEmbryogenesis:
                                     f"Destination area {dst_area_id} doesn't exist"
                                 )
                                 continue
-
+                            
                             # Apply morphology-based synaptogenesis
                             # ARCHITECTURE: Rust queries neurons internally
                             synapses_created = self._apply_morphology_mapping(
@@ -2787,53 +2787,6 @@ class NeuroEmbryogenesis:
         except Exception as e:
             logger.error(f"Error updating cortical mapping: {e}")
             return False
-
-    def _batch_get_source_positions(
-        self, src_area_id: str, src_neurons: List[int]
-    ) -> Tuple[Dict[int, Tuple[int, int, int]], List[int]]:
-        """Batch retrieve source neuron positions from Rust NPU.
-        
-        Args:
-            src_area_id: Source cortical area ID
-            src_neurons: List of source neuron IDs
-            
-        Returns:
-            Tuple of (position_map, valid_neurons) where position_map is neuron_id -> (x, y, z)
-        """
-        src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-        all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-        src_pos_map = {int(nid): (int(x), int(y), int(z)) for nid, x, y, z in all_src_positions}
-        
-        # ARCHITECTURE: If src_neurons is empty, use ALL neurons from Rust
-        # This allows caller to pass [] to mean "process entire area"
-        if src_neurons:
-            valid_neurons = [nid for nid in src_neurons if nid in src_pos_map]
-        else:
-            valid_neurons = list(src_pos_map.keys())  # Use all neurons queried by Rust
-        
-        return src_pos_map, valid_neurons
-
-    def _batch_get_destination_neurons(
-        self, dst_area_id: str, psc_multiplier: float
-    ) -> Dict[Tuple[int, int, int], List[Tuple[int, float]]]:
-        """Batch retrieve destination neurons and build position-to-neurons mapping.
-        
-        Args:
-            dst_area_id: Destination cortical area ID
-            psc_multiplier: Post-synaptic current multiplier
-            
-        Returns:
-            Dictionary mapping (x, y, z) -> [(neuron_id, weight), ...]
-        """
-        dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
-        all_dst_positions_data = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(dst_cortical_idx)
-        dst_pos_to_neurons = {}
-        for nid, x, y, z in all_dst_positions_data:
-            pos = (int(x), int(y), int(z))
-            if pos not in dst_pos_to_neurons:
-                dst_pos_to_neurons[pos] = []
-            dst_pos_to_neurons[pos].append((int(nid), psc_multiplier))
-        return dst_pos_to_neurons
 
     def _propagate_memory_register(self, memory_register: Dict[str, set]) -> None:
         """Propagate memory register mappings to ConnectomeManager.
@@ -3051,175 +3004,51 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """Process vector-based morphology using numpy vectorized operations.
+        """Process vector-based morphology using Rust NPU-native synaptogenesis.
 
-        ARCHITECTURE: Rust NPU queries neurons internally.
-        PERFORMANCE: Vectorized approach for massive performance improvement.
-        Instead of processing 12,288 neurons one-by-one, processes ALL at once.
+        ARCHITECTURE: Zero-copy - Rust queries neurons from NPU, applies vectors, creates synapses.
+        Python only provides area IDs and vector offsets, receives synapse count.
 
-        Args:
-            src_area_id: Source cortical area ID
-            dst_area_id: Destination cortical area ID
-            morphology_def: Morphology definition from genome
-            morphology_scalar: Scaling factors [x, y, z]
-            psc_multiplier: Post-synaptic current multiplier
-            plasticity_flag: Whether plasticity is enabled
-            plasticity_constant: Plasticity constant value
-            ltp_multiplier: Long-term potentiation multiplier
-            ltd_multiplier: Long-term depression multiplier
-
-        Returns:
-            int: Number of synapses created
+        PERFORMANCE: Eliminates all FFI overhead, numpy operations, and Python list building.
         """
         try:
-            import numpy as np
-            
             vectors = morphology_def.get("parameters", {}).get("vectors", [])
             if not vectors:
-                logger.warning(
-                    "No vectors found in morphology definition for vector type"
-                )
+                logger.warning("No vectors found in morphology definition")
                 return 0
 
-            # ARCHITECTURE: Query all neurons from Rust
+            # Get cortical indices
             src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
-            all_src_positions = self.connectome_manager._npu_interface.rust_npu.get_neuron_positions_in_cortical_area(src_cortical_idx)
-            src_neurons = [int(nid) for nid, x, y, z in all_src_positions]
-            if not src_neurons:
-                logger.debug("No source neurons in area")
-                return 0
-
-            logger.info(
-                f"[VECTOR-NUMPY] Processing {len(src_neurons)} neurons with vectorized operations"
-            )
+            dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
             
-            # Step 1: Extract ALL source neuron positions at once (vectorized)
-            source_positions = []
-            valid_source_neurons = []
-            
-            for src_neuron_id in src_neurons:
-                src_pos = self._get_neuron_position(src_neuron_id, src_area_id)
-                if src_pos:
-                    source_positions.append(src_pos)
-                    valid_source_neurons.append(src_neuron_id)
-            
-            if not source_positions:
-                logger.warning("No valid source positions found")
-                return 0
-                
-            # Convert to numpy arrays for vectorized operations
-            source_neuron_ids = np.array(valid_source_neurons)  # Shape: (N,)
-            source_positions = np.array(source_positions)  # Shape: (N, 3)
-            
-            logger.debug(
-                f"[VECTOR-NUMPY] Extracted {len(source_positions)} valid positions"
-            )
-            
-            total_synapses = 0
-            synapse_connections = []  # Accumulate ALL synapses across ALL vectors for single batch creation
-            
-            # Get destination area dimensions ONCE (shared by all vectors)
+            # Get synapse properties
             dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
-            if not dst_area:
-                logger.warning(f"Cannot get destination area {dst_area_id}")
-                return 0
-            dst_dimensions = dst_area.dimensions
+            synapse_attractivity = int(dst_area.properties.get("synatt", 100))
+            weight = int(psc_multiplier * 255) & 0xFF
+            conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
             
-            # PHASE 1: Accumulate all candidate positions from ALL vectors
-            all_candidate_positions = set()  # (x, y, z) tuples
-            vector_mapping_data = []  # Store (valid_candidate_positions, valid_source_neurons) for each vector
+            # Convert vectors to tuples of (i32, i32, i32) for Rust
+            rust_vectors = [tuple(int(v) for v in vec) for vec in vectors]
             
-            for vector in vectors:
-                # Get morphology scalar (default to 1.0 if not provided)
-                scalar = morphology_scalar[0] if morphology_scalar else 1.0
-                
-                # Apply vector to ALL positions at once (numpy broadcasting)
-                vector_array = np.array(vector) * scalar
-                candidate_positions = source_positions + vector_array
-                
-                # Filter candidate positions to be within bounds
-                valid_mask = (
-                    (candidate_positions[:, 0] >= 0)
-                    & (candidate_positions[:, 0] < dst_dimensions[0])
-                    & (candidate_positions[:, 1] >= 0)
-                    & (candidate_positions[:, 1] < dst_dimensions[1])
-                    & (candidate_positions[:, 2] >= 0)
-                    & (candidate_positions[:, 2] < dst_dimensions[2])
-                )
-                
-                valid_candidate_positions = candidate_positions[valid_mask]
-                valid_source_neurons = source_neuron_ids[valid_mask]
-                
-                if len(valid_candidate_positions) > 0:
-                    # Store mapping data for later processing
-                    vector_mapping_data.append((valid_candidate_positions, valid_source_neurons))
-                    
-                    # Accumulate unique positions for batch lookup
-                    for pos in valid_candidate_positions:
-                        all_candidate_positions.add(tuple(pos))
+            logger.info(f"🦀 NPU-NATIVE: Vector morphology {src_area_id} → {dst_area_id} ({len(rust_vectors)} vectors)")
             
-            if not all_candidate_positions:
-                logger.debug("[VECTOR-NUMPY] No valid candidate positions after processing all vectors")
-                return 0
-            
-            logger.info(f"[VECTOR-NUMPY] Processed {len(vectors)} vectors → {len(all_candidate_positions)} unique candidate positions")
-            
-            # PHASE 2: ONE batch lookup for ALL candidate positions from ALL vectors (MASSIVE performance gain!)
-            neuron_weight_pairs = self.connectome_manager.batch_voxel_to_neuron_lookup(
-                cortical_id=dst_area_id,
-                candidate_positions=all_candidate_positions,
-                post_synaptic_current=psc_multiplier,
+            # Call Rust NPU-native synaptogenesis (zero-copy, no FFI overhead)
+            total_synapses = self.connectome_manager._npu_interface.rust_npu.apply_vectors_morphology(
+                src_cortical_idx,
+                dst_cortical_idx,
+                rust_vectors,
+                weight,
+                conductance,
+                synapse_attractivity,
             )
             
-            if not neuron_weight_pairs:
-                logger.debug("[VECTOR-NUMPY] No neurons found at any candidate positions")
-                return 0
-            
-            # PHASE 3: Create position-to-neurons mapping
-            position_to_neurons = {}  # (x, y, z) → list of (neuron_id, weight)
-            npu_interface = getattr(self.connectome_manager, '_npu_interface', None)
-            
-            if npu_interface is not None:
-                # Get positions for all found neurons from Rust NPU
-                for neuron_id, weight in neuron_weight_pairs:
-                    position = npu_interface.get_neuron_position(neuron_id)
-                    if position is not None:
-                        pos_tuple = tuple(position)
-                        if pos_tuple not in position_to_neurons:
-                            position_to_neurons[pos_tuple] = []
-                        position_to_neurons[pos_tuple].append((neuron_id, weight))
-            
-            # PHASE 4: Match source neurons to target neurons for ALL vectors
-            for valid_candidate_positions, valid_source_neurons in vector_mapping_data:
-                for i, candidate_pos in enumerate(valid_candidate_positions):
-                    candidate_pos_tuple = tuple(candidate_pos)
-                    if candidate_pos_tuple in position_to_neurons:
-                        src_neuron_id = valid_source_neurons[i]
-                        for dst_neuron_id, weight in position_to_neurons[candidate_pos_tuple]:
-                            synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
-
-            # Step 8: Batch create ALL accumulated synapses in ONE call (massive performance improvement!)
-            if synapse_connections:
-                created = self.connectome_manager.batch_create_synapses(
-                    synapse_connections
-                )
-                total_synapses += created
-                logger.info(
-                    f"[VECTOR-NUMPY] Created {created} synapses in single batch for all vectors"
-                )
-            
-            logger.info(
-                f"[VECTOR-NUMPY] Created {total_synapses} total synapses using vectorized operations"
-            )
+            logger.info(f"✅ Created {total_synapses} synapses (Vectors)")
             return total_synapses
 
         except Exception as e:
-            logger.error(
-                f"Error in vectorized vector morphology processing: {e}"
-            )
+            logger.error(f"Error in vector morphology processing: {e}")
             import traceback
-
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(traceback.format_exc())
             return 0
 
     def _process_pattern_morphology(
@@ -3234,32 +3063,28 @@ class NeuroEmbryogenesis:
         ltp_multiplier: float,
         ltd_multiplier: float,
     ) -> int:
-        """Process pattern-based morphology using Rust batch processing.
+        """Process pattern-based morphology using Rust NPU-native synaptogenesis.
 
-        ARCHITECTURE: Rust NPU queries neurons internally. Uses Rust pattern matching for 100x+ performance.
-        PERFORMANCE: Optimized for Rust/RTOS/SIMD/GPU compatibility.
+        ARCHITECTURE: Zero-copy - Rust queries neurons from NPU, applies patterns, creates synapses.
+        Python only provides area IDs and pattern definitions, receives synapse count.
+
+        PERFORMANCE: Eliminates all FFI overhead and Python list building.
         """
         try:
-            from feagi_bdu import py_match_patterns
-            
-            total_synapses = 0
             patterns = morphology_def.get("parameters", {}).get("patterns", [])
-
             if not patterns:
-                logger.warning(
-                    "No patterns found in morphology definition for pattern type"
-                )
+                logger.warning("No patterns found in morphology definition")
                 return 0
 
-            # Get source and destination dimensions
-            src_area = self.connectome_manager.get_cortical_area(src_area_id)
+            # Get cortical indices
+            src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
+            dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
+            
+            # Get synapse properties
             dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
-            if not src_area or not dst_area:
-                logger.error(f"Cannot get areas: {src_area_id} or {dst_area_id}")
-                return 0
-
-            src_dimensions = src_area.dimensions
-            dst_dimensions = dst_area.dimensions
+            synapse_attractivity = int(dst_area.properties.get("synatt", 100))
+            weight = int(psc_multiplier * 255) & 0xFF
+            conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
             
             # Convert Python patterns to Rust integer patterns
             # -1 = wildcard "*", -2 = skip "?", -3 = exclude "!", >= 0 = exact value
@@ -3284,57 +3109,21 @@ class NeuroEmbryogenesis:
                 logger.warning("No valid patterns after conversion")
                 return 0
 
-            # Batch get all source positions (use helper - pass [] to query all from Rust)
-            src_pos_map, valid_neurons = self._batch_get_source_positions(src_area_id, [])
+            logger.info(f"🦀 NPU-NATIVE: Pattern morphology {src_area_id} → {dst_area_id} ({len(rust_patterns)} patterns)")
             
-            if not valid_neurons:
-                logger.warning("No valid source neurons with positions")
-                return 0
-
-            logger.info(f"🦀 RUST PATTERNS: Processing {len(valid_neurons)} neurons with {len(rust_patterns)} patterns")
-            
-            # Batch get ALL destination neurons ONCE (use helper)
-            dst_pos_to_neurons = self._batch_get_destination_neurons(dst_area_id, psc_multiplier)
-            
-            # Process each source neuron with Rust pattern matching
-            all_synapse_connections = []
-            import time
-            start = time.time()
-            
-            for src_neuron_id in valid_neurons:
-                src_pos = src_pos_map[src_neuron_id]
-                
-                # Call Rust pattern matcher (FAST!)
-                matched_positions = py_match_patterns(
-                    src_pos,
+            # Call Rust NPU-native synaptogenesis (zero-copy, no FFI overhead)
+            total_synapses = self.connectome_manager._npu_interface.rust_npu.apply_patterns_morphology(
+                src_cortical_idx,
+                dst_cortical_idx,
                     rust_patterns,
-                    src_dimensions,
-                    dst_dimensions
-                )
-                
-                # Match to actual neurons
-                for dst_pos in matched_positions:
-                    if dst_pos in dst_pos_to_neurons:
-                        for dst_neuron_id, weight in dst_pos_to_neurons[dst_pos]:
-                            all_synapse_connections.append((src_neuron_id, dst_neuron_id, weight))
+                weight,
+                conductance,
+                synapse_attractivity,
+            )
             
-            elapsed = (time.time() - start) * 1000
-            logger.info(f"🦀 RUST PATTERNS: {len(valid_neurons)} neurons → {len(all_synapse_connections)} synapses in {elapsed:.1f}ms")
-
-            # Create ALL synapses in ONE batch call
-            if all_synapse_connections:
-                total_synapses = self.connectome_manager.batch_create_synapses(
-                    all_synapse_connections
-                )
-                logger.info(
-                    f"✅ PATTERN BATCH: Created {total_synapses} synapses from {len(valid_neurons)} source neurons"
-                )
-
+            logger.info(f"✅ Created {total_synapses} synapses (Patterns)")
             return total_synapses
 
-        except ImportError:
-            logger.error("Rust BDU not available for pattern processing. Run: cd feagi-rust && ./build_bdu.sh")
-            return 0
         except Exception as e:
             logger.error(f"Error in pattern morphology processing: {e}")
             import traceback
@@ -3371,9 +3160,9 @@ class NeuroEmbryogenesis:
             synapse_attractivity = int(dst_area.properties.get("synatt", 100))
             weight = int(psc_multiplier * 255) & 0xFF
             conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
-            
+
             total_synapses = 0
-            
+
             # Dispatch to NPU-native Rust morphology functions
             if morphology_id.lower() == "projector":
                 logger.info(f"🦀 NPU-NATIVE: Projector morphology {src_area_id} → {dst_area_id}")
@@ -3414,7 +3203,7 @@ class NeuroEmbryogenesis:
             
             else:
                 logger.warning(f"⚠️  Unsupported morphology: {morphology_id} (skipping)")
-            
+
             return total_synapses
 
         except Exception as e:
