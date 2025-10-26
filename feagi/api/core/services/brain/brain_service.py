@@ -125,13 +125,21 @@ class BrainService(BaseService):
             try:
                 from feagi.process_manager import get_process_manager
                 process_manager = get_process_manager()
+                self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: process_manager={process_manager}")
+                self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: has _pns attr={hasattr(process_manager, '_pns') if process_manager else False}")
+                if process_manager:
+                    self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: _pns value={getattr(process_manager, '_pns', None)}")
+                
                 if process_manager and hasattr(process_manager, '_pns') and process_manager._pns:
+                    self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: Calling set_pns() with PNS={type(process_manager._pns)}")
                     rust_npu.set_pns(process_manager._pns)
                     self.logger.info("🦀 [RUST-BURST] ✅ PNS wired to burst engine (100% Rust-to-Rust hot path)")
                 else:
                     self.logger.warning("🦀 [RUST-BURST] ⚠️ PNS not available - visualization will be disabled")
             except Exception as e:
                 self.logger.error(f"🦀 [RUST-BURST] ❌ Failed to wire PNS: {e}")
+                import traceback
+                self.logger.error(f"🦀 [RUST-BURST] Traceback: {traceback.format_exc()}")
 
             # Check if burst loop is already running
             if rust_npu.is_burst_loop_running():
