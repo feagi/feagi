@@ -120,6 +120,18 @@ class BrainService(BaseService):
                 return False
 
             rust_npu = rust_npu_integration._rust_npu
+            
+            # Wire PNS to burst engine BEFORE starting (enables direct Rust→Rust visualization)
+            try:
+                from feagi.process_manager import get_process_manager
+                process_manager = get_process_manager()
+                if process_manager and hasattr(process_manager, '_pns') and process_manager._pns:
+                    rust_npu.set_pns(process_manager._pns)
+                    self.logger.info("🦀 [RUST-BURST] ✅ PNS wired to burst engine (100% Rust-to-Rust hot path)")
+                else:
+                    self.logger.warning("🦀 [RUST-BURST] ⚠️ PNS not available - visualization will be disabled")
+            except Exception as e:
+                self.logger.error(f"🦀 [RUST-BURST] ❌ Failed to wire PNS: {e}")
 
             # Check if burst loop is already running
             if rust_npu.is_burst_loop_running():
@@ -159,6 +171,9 @@ class BrainService(BaseService):
                         "🦀 [RUST-BURST] ✅ Rust burst loop started successfully!"
                     )
                     
+                    # ❌ OLD CODE (VIOLATED HOT PATH): Python was calling attach_viz_zmq_publisher() AFTER burst started
+                    # ✅ NEW CODE: PNS wired directly to burst engine in Rust (100% Rust-to-Rust, NO Python callbacks!)
+                    
                     # Attach visualization SHM writer now that burst loop is running (only if --shared-mem flag set)
                     try:
                         from feagi.core.state_manager import FeagiStateManager
@@ -173,23 +188,9 @@ class BrainService(BaseService):
                         else:
                             self.logger.info(f"🎨 [RUST-BURST] Visualization using ZMQ mode (--shared-mem not set)")
                         
-                        # Attach ZMQ publisher (publishes viz data to port 5562 for Bridge/remote clients)
-                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: Attempting to attach ZMQ publisher...")
-                        from feagi.process_manager import get_process_manager
-                        process_manager = get_process_manager()
-                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: process_manager={process_manager}")
-                        if process_manager:
-                            has_pns = hasattr(process_manager, '_pns')
-                            self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: has _pns attribute={has_pns}")
-                            if has_pns:
-                                pns = process_manager._pns
-                                self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: _pns={pns}")
-                                rust_npu.attach_viz_zmq_publisher(pns)
-                                self.logger.info(f"📡 [RUST-BURST] ✅ Visualization ZMQ publisher attached (port 5562)")
-                            else:
-                                self.logger.warning(f"📡 [RUST-BURST] ❌ PNS not available (_pns attribute missing)")
-                        else:
-                            self.logger.warning(f"📡 [RUST-BURST] ❌ ProcessManager not available")
+                        # REMOVED: Python-mediated attachment of PNS to burst engine (violated hot path architecture)
+                        # PNS is now wired directly to burst engine in Rust during initialization (NO PYTHON IN HOT PATH!)
+                        self.logger.info(f"📡 [RUST-BURST] Visualization ZMQ handled by Rust-to-Rust communication (port 5562)")
                     except Exception as e:
                         self.logger.error(f"🎨 [RUST-BURST] ❌ Exception during attachment: {e}")
                         import traceback
