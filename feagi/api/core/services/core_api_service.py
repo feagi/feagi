@@ -6604,36 +6604,45 @@ class CoreAPIService:
                     #  connections
             
             #  Calculate ACTUAL memory per synapse by inspecting the
-            #  GlobalSynapseArray
-            synapse_array = self._connectome_manager.synapse_array
-            
-            # Calculate actual memory per synapse from the SoA structure
+            #  Synapse array (if available)
             bytes_per_synapse = 0.0
             
-            # Inspect all the actual arrays in GlobalSynapseArray
-            arrays_to_check = [
-                "pre_neuron_ids",
-                "post_neuron_ids",
-                "weights",
-                "delays",
-                "types",
-                "plasticity_coeffs",
-                "conductances",
-                "is_plastic_flags",
-            ]
+            # Check if synapse_array is accessible
+            synapse_array = getattr(self._connectome_manager, "synapse_array", None)
             
-            for array_name in arrays_to_check:
-                if hasattr(synapse_array, array_name):
-                    array = getattr(synapse_array, array_name)
-                    if hasattr(array, "itemsize"):
-                        bytes_per_synapse += array.itemsize
-                        self.logger.debug(
-                            f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
-                        )
-            
-            self.logger.info(
-                f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)"
-            )
+            if synapse_array is not None:
+                # Calculate actual memory per synapse from the SoA structure
+                # Inspect all the actual arrays in GlobalSynapseArray
+                arrays_to_check = [
+                    "pre_neuron_ids",
+                    "post_neuron_ids",
+                    "weights",
+                    "delays",
+                    "types",
+                    "plasticity_coeffs",
+                    "conductances",
+                    "is_plastic_flags",
+                ]
+                
+                for array_name in arrays_to_check:
+                    if hasattr(synapse_array, array_name):
+                        array = getattr(synapse_array, array_name)
+                        if hasattr(array, "itemsize"):
+                            bytes_per_synapse += array.itemsize
+                            self.logger.debug(
+                                f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
+                            )
+                
+                self.logger.info(
+                    f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)"
+                )
+            else:
+                # Fallback: Use estimated memory per synapse (Rust NPU architecture)
+                # Based on Rust SynapseArray SoA structure: source(u32) + target(u32) + weight(u8) + conductance(u8) + type(u8) + valid(bool) = 14 bytes
+                bytes_per_synapse = 14.0
+                self.logger.debug(
+                    f"Using estimated memory per synapse: {bytes_per_synapse} bytes (Rust NPU architecture)"
+                )
             return {
                 "incoming": {
                     "count": incoming_count,
