@@ -216,9 +216,17 @@ class FeagiVizClient:
             topic = frames[0].decode("utf-8")
             data = frames[1]
             
+            # PASSTHROUGH ARCHITECTURE: Bridge sends compressed data - decompress here
+            from feagi_connector.utils.decompression import decompress_if_needed
+            decompressed_data = decompress_if_needed(data)
+            if decompressed_data is None:
+                logger.error("Failed to decompress visualization data")
+                return None
+            data = decompressed_data
+            
             # Log detailed information about the received data
             data_len = len(data)
-            logger.debug(f"Received {data_len} bytes on topic '{topic}'")
+            logger.debug(f"Received {data_len} bytes on topic '{topic}' (decompressed if needed)")
             
             # Log header bytes for debugging
             if data_len > 0:
