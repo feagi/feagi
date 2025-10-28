@@ -131,6 +131,7 @@ receive_high_water_mark = 1              # Drop buffered frames immediately for 
 linger_ms = 0                            # Do not block on shutdown
 immediate = true                         # Fail fast if PNS sensory socket is unavailable
 poll_timeout_ms = 10                     # Poll frequently to minimize buffering latency
+startup_drain_timeout_ms = 500           # Drain stale buffered messages on startup (real-time requirement)
 
 [zmq.streams.motor]
 enabled = true                    # Enable motor stream

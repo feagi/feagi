@@ -584,6 +584,7 @@ class ProcessManager:
                         "linger_ms",
                         "immediate",
                         "poll_timeout_ms",
+                        "startup_drain_timeout_ms",
                     ]
                     missing_keys = [
                         key
@@ -602,6 +603,7 @@ class ProcessManager:
                             "zmq_sensory_linger_ms": sensory_stream_config["linger_ms"],
                             "zmq_sensory_immediate": sensory_stream_config["immediate"],
                             "zmq_sensory_poll_timeout_ms": sensory_stream_config["poll_timeout_ms"],
+                            "zmq_sensory_startup_drain_ms": sensory_stream_config["startup_drain_timeout_ms"],
                         }
                     )
 
