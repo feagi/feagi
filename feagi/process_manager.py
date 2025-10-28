@@ -619,15 +619,17 @@ class ProcessManager:
                 pns.set_on_agent_deregistered(self._on_agent_deregistered)
                 logger.info("🦀 Callbacks registered successfully")
 
-                # Start PNS ZMQ streams (creates sensory stream)
-                pns.start()
-                logger.info("🦀 PNS ZMQ streams started successfully")
+                # 🚨 CRITICAL: Start ONLY control streams (REST/registration)
+                # DO NOT start sensory/motor/viz streams yet - burst engine is not ready!
+                pns.start_control_streams()
+                logger.info("🦀 ✅ PNS control streams started (REST/registration only)")
+                logger.info("🦀 ⏸️  Data streams (sensory/motor/viz) NOT started - waiting for burst engine")
                 
-                # CRITICAL: Connect NPU to sensory stream AFTER pns.start()
-                # This must happen after ZMQ streams are created
+                # CRITICAL: Connect NPU to sensory stream (stream not started yet)
+                # This prepares the connection but doesn't allow data flow yet
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
                     pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
-                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU for direct injection")
+                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU (stream not started yet)")
                 else:
                     logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized - sensory injection disabled")
                 
@@ -2132,6 +2134,17 @@ class ProcessManager:
                     logger.info(
                         "✅ Burst engine started successfully after genome load"
                     )
+                    
+                    # 🚨 CRITICAL: NOW start data streams (sensory/motor/viz)
+                    # Burst engine is ready to process sensory data
+                    if hasattr(self, '_pns') and self._pns:
+                        try:
+                            self._pns.start_data_streams()
+                            logger.info("🦀 ✅ PNS data streams started - sensory data will now be processed")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to start PNS data streams: {e}")
+                    else:
+                        logger.warning("⚠️  PNS not available - data streams not started")
                 else:
                     logger.error(
                         "❌ Failed to start burst engine after genome load"

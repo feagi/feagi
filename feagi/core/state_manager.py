@@ -17,6 +17,7 @@ from .atomic_state import AtomicU8, RustCompatibleState
 from .state_errors import Result, StateError
 from .state_storage import FileStorage, MemoryStorage, StateStorage
 from .cortical_locking import get_cortical_lock_manager, LockResult, GlobalLockInfo
+from .rust_state_adapter import get_rust_state_delegate
 
 try:
     from feagi.config.toml_loader import get_agent_config, load_feagi_config
@@ -346,7 +347,18 @@ class FeagiStateManager:
             )
             self._state = RustCompatibleState()
         
-        # Create atomic wrappers for frequently accessed fields
+        # Initialize Rust state delegate for performance-critical operations
+        # This delegates hot-path operations (burst engine, agents, locks) to Rust
+        # while keeping Python orchestration logic (API, transactions) in Python
+        try:
+            self._rust_state = get_rust_state_delegate()
+            logger.info("✅ Rust state delegate initialized for hot-path operations")
+        except Exception as e:
+            logger.error(f"⚠️ Failed to initialize Rust state delegate: {e}")
+            logger.warning("Falling back to Python-only state management")
+            self._rust_state = None
+        
+        # Create atomic wrappers for frequently accessed fields (backward compatibility)
         self._atomic_genome = AtomicU8(self._state.genome_state)
         self._atomic_burst_engine = AtomicU8(self._state.burst_engine_state)
         self._atomic_gpu_keepalive_eligible = AtomicU8(self._state.gpu_keepalive_eligible)
@@ -510,11 +522,16 @@ class FeagiStateManager:
     # === GENOME STATE MANAGEMENT ===
     
     def get_genome_state(self) -> int:
-        """Get current genome state (zero-cost operation)."""
+        """Get current genome state (delegated to Rust for performance)."""
+        if self._rust_state:
+            return self._rust_state.get_genome_state()
+        # Fallback to Python
         return self._atomic_genome.load()
     
     def set_genome_state(self, state: int) -> Result[None]:
-        """Set genome state with validation."""
+        """Set genome state with validation (delegated to Rust for performance)."""
+        if self._rust_state:
+            self._rust_state.set_genome_state(state)
         if not (0 <= state <= 4):
             return Result.err(StateError.VALIDATION_FAILED)
         
@@ -785,11 +802,16 @@ class FeagiStateManager:
     # === BURST ENGINE STATE MANAGEMENT ===
     
     def get_burst_engine_state(self) -> int:
-        """Get current burst engine state."""
+        """Get current burst engine state (delegated to Rust for performance)."""
+        if self._rust_state:
+            return self._rust_state.get_burst_engine_state()
+        # Fallback to Python
         return self._atomic_burst_engine.load()
     
     def set_burst_engine_state(self, state: int) -> Result[None]:
-        """Set burst engine state with validation."""
+        """Set burst engine state with validation (delegated to Rust for performance)."""
+        if self._rust_state:
+            self._rust_state.set_burst_engine_state(state)
         if not (0 <= state <= 7):
             return Result.err(StateError.VALIDATION_FAILED)
         
