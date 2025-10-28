@@ -1,5 +1,5 @@
 import feagi_rust_py_libs as frpl
-from device import Device, ChannelCount, CorticalGroupIndex, ChannelIndex, NeuronDepth, IOData
+from .device import Device, ChannelCount, CorticalGroupIndex, ChannelIndex, NeuronDepth, IOData
 
 # NOTE: For now we will generate based on "wrapped_data_type" in the template. We may need to change to "default_coder_type"
 

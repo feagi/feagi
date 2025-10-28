@@ -1,5 +1,5 @@
 import feagi_rust_py_libs as frpl
-from devices.sensor_device_types import Percentage1D, ImageFrame
+from .devices.sensor_device_types import Percentage1D, ImageFrame
 
 class SensorsProxy:
 
