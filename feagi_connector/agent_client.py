@@ -36,10 +36,17 @@ Example:
 """
 
 import logging
-from typing import List, Tuple, Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
-from feagi_agent_sdk_py import PyAgentClient, PyAgentConfig, AgentType as RustAgentType
+try:
+    from feagi_rust_py_libs import feagi_agent_sdk_py as rust_sdk
+except ImportError:  # pragma: no cover - fallback for older installs
+    import feagi_agent_sdk_py as rust_sdk
+
+PyAgentClient = rust_sdk.PyAgentClient
+PyAgentConfig = rust_sdk.PyAgentConfig
+RustAgentType = rust_sdk.AgentType
 
 logger = logging.getLogger("feagi_connector.agent_client")
 
@@ -122,23 +129,32 @@ class FeagiAgentClient:
         heartbeat_interval: float = 5.0,
         connection_timeout_ms: int = 5000,
         registration_retries: int = 3,
+        sensory_socket_hwm: Optional[int] = None,
+        sensory_socket_linger_ms: Optional[int] = None,
+        sensory_socket_immediate: Optional[bool] = None,
     ):
         """
         Configure the agent
         
         Args:
-            feagi_host: FEAGI hostname or IP address
-            registration_port: Registration/heartbeat port (default: 30001)
-            sensory_port: Sensory data input port (default: 5555)
-            motor_port: Motor data output port (default: 30005)
-            vision_capability: Vision capability as (modality, width, height, channels, cortical_area)
-                              Example: ("camera", 640, 480, 3, "i_vision")
-            motor_capability: Motor capability as (modality, output_count, cortical_areas)
-                            Example: ("servo", 4, ["o_motor"])
-            custom_capabilities: Dictionary of custom capabilities
-            heartbeat_interval: Heartbeat interval in seconds (0 to disable)
-            connection_timeout_ms: Connection timeout in milliseconds
-            registration_retries: Maximum registration retry attempts
+            feagi_host: FEAGI hostname or IP address.
+            registration_port: Registration/heartbeat port (default: 30001).
+            sensory_port: Sensory data input port (default: 5555).
+            motor_port: Motor data output port (default: 30005).
+            vision_capability: Vision capability tuple
+                (modality, width, height, channels, cortical_area).
+            motor_capability: Motor capability tuple (modality, output_count,
+                cortical_areas).
+            custom_capabilities: Dictionary of custom capabilities.
+            heartbeat_interval: Heartbeat interval in seconds (0 to disable).
+            connection_timeout_ms: Connection timeout in milliseconds.
+            registration_retries: Maximum registration retry attempts.
+            sensory_socket_hwm: Optional ZMQ PUSH high-water-mark override for
+                the sensory socket.
+            sensory_socket_linger_ms: Optional linger override in milliseconds
+                for the sensory socket.
+            sensory_socket_immediate: Optional immediate mode flag for the
+                sensory socket.
         """
         # Map Python AgentType to Rust AgentType
         rust_agent_type = {
@@ -159,18 +175,54 @@ class FeagiAgentClient:
         self._config.with_heartbeat_interval(heartbeat_interval)
         self._config.with_connection_timeout_ms(connection_timeout_ms)
         self._config.with_registration_retries(registration_retries)
+
+        if any(
+            value is not None
+            for value in (
+                sensory_socket_hwm,
+                sensory_socket_linger_ms,
+                sensory_socket_immediate,
+            )
+        ):
+            if (
+                sensory_socket_hwm is None
+                or sensory_socket_linger_ms is None
+                or sensory_socket_immediate is None
+            ):
+                error_message = (
+                    "sensory_socket_hwm, sensory_socket_linger_ms, and "
+                    "sensory_socket_immediate must all be provided together"
+                )
+                raise ValueError(error_message)
+            self._config.with_sensory_socket_config(
+                sensory_socket_hwm,
+                sensory_socket_linger_ms,
+                sensory_socket_immediate,
+            )
         
         # Add capabilities
         if vision_capability:
             modality, width, height, channels, cortical_area = vision_capability
-            self._config.with_vision_capability(modality, width, height, channels, cortical_area)
-            
-                # Store for XYZP conversion
+            self._config.with_vision_capability(
+                modality,
+                width,
+                height,
+                channels,
+                cortical_area,
+            )
+
+            # Store for XYZP conversion
             self._vision_width = width
             self._vision_height = height
             self._cortical_area = cortical_area
             
-            logger.debug(f"Added vision capability: {width}x{height}x{channels} → {cortical_area}")
+            logger.debug(
+                "Added vision capability: %sx%sx%s -> %s",
+                width,
+                height,
+                channels,
+                cortical_area,
+            )
         
         # Store network config for direct ZMQ access and logging
         self._feagi_host = feagi_host
@@ -180,13 +232,17 @@ class FeagiAgentClient:
         if motor_capability:
             modality, output_count, cortical_areas = motor_capability
             self._config.with_motor_capability(modality, output_count, cortical_areas)
-            logger.debug(f"Added motor capability: {output_count} outputs ← {cortical_areas}")
+            logger.debug(
+                "Added motor capability: %s outputs <- %s",
+                output_count,
+                cortical_areas,
+            )
         
         if custom_capabilities:
             import json
             for key, value in custom_capabilities.items():
                 self._config.with_custom_capability(key, json.dumps(value))
-                logger.debug(f"Added custom capability: {key}")
+                logger.debug("Added custom capability: %s", key)
         
         # Validate configuration
         try:
@@ -196,7 +252,11 @@ class FeagiAgentClient:
             logger.error(f"Configuration validation failed: {e}")
             raise
     
-    def detect_cortical_area_resolution(self, cortical_area: str, feagi_host: Optional[str] = None) -> Optional[Tuple[int, int, int]]:
+    def detect_cortical_area_resolution(
+        self,
+        cortical_area: str,
+        feagi_host: Optional[str] = None,
+    ) -> Optional[Tuple[int, int, int]]:
         """
         Detect the resolution (dimensions) of a cortical area from FEAGI
         
@@ -237,10 +297,20 @@ class FeagiAgentClient:
                         
                         if len(dimensions) == 3:
                             x_dim, y_dim, z_dim = dimensions
-                            logger.info(f"✓ Detected {cortical_area} resolution: {x_dim}x{y_dim}x{z_dim}")
+                            logger.info(
+                                "Detected %s resolution: %sx%sx%s",
+                                cortical_area,
+                                x_dim,
+                                y_dim,
+                                z_dim,
+                            )
                             return (x_dim, y_dim, z_dim)
                         else:
-                            logger.warning(f"Cortical area '{cortical_area}' has invalid dimensions: {dimensions}")
+                            logger.warning(
+                                "Cortical area '%s' has invalid dimensions: %s",
+                                cortical_area,
+                                dimensions,
+                            )
                             return None
                 
                 # Not found in response
@@ -248,13 +318,22 @@ class FeagiAgentClient:
                 return None
             else:
                 if response.status_code == 404:
-                    logger.warning(f"FEAGI cortical area endpoint not found (HTTP 404) - likely no genome loaded yet")
+                    logger.warning(
+                        "FEAGI cortical area endpoint not found (HTTP 404) - "
+                        "likely no genome loaded yet",
+                    )
                 else:
-                    logger.warning(f"Failed to query FEAGI cortical properties: HTTP {response.status_code}")
+                    logger.warning(
+                        "Failed to query FEAGI cortical properties: HTTP %s",
+                        response.status_code,
+                    )
                 return None
                 
         except ImportError:
-            logger.warning("'requests' library not available - install with: pip install requests")
+            logger.warning(
+                "'requests' library not available - install with: pip install "
+                "requests",
+            )
             return None
         except Exception as e:
             logger.debug(f"Resolution detection failed: {e}")
@@ -288,8 +367,8 @@ class FeagiAgentClient:
         registration_host = self._feagi_host
         registration_port = self._registration_port
         
-        # Note: Skip TCP pre-flight check for ZMQ sockets (they don't respond like regular TCP)
-        # Let the Rust SDK handle connection testing
+        # Note: Skip TCP pre-flight check for ZMQ sockets (they don't behave
+        # like regular TCP). Let the Rust SDK handle connection testing.
         
         try:
             # Create client
@@ -306,22 +385,30 @@ class FeagiAgentClient:
                 error_str = str(reg_error).lower()
                 
                 if "unknown error" in error_str or "registration failed" in error_str:
-                    logger.error("❌ Registration failed with unclear error from Rust SDK")
+                    logger.error(
+                        "❌ Registration failed with unclear error from Rust SDK"
+                    )
                     logger.error("")
                     logger.error("Common causes:")
                     logger.error("  1. FEAGI's Rust PNS is not running")
-                    logger.error("     Check FEAGI logs for: '🦀 [ZMQ-REGISTRATION] Listening on...'")
-                    logger.error("  2. Port mismatch (FEAGI 2.0 uses port 5563, not 30001)")
+                    logger.error(
+                        "     Check FEAGI logs for: '🦀 [ZMQ-REGISTRATION] "
+                        "Listening on...'"
+                    )
+                    logger.error(
+                        "  2. Port mismatch (FEAGI 2.0 uses port 5563, not 30001)"
+                    )
                     logger.error("     Your config: registration_port = ?")
                     logger.error("     FEAGI listening: Check with 'lsof -i :5563'")
                     logger.error("  3. ZMQ socket state issue (restart FEAGI)")
                     logger.error("  4. Firewall blocking connection")
                     logger.error("")
                     raise RuntimeError(
-                        f"Registration failed: {reg_error}. "
-                        f"Check FEAGI is running with Rust PNS on port {registration_port}. "
-                        f"See logs above for troubleshooting steps."
-                    )
+                        "Registration failed: %s. Check FEAGI is running with "
+                        "Rust PNS on port %s. See logs above for "
+                        "troubleshooting steps."
+                        % (reg_error, registration_port)
+                    ) from reg_error
                 else:
                     # Re-raise with original error
                     raise
@@ -330,22 +417,29 @@ class FeagiAgentClient:
             logger.info(f"✓ Connected and registered as: {self.agent_id}")
             logger.info(f"  Registration: {registration_host}:{registration_port}")
             logger.info(f"  Sensory data: {self._feagi_host}:{self._sensory_port}")
-            logger.info(f"  Heartbeat: {self._config.heartbeat_interval if hasattr(self._config, 'heartbeat_interval') else 'N/A'}s")
+            heartbeat_interval = (
+                self._config.heartbeat_interval
+                if hasattr(self._config, "heartbeat_interval")
+                else "N/A"
+            )
+            logger.info("  Heartbeat: %ss", heartbeat_interval)
             
         except RuntimeError:
             # Re-raise our enhanced RuntimeErrors
             raise
         except Exception as e:
             # Catch-all for unexpected errors
-            logger.error(f"❌ Unexpected error during connection: {e}")
-            logger.error(f"   Error type: {type(e).__name__}")
+            logger.error("❌ Unexpected error during connection: %s", e)
+            logger.error("   Error type: %s", type(e).__name__)
             logger.error("")
             logger.error("Please report this error with the following information:")
-            logger.error(f"  - Agent ID: {self.agent_id}")
-            logger.error(f"  - FEAGI host: {self._feagi_host}")
-            logger.error(f"  - Registration port: {registration_port}")
-            logger.error(f"  - Error: {e}")
-            raise RuntimeError(f"Connection failed with unexpected error: {e}")
+            logger.error("  - Agent ID: %s", self.agent_id)
+            logger.error("  - FEAGI host: %s", self._feagi_host)
+            logger.error("  - Registration port: %s", registration_port)
+            logger.error("  - Error: %s", e)
+            raise RuntimeError(
+                f"Connection failed with unexpected error: {e}"
+            ) from e
     
     def send_sensory_data(self, neuron_pairs: List[Tuple[int, float]]):
         """
@@ -396,7 +490,11 @@ class FeagiAgentClient:
     
     def is_connected(self) -> bool:
         """Check if agent is connected"""
-        return self._connected and self._client is not None and self._client.is_registered()
+        return (
+            self._connected
+            and self._client is not None
+            and self._client.is_registered()
+        )
     
     def disconnect(self, timeout: float = 0.1):
         """
@@ -414,7 +512,10 @@ class FeagiAgentClient:
             # Skip Rust client deregistration - it blocks on interrupted ZMQ sockets
             # FEAGI will clean up via heartbeat timeout
             self._client = None
-            logger.info(f"✓ Disconnected {self.agent_id} (cleanup via heartbeat timeout)")
+            logger.info(
+                "✓ Disconnected %s (cleanup via heartbeat timeout)",
+                self.agent_id,
+            )
     
     def __enter__(self):
         """Context manager entry"""

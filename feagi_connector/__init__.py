@@ -114,21 +114,26 @@ def _print_version_info():
     
     # Try to get Rust SDK version
     try:
-        import feagi_agent_sdk_py
-        sdk_file = feagi_agent_sdk_py.__file__
+        try:
+            from feagi_rust_py_libs import feagi_agent_sdk_py as sdk_module
+        except ImportError:
+            import feagi_agent_sdk_py as sdk_module  # type: ignore[assignment]
+
+        sdk_file = sdk_module.__file__
         # Get the .so file
         sdk_dir = os.path.dirname(sdk_file)
         so_files = [f for f in os.listdir(sdk_dir) if f.endswith('.so')]
         if so_files:
             so_path = os.path.join(sdk_dir, so_files[0])
             import time
+
             mtime = os.path.getmtime(so_path)
             mtime_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime))
             print(f"🦀 [feagi-agent-sdk-py] Built: {mtime_str}")
         else:
-            print(f"🦀 [feagi-agent-sdk-py] Installed (no .so found)")
+            print("🦀 [feagi-agent-sdk-py] Installed (no .so found)")
     except ImportError:
-        print(f"⚠️  [feagi-agent-sdk-py] Not installed")
+        print("⚠️  [feagi-agent-sdk-py] Not installed")
     except Exception as e:
         print(f"⚠️  [feagi-agent-sdk-py] Error checking version: {e}")
 

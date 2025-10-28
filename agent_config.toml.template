@@ -13,6 +13,12 @@ host = "127.0.0.1"
 registration_port = 5563  # Agent registration/heartbeat (ZMQ REQ/REP)
 sensory_port = 5558       # Sensory data input (ZMQ PUSH/PULL)
 
+  [feagi.sensory_socket]
+  # Configure the ZMQ PUSH socket used for sensory data
+  send_hwm = 1
+  linger_ms = 0
+  immediate = true
+
 [agent]
 # Agent identification
 # id = "my-agent-1"  # Uncomment to specify agent ID (default: auto-generated)

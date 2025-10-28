@@ -22,6 +22,11 @@ host = "127.0.0.1"
 registration_port = 5563  # Rust PNS registration
 sensory_port = 5558       # Rust PNS sensory input
 
+  [feagi.sensory_socket]
+  send_hwm = 1
+  linger_ms = 0
+  immediate = true
+
 [agent]
 log_level = "INFO"
 
@@ -84,6 +89,11 @@ Connection settings for FEAGI server:
 host = "127.0.0.1"              # FEAGI host address
 registration_port = 5563         # Rust PNS registration (ZMQ REQ/REP)
 sensory_port = 5558              # Rust PNS sensory input (ZMQ PUSH/PULL)
+
+  [feagi.sensory_socket]
+  send_hwm = 1                   # ZMQ PUSH high-water mark (must be >= 0)
+  linger_ms = 0                  # Drop unsent frames on shutdown
+  immediate = true               # Fail fast if FEAGI not ready (real-time safety)
 ```
 
 **Port Reference (FEAGI 2.0 Rust PNS)**:
