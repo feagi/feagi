@@ -1,6 +1,8 @@
 import feagi_rust_py_libs as frpl
 from .cache.sensors_proxy import SensorsProxy
 from .cache.motors_proxy import MotorsProxy
+from .cache.devices.sensors_cache_interface import SensorsCacheInterface
+from .cache.devices.motors_cache_interface import MotorsCacheInterface
 
 class FeagiAgent:
 
@@ -8,4 +10,8 @@ class FeagiAgent:
         self._rust_agent: frpl.connector_core.caching.IOCache = frpl.connector_core.caching.IOCache()
         self.brain_input = SensorsProxy(self._rust_agent)
         self.brain_output = MotorsProxy(self._rust_agent)
+
+        self.brain_input_cache = SensorsCacheInterface(self._rust_agent)
+        self.brain_output_cache = MotorsCacheInterface(self._rust_agent)
+
         
