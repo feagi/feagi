@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .cortical_locking import get_cortical_lock_manager, LockResult, GlobalLockInfo
 from .rust_state_adapter import get_rust_state_delegate
+from .state_errors import Result, StateError
 
 try:
     from feagi.config.toml_loader import get_agent_config, load_feagi_config
@@ -396,6 +397,62 @@ class FeagiStateManager:
         self._synapse_count = 0
         self._neuron_count = 0
         self._cortical_area_count = 0
+        
+        # Initialize stub object for compatibility with methods that still reference self._state
+        # TODO: Migrate all remaining methods to use direct Python instance variables
+        class _StateStub:
+            def __init__(self):
+                # All state fields for compatibility
+                self.genome_state = 0
+                self.connectome_state = 0
+                self.burst_engine_state = 0
+                self.api_state = 0
+                self.neuroembryogenesis_stage = 0
+                self.neuroembryogenesis_progress = 0
+                self.development_duration = 0
+                self.connected_agents = {}
+                self.agent_count = 0
+                self.changes_saved_externally = False
+                self.exit_condition = False
+                self.zmq_state = 0
+                self.burst_frequency = 0
+                self.simulation_state = 0
+                self.genome_counter = 0
+                self.genome_timestamp = 0
+                self.feagi_session_timestamp = int(time.time() * 1000)
+                self.state_version = 0
+                self.last_modified = int(time.time() * 1000)
+                self.neuron_count = 0
+                self.synapse_count = 0
+                self.cortical_area_count = 0
+        
+        self._state = _StateStub()
+        
+        # Stub storage for compatibility
+        class _StorageStub:
+            def store_state(self, state):
+                return type('Result', (), {'is_err': False})()
+        
+        self._storage = _StorageStub()
+        
+        # Stub atomic objects for compatibility
+        class _AtomicStub:
+            def __init__(self, val=0):
+                self.val = val
+            def load(self):
+                return self.val
+            def store(self, val):
+                self.val = val
+            def fetch_add(self, val):
+                old = self.val
+                self.val += val
+                return old
+        
+        self._atomic_version = _AtomicStub(0)
+        self._atomic_genome = _AtomicStub(0)
+        self._atomic_burst_engine = _AtomicStub(0)
+        self._atomic_fq_sampler = _AtomicStub(0)
+        self._atomic_brain_ready = _AtomicStub(0)
         
         # Shared Memory: manager and registries
         self._shared_memory_registry: Dict[str, str] = {}
