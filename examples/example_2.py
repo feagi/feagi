@@ -7,10 +7,32 @@ def to_percentage(v: float) -> frpl.connector_core.data.Percentage:
 feagi_agent = FeagiAgent()
 percentage = to_percentage(0.5)
 
+input_image_properties = frpl.connector_core.data.descriptors.ImageFrameProperties(
+    frpl.connector_core.data.descriptors.ImageXYResolution(128, 128),
+    frpl.connector_core.data.descriptors.ColorSpace.Linear,
+    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+)
+
+segmented_image_properties = frpl.connector_core.data.descriptors.SegmentedImageFrameProperties(
+    frpl.connector_core.data.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+        frpl.connector_core.data.descriptors.ImageXYResolution(64, 64),
+        frpl.connector_core.data.descriptors.ImageXYResolution(32, 32),
+    ),
+    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB,
+    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB,
+    frpl.connector_core.data.descriptors.ColorSpace.Linear
+)
+
+gaze = frpl.connector_core.data.descriptors.GazeProperties.create_default_centered()
+
 
 feagi_agent.brain_input.infrared_absolute_linear.register(0, 1, 10)
+feagi_agent.brain_input.segmented_vision_absolute.register(0, 1, input_image_properties, segmented_image_properties, gaze)
+
 
 feagi_agent.brain_output.gaze_absolute_linear.register(0, 1, 10)
+
+
 feagi_agent.brain_output.positional_servo_absolute_linear.register(0, 1, 10)
 
 feagi_agent.brain_input.infrared_absolute_linear.write(0, 0, percentage)
