@@ -7,5 +7,10 @@ def to_percentage(v: float) -> frpl.connector_core.data.Percentage:
 feagi_agent = FeagiAgent()
 percentage = to_percentage(0.5)
 
-feagi_agent.sensor_devices.infrared_absolute_linear.register(0, 1, 10)
-feagi_agent.sensor_devices.infrared_absolute_linear.write(0, 0, percentage)
+
+feagi_agent.brain_input.infrared_absolute_linear.register(0, 1, 10)
+feagi_agent.brain_output.gaze_absolute_linear.register(0, 1, 10)
+
+feagi_agent.brain_input.infrared_absolute_linear.write(0, 0, percentage)
+percentage_4d = feagi_agent.brain_output.gaze_absolute_linear.read_postprocessed_cache_value(0, 0)
+print(percentage_4d)
