@@ -13,9 +13,9 @@ class Percentage1D(Device):
         write_fn_name: str = "sensor_" + device_full_name + "_try_write"
         read_post_fn_name: str = "sensor_" + device_full_name + "_try_read_postprocessed_cache_value"
 
-        self._register_function = getattr(self._io_cache, register_fn_name)(CorticalGroupIndex, ChannelCount, NeuronDepth)
-        self._write_function = getattr(self._io_cache, write_fn_name)(CorticalGroupIndex, ChannelIndex, IOData)
-        self._read_post_function = getattr(self._io_cache, read_post_fn_name)(CorticalGroupIndex, ChannelIndex)
+        self._register_function = getattr(self._io_cache, register_fn_name)
+        self._write_function = getattr(self._io_cache, write_fn_name)
+        self._read_post_function = getattr(self._io_cache, read_post_fn_name)
 
     def register(self, cortical_group: CorticalGroupIndex, number_of_channels: ChannelCount,
                  z_resolution: NeuronDepth):
@@ -35,9 +35,9 @@ class ImageFrame(Device):
         write_fn_name: str = "sensor_" + device_full_name + "_try_write"
         read_post_fn_name: str = "sensor_" + device_full_name + "_try_read_postprocessed_cache_value"
 
-        self._register_function = getattr(self._io_cache, register_fn_name)(CorticalGroupIndex, ChannelCount, frpl.connector_core.data.descriptors.ImageFrameProperties)
-        self._write_function = getattr(self._io_cache, write_fn_name)(CorticalGroupIndex, ChannelIndex, IOData)
-        self._read_post_function = getattr(self._io_cache, read_post_fn_name)(CorticalGroupIndex, ChannelIndex)
+        self._register_function = getattr(self._io_cache, register_fn_name)
+        self._write_function = getattr(self._io_cache, write_fn_name)
+        self._read_post_function = getattr(self._io_cache, read_post_fn_name)
 
     def register(self, cortical_group: CorticalGroupIndex, number_of_channels: ChannelCount,
                  image_properties: frpl.connector_core.data.descriptors.ImageFrameProperties):

@@ -33,4 +33,4 @@ class SensorsProxy:
         self.gpio_analog_incremental_linear = Percentage1D(io_cache_ref, "gpio_analog_incremental_linear")
         self.gpio_analog_incremental_fractional = Percentage1D(io_cache_ref, "gpio_analog_incremental_fractional")
 
-        self.image_camera_center = ImageFrame(io_cache_ref, "image_camera_center")
+        self.image_camera_center = ImageFrame(io_cache_ref, "image_camera_center_absolute")
