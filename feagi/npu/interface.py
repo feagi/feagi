@@ -747,46 +747,8 @@ class NPUInterface:
                 return idx
         return None
     
-    def inject_sensory_xyzp(self, cortical_id: str, xyzp_data: List[Tuple[Tuple[int, int, int], float]]):
-        """
-        Inject sensory data in XYZP format into NPU.
-        
-        Args:
-            cortical_id: String ID of cortical area (e.g., "iic400")
-            xyzp_data: List of ((x, y, z), potential) tuples
-        """
-        # Get cortical index from ID
-        cortical_idx = self.get_cortical_idx_by_id(cortical_id)
-        if cortical_idx is None:
-            logger.warning(f"[NPU-INTERFACE] Cannot inject to unknown cortical area: {cortical_id}")
-            return
-        
-        # Map XYZ coordinates to neuron IDs for this cortical area
-        # ARCHITECTURE: Query Rust NPU for neurons in this area, then check coordinates
-        neuron_potentials = []
-        neurons_in_area = self.get_neurons_in_cortical_area(cortical_idx)
-        
-        for (x, y, z), potential in xyzp_data:
-            # Find neuron at this position in this cortical area
-            for neuron_id in neurons_in_area:
-                pos = self.get_neuron_position(neuron_id)
-                if pos == (x, y, z):
-                    neuron_potentials.append((neuron_id, potential))
-                    break
-        
-        if not neuron_potentials:
-            logger.debug(f"[NPU-INTERFACE] No neurons found for {len(xyzp_data)} XYZP coordinates in {cortical_id}")
-            return
-        
-        # Inject into Rust NPU
-        if self.rust_npu:
-            try:
-                # Convert to format expected by Rust: Vec<(NeuronId, potential)>
-                self.rust_npu.inject_sensory_with_potentials(neuron_potentials)
-                logger.debug(f"[NPU-INTERFACE] ✓ Injected {len(neuron_potentials)} neurons into {cortical_id}")
-            except Exception as e:
-                logger.error(f"[NPU-INTERFACE] Failed to inject sensory data: {e}", exc_info=True)
-        else:
-            logger.warning("[NPU-INTERFACE] No Rust NPU available for injection")
+    # ❌ DELETED: inject_sensory_xyzp() - O(N*M) architectural violation
+    # Sensory injection is handled by Rust PNS → Rust NPU (pure Rust path, no Python!)
+    # See: feagi-core/crates/feagi-pns/src/transports/zmq/sensory.rs
     
     # COMPATIBILITY METHODS (for legacy code that expects these)

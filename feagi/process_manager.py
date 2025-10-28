@@ -625,13 +625,14 @@ class ProcessManager:
                 logger.info("🦀 ✅ PNS control streams started (REST/registration only)")
                 logger.info("🦀 ⏸️  Data streams (sensory/motor/viz) NOT started - waiting for burst engine")
                 
-                # CRITICAL: Connect NPU to sensory stream (stream not started yet)
-                # This prepares the connection but doesn't allow data flow yet
+                # CRITICAL: Connect NPU to streams (streams not started yet)
+                # This prepares the connections but doesn't allow data flow yet
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
                     pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
-                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU (stream not started yet)")
+                    pns.connect_npu_to_api_control_stream(self.rust_npu_integration._rust_npu)
+                    logger.info("🦀 ✅ PNS streams connected to Rust NPU (sensory + API control)")
                 else:
-                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized - sensory injection disabled")
+                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized")
                 
                 # Store PNS for access by registration manager and other components
                 self._processes["zmq_server"] = pns  # Use same key for compatibility
@@ -875,128 +876,28 @@ class ProcessManager:
 
             if not embedded_mode:
                 try:
-                    # Only run FastAPI if not in embedded mode
-                    api_config = {
+                    # Run FastAPI in separate process via ZMQ (zero GIL contention)
+                    api_config_full = {
                         "host": api_host,
                         "port": api_port,
-                        "reload": config.get("development", {}).get(
-                            "reload", False
-                        ),
-                        "access_log": config.get("api", {}).get(
-                            "access_log", True
-                        ),
+                        "_full_config": config,
                     }
-
-                    def run_uvicorn():
-                        """Run uvicorn server in background thread."""
-                        import sys
-                        try:
-                            print("🔵 REST API thread started - creating FastAPI app...", file=sys.stderr, flush=True)
-                            logger.info("🔵 REST API thread started - creating FastAPI app...")
-                            
-                            # ✅ CRITICAL: Limit asyncio thread pool to prevent GIL contention
-                            # Default is min(32, cpu_count + 4) which can create 30+ threads
-                            # This caused 4-second delays in Rust→Python returns during neurogenesis
-                            import asyncio
-                            import concurrent.futures
-                            import os
-                            
-                            max_workers = 8  # Reasonable for REST API + async operations
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            executor = concurrent.futures.ThreadPoolExecutor(
-                                max_workers=max_workers,
-                                thread_name_prefix="FEAGI-API-Worker"
-                            )
-                            loop.set_default_executor(executor)
-                            print(f"🔵 Configured asyncio thread pool: max_workers={max_workers}", file=sys.stderr, flush=True)
-                            logger.info(f"🔵 Configured asyncio thread pool: max_workers={max_workers}")
-                            
-                            # Import FastAPI app here to avoid circular imports
-                            from feagi.api.rest.app import create_rest_app
-
-                            print("🔵 About to call create_rest_app()...", file=sys.stderr, flush=True)
-                            app = create_rest_app()
-                            print("🔵 FastAPI app created successfully - starting uvicorn...", file=sys.stderr, flush=True)
-                            logger.info("🔵 FastAPI app created successfully - starting uvicorn...")
-
-                            import uvicorn
-                            
-                            # Check if API debugging is enabled
-                            debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
-                            
-                            if debug_api_enabled:
-                                # API debug mode: show INFO level logs
-                                uvicorn_log_level = "info"
-                            else:
-                                # Use global log level from environment or config
-                                global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
-                                uvicorn_log_level = global_level.lower()
-                            
-                            uvicorn.run(
-                                app,
-                                host=api_config["host"],
-                                port=api_config["port"],
-                                access_log=api_config.get("access_log", True),
-                                log_level=uvicorn_log_level,
-                                loop="asyncio",
-                                timeout_keep_alive=1,
-                                limit_concurrency=256,
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to start uvicorn: {e}")
-                            logger.error(
-                                f"Full traceback: {traceback.format_exc()}"
-                            )
-                            #  Also log the exception type and context for
-                            #  debugging
-                            logger.error(f"Exception type: {type(e).__name__}")
-                            logger.error(
-                                f"Host: {api_config['host']}, Port: {api_config['port']}"
-                            )
-                            #  Re-raise to ensure the thread actually exits
-                            #  with failure
-                            raise
-
-                    # Start uvicorn in background thread
-                    api_thread = threading.Thread(
-                        target=run_uvicorn, daemon=True, name="REST-API"
-                    )
-                    api_thread.start()
                     
-                    import sys
-                    print(
-                        "🔵 Main thread: REST API thread started, continuing...",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                    # Store the thread reference for shutdown
-                    self._processes["rest_api"] = api_thread
-                    logger.info(
-                        f"REST API server starting on http://{api_host}:{api_port}"
-                    )
-                    print(
-                        "🔵 Main thread: Logged REST API message, continuing to "
-                        "WebSocket check...",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+                    api_process = self._start_api_process(api_config_full)
+                    
+                    if api_process:
+                        self._processes["rest_api"] = api_process
+                        logger.info(f"[OK] API process started on http://{api_host}:{api_port}")
+                    else:
+                        logger.error("Failed to start API process")
+                        return False
 
                 except Exception as e:
-                    logger.error(f"Failed to initialize REST API server: {e}")
+                    logger.error(f"Failed to initialize API process: {e}")
+                    logger.debug(traceback.format_exc())
                     return False
             else:
-                # Embedded mode: No HTTP interface at all
-                logger.info(
-                    "[CONFIG] Embedded mode: REST API completely disabled for minimal resource usage"
-                )
-                logger.info(
-                    "[CONFIG] Control interface available only via ZMQ REST stream (port 5563)"
-                )
-                logger.info(
-                    "[CONFIG] No web interface, no FastAPI imports, no uvicorn server"
-                )
+                logger.info("[CONFIG] Embedded mode: REST API disabled")
 
             # --- WebSocket Server (Optional) ---
             try:
@@ -1066,99 +967,91 @@ class ProcessManager:
             logger.debug(traceback.format_exc())
             return False
 
-    def _start_api_service_task(self, config: Dict[str, Any]) -> Optional[Any]:
-        """Start API service as async task instead of subprocess.
+    def _start_api_process(self, config: Dict[str, Any]) -> Optional[Any]:
+        """Start API service as separate process via subprocess (preserves venv)."""
+        import subprocess
+        import sys
+        import os
+        
+        api_host = config.get("host", "0.0.0.0")
+        api_port = config.get("port", 8000)
+        
+        # Get ZMQ configuration
+        from feagi.config.toml_loader import get_host_config, get_port_config
+        feagi_config = config.get("_full_config", {})
+        host_config = get_host_config(feagi_config)
+        port_config = get_port_config(feagi_config)
+        
+        zmq_host = host_config.api_host
+        zmq_port = port_config.zmq_api_control_port
+        zmq_address = f"tcp://{zmq_host}:{zmq_port}"
+        
+        logger.info(f"🚀 Starting API process: {api_host}:{api_port}")
+        logger.info(f"   ZMQ connection: {zmq_address}")
+        
+        # Create inline script for subprocess with error handling
+        # Uses existing FEAGI REST API (all endpoints preserved)
+        script_content = f'''#!/usr/bin/env python3
+import sys
+import traceback
 
-        RUST/RTOS COMPATIBLE: This pattern translates directly to Rust async
-        tasks.
-        """
-        try:
-            import asyncio
-            import threading
+try:
+    import uvicorn
+    from feagi.api.rest.app import create_rest_app
 
-            #  CRITICAL FIX: Ensure state synchronization between main process
-            #  and FastAPI thread
-            #  Set environment variable so FastAPI thread uses the same state
-            #  file
-            from feagi.core.state_manager import FeagiStateManager
+    print("[API-PROCESS] Creating FEAGI REST app with all endpoints...", file=sys.stderr, flush=True)
+    
+    # Create the full FEAGI REST API app (all existing endpoints)
+    app = create_rest_app()
+    
+    print("[API-PROCESS] Starting uvicorn server...", file=sys.stderr, flush=True)
+    uvicorn.run(app, host="{api_host}", port={api_port}, log_level="info")
 
-            state_manager = FeagiStateManager.instance()
-            if hasattr(state_manager, "path"):
-                os.environ["FEAGI_STATE_FILE"] = state_manager.path
-                logger.info(
-                    f"[LINK] Sharing state file with FastAPI thread: {state_manager.path}"
-                )
-            else:
-                logger.warning("[WARN]  State manager has no path attribute")
-
-            # Create dedicated event loop for API service
-            # In Rust, this would be a tokio::spawn() call
-            def run_api_service():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                # ✅ CRITICAL: Limit asyncio thread pool to prevent GIL contention
-                # Default is min(32, cpu_count + 4) which can create 30+ threads
-                # This caused 4-second delays in Rust→Python returns during neurogenesis
-                import concurrent.futures
-                max_workers = 8  # Reasonable for REST API + async operations
-                executor = concurrent.futures.ThreadPoolExecutor(
-                    max_workers=max_workers,
-                    thread_name_prefix="FEAGI-API-Worker"
-                )
-                loop.set_default_executor(executor)
-                logger.info(f"🔵 Configured asyncio thread pool: max_workers={max_workers}")
-
-                try:
-                    # Import and create FastAPI app with direct dependencies
-                    from feagi.api.rest.app import create_rest_app_direct
-
-                    app = create_rest_app_direct(config)
-
-                    # Run uvicorn in the same process
-                    import uvicorn
-                    import os
-                    
-                    # Determine Uvicorn log level based on debug flags
-                    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
-                    
-                    if debug_api_enabled:
-                        # API debug mode: show INFO level logs
-                        uvicorn_log_level = "info"
+except Exception as e:
+    print(f"[API-PROCESS] FATAL ERROR: {{e}}", file=sys.stderr, flush=True)
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)
+'''
+        
+        # Write to persistent location for debugging
+        script_dir = os.path.join(os.path.dirname(__file__), "..", "tmp")
+        os.makedirs(script_dir, exist_ok=True)
+        script_path = os.path.join(script_dir, "api_process.py")
+        
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        logger.info(f"   Script written to: {script_path}")
+        
+        # Start subprocess with current Python and venv environment
+        api_process = subprocess.Popen(
+            [sys.executable, "-u", script_path],  # -u for unbuffered output
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
+            text=True,
+            bufsize=1,  # Line buffered
+            env=os.environ.copy(),  # Inherit venv environment
+        )
+        
+        # Monitor output in background thread
+        def log_output():
+            try:
+                for line in api_process.stdout:
+                    line = line.rstrip()
+                    # Only log as error if line actually contains error/fatal
+                    if "ERROR" in line.upper() or "FATAL" in line.upper() or "TRACEBACK" in line.upper():
+                        logger.error(f"[API-PROCESS] {line}")
                     else:
-                        # Use global log level from environment or config
-                        global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
-                        uvicorn_log_level = global_level.lower()
-
-                    uvicorn.run(
-                        app,
-                        host=config["host"],
-                        port=config["port"],
-                        log_level=uvicorn_log_level,
-                        loop="asyncio",
-                        timeout_keep_alive=1,
-                        limit_concurrency=256,
-                    )
-                except Exception as e:
-                    logger.error(f"API service task failed: {e}")
-                finally:
-                    loop.close()
-
-            #  Start as daemon thread (in Rust: tokio::spawn with proper task
-            #  management)
-            api_thread = threading.Thread(
-                target=run_api_service, daemon=True, name="API-Service"
-            )
-            api_thread.start()
-
-            logger.info(
-                "[OK] API service task started successfully", status="[OK] "
-            )
-            return api_thread
-
-        except Exception as e:
-            logger.error(f"Failed to start API service task: {e}")
-            return None
+                        logger.info(f"[API-PROCESS] {line}")
+            except Exception as e:
+                logger.error(f"Error reading API process output: {e}")
+        
+        import threading
+        output_thread = threading.Thread(target=log_output, daemon=True)
+        output_thread.start()
+        
+        logger.info(f"[OK] API process started (PID: {api_process.pid})")
+        return api_process
 
     def start(self, config: Dict[str, Any]) -> bool:
         """Start all FEAGI processes in priority order.

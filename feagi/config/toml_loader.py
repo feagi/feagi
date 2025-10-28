@@ -75,6 +75,7 @@ class PortConfiguration:
     zmq_visualization_port: int
     zmq_rest_port: int
     zmq_motor_port: int
+    zmq_api_control_port: int
 
     def get_all_ports(self) -> Dict[str, int]:
         """Return all configured ports as a dictionary."""
@@ -438,6 +439,7 @@ def get_port_config(config: Dict[str, Any]) -> PortConfiguration:
         zmq_visualization_port=ports["zmq_visualization_port"],
         zmq_rest_port=ports["zmq_rest_port"],
         zmq_motor_port=ports["zmq_motor_port"],
+        zmq_api_control_port=ports["zmq_api_control_port"],
     )
 
 
