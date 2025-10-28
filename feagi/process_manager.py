@@ -1,16 +1,14 @@
-"""Copyright 2025 Neuraville Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright 2025 Neuraville Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+# this file except in compliance with the License. You may obtain a copy of the
+# License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """FEAGI Process Manager.
 
@@ -29,12 +27,6 @@ MIGRATION PATH: Python → Rust
 - Memory-mapped files → memmap2 crate
 - Singleton pattern → std::sync::Once
 """
-import asyncio
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(name="feagi.process_manager")
-
 import os
 import sys
 import threading
@@ -50,6 +42,10 @@ from feagi.config.toml_loader import (
     load_feagi_config,
 )
 from feagi.utils.port_checker import PortConflictError, check_port_availability
+from feagi.utils.logger import setup_logger
+
+
+logger = setup_logger(name="feagi.process_manager")
 
 # Process priority levels
 PRIORITY_CRITICAL = 1  # Real-time critical processes
@@ -477,6 +473,7 @@ class ProcessManager:
             # --- Get Stream Configuration Early ---
             zmq_config = config.get("zmq", {})
             stream_config = zmq_config.get("streams", {})
+            sensory_stream_config = stream_config.get("sensory", {})
 
             #  Check which streams are enabled (disable visualization in
             #  embedded mode)
@@ -580,8 +577,39 @@ class ProcessManager:
                 state_manager = FeagiStateManager.instance()
                 logger.info("🦀 Initializing Rust PNS (Peripheral Nervous System) for ZMQ services")
 
+                pns_kwargs = {}
+                if sensory_stream_config:
+                    required_keys = [
+                        "receive_high_water_mark",
+                        "linger_ms",
+                        "immediate",
+                        "poll_timeout_ms",
+                    ]
+                    missing_keys = [
+                        key
+                        for key in required_keys
+                        if key not in sensory_stream_config
+                    ]
+                    if missing_keys:
+                        raise RuntimeError(
+                            "Missing required ZMQ sensory stream configuration keys: "
+                            + ", ".join(missing_keys)
+                        )
+
+                    pns_kwargs.update(
+                        {
+                            "zmq_sensory_recv_hwm": sensory_stream_config["receive_high_water_mark"],
+                            "zmq_sensory_linger_ms": sensory_stream_config["linger_ms"],
+                            "zmq_sensory_immediate": sensory_stream_config["immediate"],
+                            "zmq_sensory_poll_timeout_ms": sensory_stream_config["poll_timeout_ms"],
+                        }
+                    )
+
                 # Create Rust PNS
-                pns = feagi_rust.PyPNS()
+                if pns_kwargs:
+                    pns = feagi_rust.PyPNS.new_with_config(**pns_kwargs)
+                else:
+                    pns = feagi_rust.PyPNS()
                 
                 # Register Python callbacks for agent lifecycle events (BEFORE start)
                 logger.info("🦀 Registering Python callbacks with Rust PNS")
@@ -933,14 +961,23 @@ class ProcessManager:
                     api_thread.start()
                     
                     import sys
-                    print(f"🔵 Main thread: REST API thread started, continuing...", file=sys.stderr, flush=True)
+                    print(
+                        "🔵 Main thread: REST API thread started, continuing...",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
                     # Store the thread reference for shutdown
                     self._processes["rest_api"] = api_thread
                     logger.info(
                         f"REST API server starting on http://{api_host}:{api_port}"
                     )
-                    print(f"🔵 Main thread: Logged REST API message, continuing to WebSocket check...", file=sys.stderr, flush=True)
+                    print(
+                        "🔵 Main thread: Logged REST API message, continuing to "
+                        "WebSocket check...",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
                 except Exception as e:
                     logger.error(f"Failed to initialize REST API server: {e}")
@@ -1356,7 +1393,7 @@ class ProcessManager:
                 use_shared_memory = bool(shm_registry)  # Registry only exists if --shared-mem flag was set
                 
                 if not use_shared_memory:
-                    logger.info(f"🎨 [FQ-CREATE] Visualization using ZMQ mode (--shared-mem not set)")
+                    logger.info("🎨 [FQ-CREATE] Visualization using ZMQ mode (--shared-mem not set)")
                     return True
                 
                 logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz with shared memory (Rust burst loop handles FQ sampling + SHM write)")
@@ -1366,27 +1403,40 @@ class ProcessManager:
                 # Per-agent rate limiting happens in capability rate manager
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
                     try:
-                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
-                        
-                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                        logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                        logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                        viz_shm_path = shm_registry.get(
+                            "visualization_stream",
+                            "/tmp/feagi-shared-mem-visualization_stream.bin",
+                        )
+
+                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(
+                            viz_shm_path
+                        )
+                        logger.info(
+                            "🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: %s",
+                            viz_shm_path,
+                        )
+                        logger.info(
+                            "🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager"
+                        )
                         return True
                     except Exception as e:
                         # Burst loop may not be running yet if agent registers early
                         if "Burst loop not running" in str(e):
-                            logger.info(f"🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts")
+                            logger.info(
+                                "🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts"
+                            )
                             return True
-                        else:
-                            raise
+                        raise
                 
                 # If Rust NPU not ready yet (early startup), that's OK
                 # The burst loop will start writing to SHM automatically once initialized
-                logger.info(f"🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts")
+                logger.info(
+                    "🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts"
+                )
                 return True
             
             elif mode == 'motor':
-                logger.info(f"🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
+                logger.info("🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
                 # Motor is handled by Rust burst engine directly
                 return True
             
@@ -1443,9 +1493,11 @@ class ProcessManager:
                                     self._viz_fq_sampler, 
                                     name='rust_fq_sampler_wrapper'
                                 )
-                                logger.info(f"🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
+                                logger.info("🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
                             else:
-                                logger.warning(f"🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration")
+                                logger.warning(
+                                    "🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration"
+                                )
                                 
                             # Attach Rust NPU visualization SHM writer AND set frequency
                             if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
@@ -1458,14 +1510,20 @@ class ProcessManager:
                                     
                                     # CRITICAL FIX: Set FQ sampler frequency to agent's requested rate
                                     rust_npu_integration.set_fq_sampler_frequency(rate_hz)
-                                    logger.info(f"🦀 [CALLBACK] ✅ FQ Sampler frequency set to {rate_hz}Hz")
+                                    logger.info(
+                                        "🦀 [CALLBACK] ✅ FQ Sampler frequency set to %sHz",
+                                        rate_hz,
+                                    )
                                     
                                     rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                                    logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                                    logger.info(
+                                        "🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: %s",
+                                        viz_shm_path,
+                                    )
                         except Exception as e:
                             logger.error(f"🦀 [CALLBACK] Failed to create visualization FQ sampler: {e}")
                     else:
-                        logger.info(f"🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
+                        logger.info("🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
             
             # Check for motor capability
             if 'motor' in capabilities:
@@ -2462,9 +2520,9 @@ class SleepManager:
         )
         
         if success:
-            logger.debug(f"🌍 Sleep Manager acquired global brain lock for maintenance")
+            logger.debug("🌍 Sleep Manager acquired global brain lock for maintenance")
         else:
-            logger.warning(f"Failed to acquire global brain lock for maintenance")
+            logger.warning("Failed to acquire global brain lock for maintenance")
         
         return success
 
@@ -2478,9 +2536,9 @@ class SleepManager:
         success = state_manager.unlock_global_brain(locked_by=self._component_name)
         
         if success:
-            logger.debug(f"🌍 Sleep Manager released global brain lock after maintenance")
+            logger.debug("🌍 Sleep Manager released global brain lock after maintenance")
         else:
-            logger.warning(f"Failed to release global brain lock")
+            logger.warning("Failed to release global brain lock")
 
     def _cleanup_locked_areas(self) -> None:
         """Emergency cleanup of global brain lock (called during shutdown)."""
@@ -2492,7 +2550,7 @@ class SleepManager:
         unlocked = state_manager.force_unlock_global_brain(locked_by=self._component_name)
         
         if unlocked:
-            logger.info(f"🚨 Sleep Manager emergency cleanup: released global brain lock")
+            logger.info("🚨 Sleep Manager emergency cleanup: released global brain lock")
 
     def _run_memory_maintenance(self, current_ts: int) -> None:
         """Run memory maintenance operations with cortical area locking coordination.

@@ -37,15 +37,15 @@ class CorticalParameterUpdater:
         'neuron_excitability': ('excitabilities', _validate_0_1_float, 'Excitability'),
         'snooze_length': ('snooze_periods', lambda v: int(max(0, round(float(v)))), 'Snooze period'),
         'firing_threshold_limit': ('thresholds', float, 'Firing threshold'),
+        'neuron_fire_threshold': ('thresholds', float, 'Firing threshold'),  # Alternative name
+        'firing_threshold': ('thresholds', float, 'Firing threshold'),  # Alternative name
         'leak': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),
         'neuron_leak_coefficient': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),  # Alternative name
         'neuron_leak_variability': ('leak_coefficients', _validate_0_1_float, 'Leak variability'),  # Neurogenesis parameter (genome only)
         'refrac': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),
         'neuron_refractory_period': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),  # Alternative name
         'consecutive_fire_cnt_max': ('consecutive_fire_limits', lambda v: int(max(0, round(float(v)))), 'Consecutive fire limit'),
-        'neuron_membrane_potential': ('membrane_potentials', float, 'Membrane potential'),
-        'neuron_resting_potential': ('resting_potentials', float, 'Resting potential'),
-        'neuron_type': ('neuron_types', int, 'Neuron type'),
+        'neuron_mp_charge_accumulation': ('mp_charge_accumulation', bool, 'MP charge accumulation'),  # Genome: nx-mp_acc-b
     }
 
     def __init__(self, connectome_manager: ConnectomeManager):
@@ -118,10 +118,10 @@ class CorticalParameterUpdater:
                     # Use dedicated Rust method for excitability updates
                     updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
-                elif property_name in ('neuron_refractory_period', 'refractory_period'):
+                elif property_name in ('neuron_refractory_period', 'refractory_period', 'refrac'):
                     updated_count = rust_npu.update_cortical_area_refractory_period(cortical_idx, int(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated refractory_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
-                elif property_name in ('neuron_fire_threshold', 'firing_threshold'):
+                elif property_name in ('neuron_fire_threshold', 'firing_threshold', 'firing_threshold_limit'):
                     updated_count = rust_npu.update_cortical_area_threshold(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated threshold to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 elif property_name in ('leak', 'leak_coefficient', 'neuron_leak_coefficient', 'neuron_leak_variability'):
@@ -137,6 +137,9 @@ class CorticalParameterUpdater:
                 elif property_name in ('snooze_length', 'neuron_snooze_period'):
                     updated_count = rust_npu.update_cortical_area_snooze_period(cortical_idx, int(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated snooze_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name == 'neuron_mp_charge_accumulation':
+                    updated_count = rust_npu.update_cortical_area_mp_charge_accumulation(cortical_idx, bool(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated mp_charge_accumulation to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 else:
                     # For other properties, we'll need to add specific Rust methods as needed
                     self.logger.warning(f"🦀 [RUST-NPU] Live update for {property_name} not yet implemented - will require FEAGI restart")

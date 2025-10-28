@@ -3021,11 +3021,12 @@ class NeuroEmbryogenesis:
             src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
             dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
             
-            # Get synapse properties
+            # Get synapse properties from SOURCE and DESTINATION areas
+            src_area = self.connectome_manager.get_cortical_area(src_area_id)
             dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
             synapse_attractivity = int(dst_area.properties.get("synatt", 100))
             weight = int(psc_multiplier * 255) & 0xFF
-            conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
+            conductance = int(src_area.properties.get("pstcr", 10)) & 0xFF  # Read from SOURCE area
             
             # Convert vectors to tuples of (i32, i32, i32) for Rust
             rust_vectors = [tuple(int(v) for v in vec) for vec in vectors]
@@ -3080,11 +3081,12 @@ class NeuroEmbryogenesis:
             src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
             dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
             
-            # Get synapse properties
+            # Get synapse properties from SOURCE and DESTINATION areas
+            src_area = self.connectome_manager.get_cortical_area(src_area_id)
             dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
             synapse_attractivity = int(dst_area.properties.get("synatt", 100))
             weight = int(psc_multiplier * 255) & 0xFF
-            conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
+            conductance = int(src_area.properties.get("pstcr", 10)) & 0xFF  # Read from SOURCE area
             
             # Convert Python patterns to Rust integer patterns
             # -1 = wildcard "*", -2 = skip "?", -3 = exclude "!", >= 0 = exact value
@@ -3155,11 +3157,12 @@ class NeuroEmbryogenesis:
             src_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(src_area_id)
             dst_cortical_idx = self.connectome_manager.cortical_mapping.get_idx(dst_area_id)
             
-            # Get synapse properties
+            # Get synapse properties from SOURCE and DESTINATION areas
+            src_area = self.connectome_manager.get_cortical_area(src_area_id)
             dst_area = self.connectome_manager.get_cortical_area(dst_area_id)
             synapse_attractivity = int(dst_area.properties.get("synatt", 100))
             weight = int(psc_multiplier * 255) & 0xFF
-            conductance = dst_area.properties.get("postsynaptic_current", 10) & 0xFF
+            conductance = int(src_area.properties.get("pstcr", 10)) & 0xFF  # Read from SOURCE area
 
             total_synapses = 0
 

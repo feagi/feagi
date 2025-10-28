@@ -7294,6 +7294,7 @@ class ConnectomeManager:
             excitability=1.0,  # Default excitability
             consecutive_fire_limit=0,  # Default no limit
             snooze_period=0,  # Default no extended refractory
+            mp_charge_accumulation=True,  # Default: accumulate (backward compatible)
             cortical_area=int(cortical_idx),
             x=int(position[0]),
             y=int(position[1]),
