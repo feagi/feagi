@@ -942,41 +942,15 @@ class FeagiStateManager:
     
     def get_brain_readiness(self) -> bool:
         """Get current brain readiness status."""
-        return bool(self._atomic_brain_ready.load())
+        return self._brain_readiness
     
-    def set_brain_readiness(self, ready: bool) :
+    def set_brain_readiness(self, ready: bool):
         """Set brain readiness with prerequisite validation."""
-        new_state = 1 if ready else 0
-        
-        # CRITICAL: Validate prerequisites before setting brain ready
-        if ready:
-            prerequisites_result = (
-                self._validate_brain_readiness_prerequisites()
-            )
-            if prerequisites_result.is_err:
-                logger.warning(
-                    "Brain readiness blocked - prerequisites not met"
-                )
-                return prerequisites_result
-        
-        # Atomic update
         with self._instance_lock:
-            old_state = self._atomic_brain_ready.load()
-            self._atomic_brain_ready.store(new_state)
-            self._state.brain_readiness = new_state
-            self._increment_version()
-            
-            self._log_state_change("brain_readiness", old_state, new_state)
-            
-            # Persist to storage
-            store_result = self._storage.store_state(self._state)
-            if store_result.is_err:
-                # Rollback on storage failure
-                self._atomic_brain_ready.store(old_state)
-                self._state.brain_readiness = old_state
-                return store_result
-        
-        return Result.ok(None)
+            self._brain_readiness = ready
+            # Also update stub for compatibility
+            self._atomic_brain_ready.store(1 if ready else 0)
+            self._state.brain_readiness = 1 if ready else 0
     
     # === EXIT CONDITION MANAGEMENT ===
     

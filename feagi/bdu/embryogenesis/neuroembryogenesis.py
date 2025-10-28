@@ -660,7 +660,13 @@ class NeuroEmbryogenesis:
                         rust_npu = npu_interface._rust_npu_integration._rust_npu
                         if rust_npu:
                             rust_npu.register_cortical_area(cortical_idx, cortical_id)
-                            logger.debug(f"Registered cortical area {cortical_id} (idx={cortical_idx}) in Rust NPU for visualization")
+                            logger.info(f"🦀 [CORTICAL-REG] Registered cortical area {cortical_id} (idx={cortical_idx}) in Rust NPU")
+                        else:
+                            logger.warning(f"🦀 [CORTICAL-REG] SKIPPED: rust_npu is None for {cortical_id}")
+                    else:
+                        logger.warning(f"🦀 [CORTICAL-REG] SKIPPED: _rust_npu_integration is None for {cortical_id}")
+                else:
+                    logger.warning(f"🦀 [CORTICAL-REG] SKIPPED: _npu_interface is None for {cortical_id}")
 
                 logger.debug(
                     f"Created cortical area {name} (cortical_idx {cortical_idx}, cortical_id {cortical_id})"
