@@ -1,5 +1,5 @@
 import feagi_rust_py_libs as frpl
-from .devices.sensor_device_types import Percentage1D, ImageFrame
+from .devices.sensor_device_types import Percentage1D, ImageFrame, MiscData, SegmentedImageFrame
 
 class SensorsProxy:
 
@@ -33,4 +33,9 @@ class SensorsProxy:
         self.gpio_analog_incremental_linear = Percentage1D(io_cache_ref, "gpio_analog_incremental_linear")
         self.gpio_analog_incremental_fractional = Percentage1D(io_cache_ref, "gpio_analog_incremental_fractional")
 
+        self.miscellaneous_absolute = MiscData(io_cache_ref, "miscellaneous_absolute")
+        self.miscellaneous_incremental = MiscData(io_cache_ref, "miscellaneous_incremental")
+
         self.image_camera_center = ImageFrame(io_cache_ref, "image_camera_center_absolute")
+
+        self.segmented_vision_absolute = SegmentedImageFrame(io_cache_ref, "segmented_vision_absolute")

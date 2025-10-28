@@ -106,3 +106,55 @@ class ImageFrame(Device):
             frpl.connector_core.data.ImageFrame: Post-processed image frame for the given channel.
         """
         return self._read_post_function(cortical_group, channel)
+
+class MiscData(Device):
+    def __init__(self, io_cache_ref: frpl.connector_core.caching.IOCache, device_full_name: str):
+        super().__init__(io_cache_ref)
+
+        register_fn_name: str = "sensor_" + device_full_name + "_try_register"
+        write_fn_name: str = "sensor_" + device_full_name + "_try_write"
+        read_post_fn_name: str = "sensor_" + device_full_name + "_try_read_postprocessed_cache_value"
+
+        self._register_function = getattr(self._io_cache, register_fn_name)
+        self._write_function = getattr(self._io_cache, write_fn_name)
+        self._read_post_function = getattr(self._io_cache, read_post_fn_name)
+
+    def register(self, cortical_group: CorticalGroupIndex, number_of_channels: ChannelCount,
+                 misc_dimensions: frpl.connector_core.data.descriptors.MiscDataDimensions):
+        self._register_function(cortical_group, number_of_channels, misc_dimensions)
+
+    def write(self, cortical_group: CorticalGroupIndex, channel: ChannelIndex, data: IOData):
+        self._write_function(cortical_group, channel, data)
+
+    def read_post_processed_cache_value(self, cortical_group: CorticalGroupIndex, channel: ChannelIndex) -> frpl.connector_core.data.MiscData:
+        return self._read_post_function(cortical_group, channel)
+
+class SegmentedImageFrame(Device):
+    def __init__(self, io_cache_ref: frpl.connector_core.caching.IOCache, device_full_name: str):
+        """Initialize the image frame sensor proxy.
+
+        Args:
+            io_cache_ref (frpl.connector_core.caching.IOCache): Rust IOCache bridge used to call into FEAGI.
+            device_full_name (str): Full device identifier suffix (e.g. "image_camera_center").
+        """
+        super().__init__(io_cache_ref)
+
+        register_fn_name: str = "sensor_" + device_full_name + "_try_register"
+        write_fn_name: str = "sensor_" + device_full_name + "_try_write"
+        read_post_fn_name: str = "sensor_" + device_full_name + "_try_read_post_processed_cache_value" # TODO extra _
+
+        self._register_function = getattr(self._io_cache, register_fn_name)
+        self._write_function = getattr(self._io_cache, write_fn_name)
+        #self._read_post_function = getattr(self._io_cache, read_post_fn_name)
+
+    def register(self, cortical_group: CorticalGroupIndex, number_of_channels: ChannelCount,
+                 input_image_properties: frpl.connector_core.data.descriptors.ImageFrameProperties,
+                 output_segment_properties: frpl.connector_core.data.descriptors.SegmentedImageFrameProperties,
+                 gaze: frpl.connector_core.data.descriptors.GazeProperties):
+        self._register_function(cortical_group, number_of_channels, input_image_properties, output_segment_properties, gaze)
+
+    def write(self, cortical_group: CorticalGroupIndex, channel: ChannelIndex, data: IOData):
+        self._write_function(cortical_group, channel, data)
+
+    #def read_post_processed_cache_value(self, cortical_group: CorticalGroupIndex, channel: ChannelIndex) -> frpl.connector_core.data.SegmentedImageFrame:
+    #    return self._read_post_function(cortical_group, channel)
