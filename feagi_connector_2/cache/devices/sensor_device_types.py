@@ -6,7 +6,7 @@ from .device import Device, ChannelCount, CorticalGroupIndex, ChannelIndex, Neur
 
 
 class Percentage1D(Device):
-    def __init__(self, io_cache_ref: frpl.connector_core.data.IOCache, device_full_name: str):
+    def __init__(self, io_cache_ref: frpl.connector_core.caching.IOCache, device_full_name: str):
         super().__init__(io_cache_ref)
 
         register_fn_name: str = "sensor_" + device_full_name + "_try_register"
@@ -28,19 +28,19 @@ class Percentage1D(Device):
         return self._read_post_function(cortical_group, channel)
 
 class ImageFrame(Device):
-    def __init__(self, io_cache_ref: frpl.connector_core.data.IOCache, device_full_name: str):
+    def __init__(self, io_cache_ref: frpl.connector_core.caching.IOCache, device_full_name: str):
         super().__init__(io_cache_ref)
 
         register_fn_name: str = "sensor_" + device_full_name + "_try_register"
         write_fn_name: str = "sensor_" + device_full_name + "_try_write"
         read_post_fn_name: str = "sensor_" + device_full_name + "_try_read_postprocessed_cache_value"
 
-        self._register_function = getattr(self._io_cache, register_fn_name)(CorticalGroupIndex, ChannelCount, frpl.data_structures.genomic.descriptors.ImageFrameProperties)
+        self._register_function = getattr(self._io_cache, register_fn_name)(CorticalGroupIndex, ChannelCount, frpl.connector_core.data.descriptors.ImageFrameProperties)
         self._write_function = getattr(self._io_cache, write_fn_name)(CorticalGroupIndex, ChannelIndex, IOData)
         self._read_post_function = getattr(self._io_cache, read_post_fn_name)(CorticalGroupIndex, ChannelIndex)
 
     def register(self, cortical_group: CorticalGroupIndex, number_of_channels: ChannelCount,
-                 image_properties: frpl.data_structures.genomic.descriptors.ImageFrameProperties):
+                 image_properties: frpl.connector_core.data.descriptors.ImageFrameProperties):
         self._register_function(cortical_group, number_of_channels, image_properties)
 
     def write(self, cortical_group: CorticalGroupIndex, channel: ChannelIndex, data: IOData):

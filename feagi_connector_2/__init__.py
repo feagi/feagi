@@ -1,7 +1,8 @@
-from feagi_connector_2 import feagi_agent
-from feagi_connector_2 import cache
+from .feagi_agent import FeagiAgent
+from . import feagi_agent, cache
 
 __all__ = [
-    feagi_agent,
-    cache
-    ]
+    "FeagiAgent",
+    "feagi_agent",
+    "cache",
+]

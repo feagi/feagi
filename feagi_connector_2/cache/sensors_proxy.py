@@ -3,7 +3,7 @@ from .devices.sensor_device_types import Percentage1D, ImageFrame
 
 class SensorsProxy:
 
-    def __init__(self, io_cache_ref: frpl.connector_core.data.IOCache):
+    def __init__(self, io_cache_ref: frpl.connector_core.caching.IOCache):
         self.infrared_absolute_linear = Percentage1D(io_cache_ref, "infrared_absolute_linear")
         self.infrared_absolute_fractional = Percentage1D(io_cache_ref, "infrared_absolute_fractional")
         self.infrared_incremental_linear = Percentage1D(io_cache_ref, "infrared_incremental_linear")

@@ -10,7 +10,7 @@ IOData: TypeAlias = frpl.connector_core.data.ImageFrame | frpl.connector_core.da
 
 
 class Device(ABC):
-    def __init__(self, io_cache: frpl.connector_core.data.IOCache):
-        self._io_cache: frpl.connector_core.data.IOCache = io_cache
+    def __init__(self, io_cache: frpl.connector_core.caching.IOCache):
+        self._io_cache: frpl.connector_core.caching.IOCache = io_cache
 
     #TODO stage logic proxy
