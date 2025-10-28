@@ -31,13 +31,11 @@ import zmq.asyncio
 # from feagi_bytes import ByteStructureEncoder, ByteStructureDecoder, ByteStructureID
 
 # Import constants
-from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
-
-# Import default implementation - this should be the Python implementation
-# for backward compatibility
-from feagi_connector.utils.processing import (
-    infer_byte_structure_type_python as infer_byte_structure_type,
-    decode_neuron_potential_xyz_python as decode_neuron_potential_xyz
+from feagi_connector.utils import (
+    NEURON_POTENTIAL_CATEGORICAL_XYZ,
+    decode_neuron_potential_xyz,
+    extract_sub_structures,
+    infer_byte_structure_type,
 )
 
 # Configure logging
@@ -232,12 +230,12 @@ class FeagiMotorClient:
             structure_type = infer_byte_structure_type(data)
             
             # If it's neuron potential data, decode it using the specialized decoder
-            if structure_type == ByteStructureID.NEURON_POTENTIAL_CATEGORICAL_XYZ:
+            if structure_type == NEURON_POTENTIAL_CATEGORICAL_XYZ:
                 return decode_neuron_potential_xyz(data)
                 
             # Otherwise use the general decoder
-            decoder = ByteStructureDecoder(data)
-            return decoder.decode()
+            # decoder = ByteStructureDecoder(data)
+            # return decoder.decode()
             
         except Exception as e:
             logger.error(f"Error processing motor data: {e}")

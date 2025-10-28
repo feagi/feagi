@@ -39,10 +39,10 @@ from feagi_connector.api.command_client import FeagiControlClient
 from feagi_connector.api.sensory_client import FeagiSensoryClient
 from feagi_connector.api.motor_client import FeagiMotorClient
 from feagi_connector.api.viz_client import FeagiVizClient
-from feagi_connector.utils import NEURON_POTENTIAL_CATEGORICAL_XYZ
-from feagi_connector.utils.processing import (
-    infer_byte_structure_type_python as infer_byte_structure_type,
-    extract_sub_structures_python as extract_sub_structures
+from feagi_connector.utils import (
+    NEURON_POTENTIAL_CATEGORICAL_XYZ,
+    extract_sub_structures,
+    infer_byte_structure_type,
 )
 
 # Configure logging
