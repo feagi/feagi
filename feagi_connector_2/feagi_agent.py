@@ -6,3 +6,4 @@ class FeagiAgent:
     def __init__(self):
         self_rust_agent: frpl.connector_core.data.IOCache = frpl.connector_core.data.IOCache()
         self.sensor_devices = SensorsProxy(self_rust_agent)
+        
