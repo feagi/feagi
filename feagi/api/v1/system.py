@@ -61,7 +61,11 @@ class SystemAPI:
 
     def __init__(self, core_api_service: CoreAPIService):
         """Initialize with core API service dependency."""
+        print(f"🔍 [SystemAPIRouter.__init__] Received core_api_service: {core_api_service}", flush=True)
+        print(f"🔍 [SystemAPIRouter.__init__] Type: {type(core_api_service)}", flush=True)
+        print(f"🔍 [SystemAPIRouter.__init__] Has get_system_health: {hasattr(core_api_service, 'get_system_health')}", flush=True)
         self.core_api_service = core_api_service
+        print(f"🔍 [SystemAPIRouter.__init__] ✅ Stored core_api_service", flush=True)
 
     # ===== User Preferences =====
 
@@ -215,7 +219,11 @@ class SystemAPI:
                     memory_area_stats=data.get("memory_area_stats"),
                 )
             self._hc_inflight += 1
+            print(f"🔍 [HealthCheck] About to call self.core_api_service.get_system_health()", flush=True)
+            print(f"🔍 [HealthCheck] core_api_service = {self.core_api_service}", flush=True)
+            print(f"🔍 [HealthCheck] Type = {type(self.core_api_service)}", flush=True)
             health = await self.core_api_service.get_system_health()
+            print(f"🔍 [HealthCheck] ✅ Received health result = {health}", flush=True)
             # Update cache
             self._hc_cache = {"t": now, "data": dict(health)}
             return HealthCheckResponse(

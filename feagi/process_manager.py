@@ -627,25 +627,56 @@ class ProcessManager:
                 
                 # CRITICAL: Connect NPU to streams (streams not started yet)
                 # This prepares the connections but doesn't allow data flow yet
+                print("=" * 80, flush=True)
+                print("🦀 [MAIN] ABOUT TO CHECK NPU FOR RPC REGISTRATION", flush=True)
+                print(f"🦀 [MAIN] rust_npu_integration = {self.rust_npu_integration}", flush=True)
+                print(f"🦀 [MAIN] _rust_npu = {self.rust_npu_integration._rust_npu if self.rust_npu_integration else 'N/A'}", flush=True)
+                print("=" * 80, flush=True)
+                
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    print("🦀 [MAIN] ✅ NPU CHECK PASSED - PROCEEDING WITH RPC SETUP", flush=True)
                     pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
                     pns.connect_npu_to_api_control_stream(self.rust_npu_integration._rust_npu)
                     logger.info("🦀 ✅ PNS streams connected to Rust NPU (sensory + API control)")
                     
                     # Register RPC handler for API subprocess (for generic method calls)
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] REGISTERING RPC HANDLER FOR API SUBPROCESS", flush=True)
+                    print("=" * 80, flush=True)
+                    logger.info("🦀 [MAIN] ========================================")
+                    logger.info("🦀 [MAIN] REGISTERING RPC HANDLER FOR API SUBPROCESS")
+                    logger.info("🦀 [MAIN] ========================================")
+                    
                     from feagi.core.rpc_handler import CoreAPIServiceRpcHandler
                     from feagi.api.core.services.core_api_service import CoreAPIService
                     from feagi.bdu.connectome_manager import ConnectomeManager
                     
-                    # Create real CoreAPIService in main process (uses existing connectome manager)
+                    logger.info("🦀 [MAIN] Step 1: Getting ConnectomeManager instance...")
                     connectome_manager = ConnectomeManager.instance()
-                    real_core_api = CoreAPIService(connectome_manager=connectome_manager)
-                    rpc_handler = CoreAPIServiceRpcHandler(real_core_api)
+                    logger.info(f"🦀 [MAIN] Step 1: ✅ ConnectomeManager = {connectome_manager}")
                     
-                    # Register handler with PNS (forwards to Rust ApiControlStream)
+                    logger.info("🦀 [MAIN] Step 2: Creating CoreAPIService...")
+                    real_core_api = CoreAPIService(connectome_manager=connectome_manager)
+                    logger.info(f"🦀 [MAIN] Step 2: ✅ CoreAPIService = {real_core_api}")
+                    
+                    logger.info("🦀 [MAIN] Step 3: Creating RPC handler...")
+                    rpc_handler = CoreAPIServiceRpcHandler(real_core_api)
+                    logger.info(f"🦀 [MAIN] Step 3: ✅ RPC handler = {rpc_handler}")
+                    
+                    logger.info("🦀 [MAIN] Step 4: Registering with PNS...")
                     pns.set_api_rpc_callback(rpc_handler.handle_rpc_call)
-                    logger.info("🦀 ✅ RPC handler registered for API subprocess")
+                    logger.info("🦀 [MAIN] Step 4: ✅ RPC callback registered with Rust PNS")
+                    
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] ✅✅✅ RPC HANDLER FULLY REGISTERED ✅✅✅", flush=True)
+                    print("=" * 80, flush=True)
+                    logger.info("🦀 [MAIN] ========================================")
+                    logger.info("🦀 [MAIN] ✅ RPC HANDLER FULLY REGISTERED")
+                    logger.info("🦀 [MAIN] ========================================")
                 else:
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] ❌❌❌ NPU CHECK FAILED - NO RPC HANDLER REGISTERED ❌❌❌", flush=True)
+                    print("=" * 80, flush=True)
                     logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized")
                 
                 # Store PNS for access by registration manager and other components
@@ -868,10 +899,14 @@ class ProcessManager:
         Returns:
             True if successfully initialized, False otherwise.
         """
+        print("=" * 80, flush=True)
+        print("🚀🚀🚀 init_background_processes() CALLED 🚀🚀🚀", flush=True)
+        print("=" * 80, flush=True)
         logger.info("Initializing background (Priority 3) processes...")
 
         # Check if embedded mode is enabled
         embedded_mode = config.get("system", {}).get("embedded", False)
+        print(f"🚀 Embedded mode: {embedded_mode}", flush=True)
 
         try:
             # --- REST API (normal mode only) ---
@@ -890,6 +925,7 @@ class ProcessManager:
 
             if not embedded_mode:
                 try:
+                    print("🚀 [INIT-BG] About to start API process...", flush=True)
                     # Run FastAPI in separate process via ZMQ (zero GIL contention)
                     api_config_full = {
                         "host": api_host,
@@ -897,16 +933,23 @@ class ProcessManager:
                         "_full_config": config,
                     }
                     
+                    print(f"🚀 [INIT-BG] Calling _start_api_process with config: {api_host}:{api_port}", flush=True)
                     api_process = self._start_api_process(api_config_full)
+                    print(f"🚀 [INIT-BG] _start_api_process returned: {api_process}", flush=True)
                     
                     if api_process:
                         self._processes["rest_api"] = api_process
+                        print(f"🚀 [INIT-BG] ✅ API process registered in _processes", flush=True)
                         logger.info(f"[OK] API process started on http://{api_host}:{api_port}")
                     else:
+                        print("🚀 [INIT-BG] ❌ API process returned None!", flush=True)
                         logger.error("Failed to start API process")
                         return False
 
                 except Exception as e:
+                    print(f"🚀 [INIT-BG] 💥 Exception starting API process: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
                     logger.error(f"Failed to initialize API process: {e}")
                     logger.debug(traceback.format_exc())
                     return False
@@ -983,6 +1026,10 @@ class ProcessManager:
 
     def _start_api_process(self, config: Dict[str, Any]) -> Optional[Any]:
         """Start API service as separate process via subprocess (preserves venv)."""
+        print("=" * 80, flush=True)
+        print("🚀 [_START_API_PROCESS] METHOD ENTERED", flush=True)
+        print("=" * 80, flush=True)
+        
         import subprocess
         import sys
         import os
@@ -990,15 +1037,19 @@ class ProcessManager:
         api_host = config.get("host", "0.0.0.0")
         api_port = config.get("port", 8000)
         
+        print(f"🚀 [_START_API_PROCESS] API config: {api_host}:{api_port}", flush=True)
+        
         # Get ZMQ configuration
         from feagi.config.toml_loader import get_host_config, get_port_config
         feagi_config = config.get("_full_config", {})
         host_config = get_host_config(feagi_config)
         port_config = get_port_config(feagi_config)
         
-        zmq_host = host_config.api_host
+        # API subprocess connects to localhost (not bind address)
         zmq_port = port_config.zmq_api_control_port
-        zmq_address = f"tcp://{zmq_host}:{zmq_port}"
+        zmq_address = f"tcp://127.0.0.1:{zmq_port}"
+        
+        print(f"🚀 [_START_API_PROCESS] ZMQ address: {zmq_address}", flush=True)
         
         logger.info(f"🚀 Starting API process: {api_host}:{api_port}")
         logger.info(f"   ZMQ connection: {zmq_address}")
@@ -1007,54 +1058,96 @@ class ProcessManager:
         # Uses existing FEAGI REST API (all endpoints preserved)
         # State queries proxied via ZMQ to main process
         script_content = f'''#!/usr/bin/env python3
+# Log everything to a file for debugging
 import sys
+import os
+
+log_file_path = "/Users/nadji/code/FEAGI-2.0/feagi-py/tmp/api_subprocess.log"
+log_file = open(log_file_path, "w", buffering=1)  # Line buffered
+
+def log_and_print(msg):
+    """Write to both console and log file"""
+    print(msg, flush=True)
+    print(msg, file=sys.stderr, flush=True)
+    print(msg, file=log_file, flush=True)
+
+log_and_print("=" * 80)
+log_and_print("[API-PROCESS] SUBPROCESS SCRIPT STARTED")
+log_and_print(f"[API-PROCESS] PID: {{os.getpid()}}")
+log_and_print(f"[API-PROCESS] Log file: {{log_file_path}}")
+log_and_print("=" * 80)
+
 import traceback
 
 try:
+    log_and_print("[API-PROCESS] Importing uvicorn...")
     import uvicorn
+    log_and_print("[API-PROCESS] ✅ uvicorn imported")
     
     # CRITICAL: Inject proxies BEFORE any imports that use them
-    print("[API-PROCESS] Initializing ZMQ proxies...", file=sys.stderr, flush=True)
+    log_and_print("=" * 80)
+    log_and_print("[API-PROCESS] STARTING PROXY INJECTION")
+    log_and_print("=" * 80)
+    log_and_print(f"[API-PROCESS] ZMQ Address: {zmq_address}")
     
     # 1. State manager proxy
+    log_and_print("[API-PROCESS] Step 1: Injecting State Manager proxy...")
     from feagi.core.zmq_state_proxy import ZmqStateProxy
     from feagi.core.state_manager import FeagiStateManager
     
     state_proxy = ZmqStateProxy("{zmq_address}")
     FeagiStateManager._instance = state_proxy
-    print("[API-PROCESS] ✅ State proxy injected", file=sys.stderr, flush=True)
+    log_and_print(f"[API-PROCESS] Step 1: ✅ State proxy created")
     
     # 2. CoreAPIService RPC proxy (replaces the class so it can be inherited from)
+    log_and_print("[API-PROCESS] Step 2: Injecting CoreAPIService RPC proxy...")
     from feagi.core.zmq_rpc_proxy import create_core_api_service_proxy
     from feagi.api.core.services import core_api_service
     
-    # Replace CoreAPIService class with proxy class (so it can be subclassed)
+    log_and_print(f"[API-PROCESS] Step 2a: Importing core_api_service...")
     _original_CoreAPIService = core_api_service.CoreAPIService
     
     # Create proxy class that can be inherited from
+    log_and_print("[API-PROCESS] Step 2b: Creating proxy class...")
     ProxyClass = create_core_api_service_proxy("{zmq_address}")
+    log_and_print(f"[API-PROCESS] Step 2b: ✅ ProxyClass created")
+    
+    log_and_print("[API-PROCESS] Step 2c: Replacing CoreAPIService with proxy...")
     core_api_service.CoreAPIService = ProxyClass
+    log_and_print(f"[API-PROCESS] Step 2c: ✅ CoreAPIService replaced")
     
     # Also patch core_api_factory module (it has CoreAPI that inherits from CoreAPIService)
+    log_and_print("[API-PROCESS] Step 2d: Patching core_api_factory...")
     from feagi.core import core_api_factory
     
-    # Replace CoreAPI class entirely with the proxy
     core_api_factory.CoreAPI = ProxyClass
+    log_and_print(f"[API-PROCESS] Step 2d: ✅ core_api_factory.CoreAPI replaced")
     
-    print("[API-PROCESS] ✅ CoreAPIService & CoreAPI RPC proxy classes injected", file=sys.stderr, flush=True)
+    log_and_print("=" * 80)
+    log_and_print("[API-PROCESS] ✅ ALL PROXIES INJECTED")
+    log_and_print("=" * 80)
     
     # NOW import and create app (will use our proxies)
+    log_and_print("[API-PROCESS] Step 3: Importing create_rest_app...")
     from feagi.api.rest.app import create_rest_app
     
-    print("[API-PROCESS] Creating FEAGI REST app with all endpoints...", file=sys.stderr, flush=True)
+    log_and_print("[API-PROCESS] Step 4: Calling create_rest_app()...")
     app = create_rest_app()
+    log_and_print(f"[API-PROCESS] Step 4: ✅ App created")
     
-    print("[API-PROCESS] Starting uvicorn server...", file=sys.stderr, flush=True)
+    log_and_print("[API-PROCESS] Starting uvicorn server...")
+    log_and_print(f"[API-PROCESS] Host: {api_host}, Port: {api_port}")
+    log_file.close()  # Close log file before uvicorn takes over
     uvicorn.run(app, host="{api_host}", port={api_port}, log_level="info")
 
 except Exception as e:
-    print(f"[API-PROCESS] FATAL ERROR: {{e}}", file=sys.stderr, flush=True)
+    error_msg = f"[API-PROCESS] FATAL ERROR: {{e}}"
+    print(error_msg, flush=True)
+    print(error_msg, file=sys.stderr, flush=True)
+    print(error_msg, file=log_file, flush=True)
     traceback.print_exc(file=sys.stderr)
+    traceback.print_exc(file=log_file)
+    log_file.close()
     sys.exit(1)
 '''
         
@@ -1066,7 +1159,8 @@ except Exception as e:
         with open(script_path, 'w') as f:
             f.write(script_content)
         
-        logger.info(f"   Script written to: {script_path}")
+        logger.info(f"🚀 [START-API] Script written to: {script_path}")
+        logger.info(f"🚀 [START-API] You can test it manually with: python {script_path}")
         
         # Start subprocess with current Python and venv environment
         api_process = subprocess.Popen(
