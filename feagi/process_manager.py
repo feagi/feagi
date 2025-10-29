@@ -631,6 +631,20 @@ class ProcessManager:
                     pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
                     pns.connect_npu_to_api_control_stream(self.rust_npu_integration._rust_npu)
                     logger.info("🦀 ✅ PNS streams connected to Rust NPU (sensory + API control)")
+                    
+                    # Register RPC handler for API subprocess (for generic method calls)
+                    from feagi.core.rpc_handler import CoreAPIServiceRpcHandler
+                    from feagi.api.core.services.core_api_service import CoreAPIService
+                    from feagi.bdu.connectome_manager import ConnectomeManager
+                    
+                    # Create real CoreAPIService in main process (uses existing connectome manager)
+                    connectome_manager = ConnectomeManager.instance()
+                    real_core_api = CoreAPIService(connectome_manager=connectome_manager)
+                    rpc_handler = CoreAPIServiceRpcHandler(real_core_api)
+                    
+                    # Register handler with PNS (forwards to Rust ApiControlStream)
+                    pns.set_api_rpc_callback(rpc_handler.handle_rpc_call)
+                    logger.info("🦀 ✅ RPC handler registered for API subprocess")
                 else:
                     logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized")
                 
@@ -991,17 +1005,48 @@ class ProcessManager:
         
         # Create inline script for subprocess with error handling
         # Uses existing FEAGI REST API (all endpoints preserved)
+        # State queries proxied via ZMQ to main process
         script_content = f'''#!/usr/bin/env python3
 import sys
 import traceback
 
 try:
     import uvicorn
-    from feagi.api.rest.app import create_rest_app
-
-    print("[API-PROCESS] Creating FEAGI REST app with all endpoints...", file=sys.stderr, flush=True)
     
-    # Create the full FEAGI REST API app (all existing endpoints)
+    # CRITICAL: Inject proxies BEFORE any imports that use them
+    print("[API-PROCESS] Initializing ZMQ proxies...", file=sys.stderr, flush=True)
+    
+    # 1. State manager proxy
+    from feagi.core.zmq_state_proxy import ZmqStateProxy
+    from feagi.core.state_manager import FeagiStateManager
+    
+    state_proxy = ZmqStateProxy("{zmq_address}")
+    FeagiStateManager._instance = state_proxy
+    print("[API-PROCESS] ✅ State proxy injected", file=sys.stderr, flush=True)
+    
+    # 2. CoreAPIService RPC proxy (replaces the class so it can be inherited from)
+    from feagi.core.zmq_rpc_proxy import create_core_api_service_proxy
+    from feagi.api.core.services import core_api_service
+    
+    # Replace CoreAPIService class with proxy class (so it can be subclassed)
+    _original_CoreAPIService = core_api_service.CoreAPIService
+    
+    # Create proxy class that can be inherited from
+    ProxyClass = create_core_api_service_proxy("{zmq_address}")
+    core_api_service.CoreAPIService = ProxyClass
+    
+    # Also patch core_api_factory module (it has CoreAPI that inherits from CoreAPIService)
+    from feagi.core import core_api_factory
+    
+    # Replace CoreAPI class entirely with the proxy
+    core_api_factory.CoreAPI = ProxyClass
+    
+    print("[API-PROCESS] ✅ CoreAPIService & CoreAPI RPC proxy classes injected", file=sys.stderr, flush=True)
+    
+    # NOW import and create app (will use our proxies)
+    from feagi.api.rest.app import create_rest_app
+    
+    print("[API-PROCESS] Creating FEAGI REST app with all endpoints...", file=sys.stderr, flush=True)
     app = create_rest_app()
     
     print("[API-PROCESS] Starting uvicorn server...", file=sys.stderr, flush=True)
