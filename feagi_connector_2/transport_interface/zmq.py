@@ -36,12 +36,38 @@ class FeagiZmqClient:
         self.motor_signal: AsyncSignalWithParam[bytes] = AsyncSignalWithParam()
         self._motor_listener: Optional[asyncio.Task[None]] = None
 
-    async def send_registration(self, payload: Dict[str, Any]) -> bytes:
+    async def send_registration(self, camera_resolution_xyc: (int, int, int)) -> dict:
         """Send a registration payload as JSON and return the response bytes."""
+
+        payload = {
+            "method": "POST",
+            "path": "/v1/agent/register",
+            "body": {
+                "agent_id": "autonomous_robot",
+                "agent_type": "both",
+                "capabilities": {
+                    "vision": {
+                        "modality": "camera",
+                        "dimensions": [camera_resolution_xyc[0], camera_resolution_xyc[1]],
+                        "channels": camera_resolution_xyc[2],
+                        "target_cortical_area": "i_vision"
+                    },
+                    "motor": {
+                        "modality": "wheel_motors",
+                        "output_count": 2,
+                        "source_cortical_areas": ["o_motor"]
+                    }
+                }
+            }
+        }
 
         message = json.dumps(payload).encode("utf-8")
         await self._registration_socket.send(message)
-        return await self._registration_socket.recv()
+        response: bytes = await self._registration_socket.recv()
+        response_str: str = response.decode("utf-8")
+        data_dict = json.loads(response_str)
+        print(data_dict)
+        return data_dict
 
     async def push_sensory_data(self, data: bytes) -> None:
         """Push sensory byte data towards FEAGI."""

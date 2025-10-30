@@ -13,12 +13,12 @@ class FeagiAgent:
     def __init__(self):
         self._rust_agent: frpl.connector_core.caching.IOCache = frpl.connector_core.caching.IOCache()
         self._agent_state: AgentState = AgentState.NotConnected
-        self._interface: FeagiInterface = FeagiInterface()
+        self.feagi: FeagiInterface = FeagiInterface()
 
         self.brain_input = SensorsProxy(self._rust_agent)
         self.brain_output = MotorsProxy(self._rust_agent)
 
-        self.brain_input_cache = SensorsCacheInterface(self._rust_agent)
+        self.brain_input_cache = SensorsCacheInterface(self._rust_agent, self.feagi)
         self.brain_output_cache = MotorsCacheInterface(self._rust_agent)
         self.premade_feedbacks = PreMadeFeedBacks(self._rust_agent)
 

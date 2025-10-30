@@ -57,7 +57,7 @@ feagi_agent.premade_feedbacks.feedback_absolute_gaze_to_absolute_segmented_visio
 
 feagi_agent.brain_input.infrared_absolute_linear.write(0, 0, percentage)
 
-feagi_agent.send_brain_input_to_feagi()
+feagi_agent.brain_input_cache.send_brain_input_to_feagi()
 
 misc_data = feagi_agent.brain_output.miscellaneous_absolute.read_postprocessed_cache_value(0, 0)
 misc_data_arr = misc_data.copy_to_numpy_array()
