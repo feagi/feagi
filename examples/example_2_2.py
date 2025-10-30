@@ -3,6 +3,7 @@ from feagi_connector_2 import FeagiAgent
 import feagi_rust_py_libs as frpl
 import numpy as np
 import asyncio
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()) # NOTE: we may need to make this only apply for windows
 
 
 async def main():
