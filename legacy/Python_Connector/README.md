@@ -1,1 +1,0 @@
-Allows for interactrion with FEAGI datastructures from Python

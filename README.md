@@ -1,278 +1,241 @@
-# FEAGI Connector
+# FEAGI Python SDK
 
-**Complete SDK library** for building agents that connect to FEAGI.
+**Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages**
+
+Version 3.0.0 - Clean architecture, no legacy code.
 
 ## Overview
 
-FEAGI Connector is a complete client-side SDK that provides a simple, high-level API for building agents that connect to FEAGI (Flexible & Extensible Artificial General Intelligence). It handles communication protocols, sensorimotor data processing, device management, and provides extensible frameworks for custom agent development.
-
-**This is a pure library** - it does not contain standalone applications. For complete agent examples and reference implementations, see the `simple_agent` project.
-
-## Features
-
-### Core Communication
-- Async API for modern Python applications
-- Agent registration and discovery
-- Sensory data transmission to FEAGI
-- Motor data reception from FEAGI
-- Neural activity visualization data
-- Connection management with heartbeats
-- ZeroMQ transport for efficient communication
-
-### Sensorimotor Processing
-- **CapabilitiesManager**: JSON-based device configuration
-- **MotorProcessor**: Generic motor command processing with extensible device handlers
-- **SegmentedVisionProcessor**: Advanced 3x3 vision processing with gaze control
-- **GazeMotorProcessor**: Dynamic attention control through motor feedback
-- **Connection state management**: Standard connection lifecycle tracking
-- **Agent logging**: Structured logging for agents and neuron data
-
-### Performance & Compatibility
-- Optional Rust implementations for performance-critical operations
-- Designed for future full Rust implementation
-- Cross-platform compatibility
+FEAGI SDK provides everything needed to:
+- Build agents for robots, simulators, and embedded devices
+- Start and stop the FEAGI neural engine from Python
+- Manipulate genomes and connectomes at runtime
+- Create packages for the FEAGI marketplace
 
 ## Installation
 
-### From PyPI (when published):
 ```bash
-pip install feagi_connector
+pip install feagi
 ```
 
-### Development Installation (current):
+For video processing support:
 ```bash
-# Install in development mode from local directory
-cd feagi_connector
-pip install -e .
+pip install feagi[video]
 ```
 
-### From Source:
-```bash
-git clone https://github.com/feagi/feagi_connector
-cd feagi_connector
-pip install -e .
-```
+## Quick Start
 
-## Quick Usage
+### Basic Agent
 
 ```python
-from feagi_connector import FeagiClient
-from feagi_connector.protocols import FSMPChannel
+from feagi.agent import BaseAgent
+from feagi.pns import FeagiAgentClient, AgentType
 
-# Create a client
-client = FeagiClient(
-    host="localhost",
-    agent_id="my-agent",
-    agent_type="example"
-)
-
-# Connect to FEAGI
-connected = await client.connect()
-if not connected:
-    print("Failed to connect to FEAGI")
-    return
+class MyRobotAgent(BaseAgent):
+    def initialize_hardware(self):
+        # Connect to your robot/simulator
+        pass
     
-# Register a callback for motor data
-await client.register_motor_callback(handle_motor_data)
+    def map_sensors(self, hw_data):
+        # Convert robot sensors → FEAGI format
+        return {"camera": image_bytes}
+    
+    def map_motors(self, feagi_output):
+        # Convert FEAGI commands → robot format
+        return motor_commands
 
-# Send some sensory data
-image_data = bytes([0x80] * (10 * 10))  # 10x10 grayscale image
-await client.send_sensory_data(FSMPChannel.VISION, image_data)
-
-# Disconnect
-await client.disconnect()
-
-def handle_motor_data(channel_id, data):
-    print(f"Received motor data on channel {channel_id}: {len(data)} bytes")
+# Run the agent
+agent = MyRobotAgent("my-robot-01")
+await agent.connect()
+await agent.run()
 ```
 
-**For complete agent implementations with continuous sensorimotor loops, see the `simple_agent` project.**
-
-## Advanced Usage
-
-### Using Sensorimotor Processing Components
+### Direct PNS Communication
 
 ```python
-from feagi_connector import (
-    FeagiClient,
-    CapabilitiesManager,
-    MotorProcessor,
-    setup_agent_logging
-)
+from feagi.pns import FeagiAgentClient, AgentType
 
-# Set up logging
-logger, neuron_logger = setup_agent_logging()
-
-# Load device capabilities
-capabilities = CapabilitiesManager("capabilities.json")
-capabilities.load_capabilities()
-
-# Set up motor processing
-motor_processor = MotorProcessor()
-
-# Create FEAGI client
-client = FeagiClient(host="localhost", agent_id="my-agent")
+# Create client
+client = FeagiAgentClient("my-agent", AgentType.SENSORY)
+client.configure(feagi_host="localhost")
 await client.connect()
 
-# Register motor callback that uses the motor processor
-async def handle_motor_data(channel_id, data):
-    # Process motor commands through the generic processor
-    await motor_processor.process_motor_commands(data, capabilities)
-
-await client.register_motor_callback(handle_motor_data)
+# Send sensory data
+await client.send_sensory_data(sensor_data)
 ```
 
-### Using Segmented Vision with Gaze Control
+## Architecture
 
+```
+feagi/
+├── engine/          # Engine control (start/stop FEAGI)
+├── agent/           # Agent framework (BaseAgent templates)
+├── genome/          # Runtime genome manipulation
+├── connectome/      # Runtime connectome operations
+├── packaging/       # Build marketplace packages
+├── pns/             # Peripheral Nervous System (communication)
+└── cli/             # Command-line tools
+```
+
+## Modules
+
+### `feagi.engine`
+Start and stop the FEAGI neural engine from Python.
+- `FeagiEngine` - Control local FEAGI instance
+- PyO3 bindings to Rust `feagi::FeagiInstance`
+
+**Status:** Planned for Phase 2
+
+### `feagi.agent`
+Agent framework with base classes and templates.
+- `BaseAgent` - Abstract base class
+- `SDKRobotAgent` - For SDK-based robots (Cozmo, NAO)
+- `SimulatorAgent` - For physics simulators (Webots, Gazebo)
+- `EmbeddedAgent` - For embedded devices (ESP32, Arduino)
+- `VirtualAgent` - For game engines (Unity, Unreal)
+
+**Status:** ✅ BaseAgent implemented
+
+### `feagi.genome`
+Manipulate genomes on a running FEAGI instance via REST API.
+- `GenomeAPI` - Add/remove cortical areas, modify parameters
+- `GenomeLoader` - Load genome from local file
+- `GenomeValidator` - Validate genome structure
+
+**Status:** Planned for Phase 3
+
+### `feagi.connectome`
+Download and upload connectomes via REST API.
+- `ConnectomeAPI` - Snapshot/restore trained brain state
+- Download from running instance for backup
+- Upload pre-trained connectomes
+
+**Status:** Planned for Phase 3
+
+### `feagi.packaging`
+Build marketplace packages locally.
+- `PackageBuilder` - Create `.feagi-personality`, `.feagi-firmware`, etc.
+- `PackageValidator` - Validate package structure
+- `ManifestGenerator` - Generate manifest.json
+
+**Status:** Planned for Phase 4
+
+### `feagi.pns`
+Peripheral Nervous System - Communication layer.
+- `FeagiAgentClient` - Modern Rust-backed client (RECOMMENDED)
+- `CapabilitiesManager` - Device capability management
+- `MotorProcessor` - Motor command processing
+- `VisionProcessor` - Vision data processing
+- `SegmentedVisionProcessor` - Advanced segmented vision
+- Supports ZMQ and WebSocket transports
+
+**Status:** ✅ Fully implemented
+
+### `feagi.cli`
+Command-line tools for development.
+- `feagi create-agent` - Scaffold new agent from template
+- `feagi build-package` - Build marketplace package locally
+
+**Status:** Planned for Phase 4
+
+## Development Workflow
+
+### 1. Create Agent
+```bash
+# Scaffold new agent (future)
+feagi create-agent cozmo --template sdk_robot
+
+# Edit generated agent code
+vim cozmo_agent.py
+```
+
+### 2. Test Locally
 ```python
-from feagi_connector import (
-    SegmentedVisionProcessor,
-    GazeMotorProcessor,
-    create_gaze_control_neurons
-)
-
-# Set up segmented vision with gaze control
-vision_processor = SegmentedVisionProcessor(
-    cortical_group_index=0,
-    center_dims=(128, 128),
-    peripheral_dims=(64, 64),
-    eccentricity=(0.2, 0.2),    # Focus area size
-    modularity=(0.2, 0.2),      # Attention modulation
-    gaze_position=(0.5, 0.5)    # Initial center gaze
-)
-
-# Set up gaze motor processing
-gaze_motor = GazeMotorProcessor(
-    cortical_group_index=0,
-    num_channels=10,
-    gaze_resolution=8
-)
-gaze_motor.register_gaze_motor()
-
-# Process frame with current gaze
-sensor_bytes = vision_processor.process_frame(bgr_frame)
-
-# Create gaze control neurons for motor feedback
-gaze_neurons = create_gaze_control_neurons(
-    gaze_x=0.7, gaze_y=0.3, intensity=1.0
-)
-
-# Update gaze position dynamically
-vision_processor.update_gaze(0.6, 0.4)
+# Run agent with local FEAGI
+python cozmo_agent.py --genome ~/.feagi/genomes/vision_nav.json
 ```
 
-### Custom Device Handlers
-
-```python
-from feagi_connector import MotorProcessor
-
-motor_processor = MotorProcessor()
-
-# Register custom device handler
-async def handle_my_custom_device(device_id: str, config: dict, neuron_data: dict):
-    print(f"Custom device {device_id} received: {neuron_data}")
-    # Your custom device control logic here
-
-motor_processor.register_device_handler("my_device_type", handle_my_custom_device)
+### 3. Build Package
+```bash
+# Create marketplace package (future)
+feagi build-package \
+    --genome vision_nav.json \
+    --docs README.md \
+    --output vision_nav_v1.feagi-personality
 ```
+
+### 4. Upload via UI
+Upload the package through Neurorobotics Studio or FEAGI Desktop.
+
+## Examples
+
+See `examples/` directory for complete agent implementations:
+- Basic sensory agent
+- SDK robot agent (Cozmo example)
+- Simulator agent (Webots example)
+- Vision processing examples
 
 ## Documentation
 
-For complete usage documentation, see:
+- [API Reference](https://docs.feagi.org/api)
+- [Agent Development Guide](https://docs.feagi.org/agent-guide)
+- [Marketplace Guide](https://docs.feagi.org/marketplace)
 
-- [FEAGI Connector Usage Guide](docs/guide-connector-usage.md) - Comprehensive guide to using the connector
-- [Gaze Control Guide](docs/guide-gaze-control.md) - Advanced segmented vision with gaze control
-- [API Reference](https://feagi.github.io/feagi_connector) - API reference documentation  
-- **[Simple Agent Project](../simple_agent/)** - Complete agent examples and reference implementations
+## What's New in 3.0.0
 
-## Integration with FEAGI
+**Complete rewrite with clean architecture:**
+- ✅ Renamed from `feagi_connector` to `feagi`
+- ✅ Modular structure: `engine`, `agent`, `genome`, `connectome`, `packaging`, `pns`, `cli`
+- ✅ No legacy code, no deprecated APIs, no fallbacks
+- ✅ Modern `BaseAgent` framework for agent development
+- ✅ `feagi.pns` module for Peripheral Nervous System communication
+- ✅ Prepared for engine control (PyO3 bindings in Phase 2)
+- ✅ Prepared for runtime genome/connectome manipulation (Phase 3)
+- ✅ Prepared for marketplace package building (Phase 4)
 
-FEAGI Connector is designed to work with FEAGI's communication protocols:
+**Breaking Changes:**
+- Package renamed: `feagi_connector` → `feagi`
+- All legacy clients removed (`FeagiClient`, `FeagiAgentConnector`)
+- Only modern `FeagiAgentClient` supported
+- Python 3.10+ required
+- Imports changed: `from feagi_connector import X` → `from feagi.pns import X`
 
-- **FSMP (FEAGI Sensorimotor Protocol)**: For exchanging sensory and motor data
-- **FVP (FEAGI Visualization Protocol)**: For receiving neural activity and structure data
-- **FCP (FEAGI Control Protocol)**: For agent registration and control
-
-## Rust Integration
-
-FEAGI Connector provides high-performance Rust implementations for computationally intensive operations through the `feagi-rust-py-libs` package.
-
-### Installation
-
-```bash
-# Standard installation
-pip install feagi_connector
-
-# Install with all extras (video, REST API, etc.)
-pip install "feagi_connector[full]"
-```
-
-### Explicit Implementation Selection
-
-FEAGI Connector uses a fully explicit approach for accessing implementations - Python and Rust implementations are kept separate with clear naming, giving you maximum control and clarity:
+## Migration from 2.x
 
 ```python
-# Import Python implementations directly (always available)
-from feagi_connector.utils.processing import (
-    decode_neuron_potential_xyz_python
-)
+# Old (2.x)
+from feagi_connector import FeagiAgentClient
 
-# Import Rust implementations directly (will raise ImportError if not available)
-from feagi_connector.utils.rust_processing import (
-    decode_neuron_potential_xyz_rust
-)
-
-# Helper for checking availability if needed
-from feagi_connector.utils import is_rust_available
-
-# Example function that lets the caller choose which implementation to use
-def process_data(data: bytes, use_rust: bool = True):
-    if use_rust:
-        try:
-            # Use Rust implementation
-            return decode_neuron_potential_xyz_rust(data)
-        except ImportError:
-            print("Rust implementation not available, falling back to Python")
-            return decode_neuron_potential_xyz_python(data)
-    else:
-        # Use Python implementation
-        return decode_neuron_potential_xyz_python(data)
+# New (3.0)
+from feagi.pns import FeagiAgentClient
 ```
 
-This explicit approach offers several benefits:
+## Requirements
 
-1. **Maximum Performance**: No runtime overhead from conditional checks
-2. **Code Clarity**: It's always clear which implementation you're using
-3. **Full Control**: You decide exactly when to use each implementation
-4. **Easier Debugging**: Clear code paths simplify troubleshooting
-5. **Simple Error Handling**: ImportErrors are handled where appropriate
+- Python 3.10+
+- `feagi_rust_py_libs` (for Rust-backed performance)
+- NumPy 1.20+
+- PyZMQ 24.0+
+- aiohttp 3.9+
 
-The module provides the `is_rust_available()` helper function to check for Rust availability, but it's used only when needed - not on every function call.
+## Contributing
 
-### Performance Benefits
-
-The Rust implementation provides significant performance improvements, particularly for:
-
-- Byte structure parsing and manipulation
-- Neuron data processing
-- Vision data processing
-
-## Development
-
-### Running Tests
-
-```bash
-cd feagi_connector
-pytest
-```
-
-### Building Documentation
-
-```bash
-cd feagi_connector
-mkdocs build
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-Apache License 2.0 
+Apache-2.0 - See [LICENSE.txt](LICENSE.txt) for details.
+
+## Links
+
+- **Homepage**: https://feagi.org
+- **Repository**: https://github.com/Neuraville/FEAGI-2.0
+- **Issues**: https://github.com/Neuraville/FEAGI-2.0/issues
+- **Neurorobotics Studio**: https://neurorobotics.studio
+- **FEAGI Desktop**: Download from https://feagi.org
+
+## Authors
+
+Neuraville Inc. - <feagi@neuraville.com>
+
+Copyright 2016-2025 Neuraville Inc. All Rights Reserved.

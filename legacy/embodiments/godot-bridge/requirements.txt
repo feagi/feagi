@@ -1,2 +1,0 @@
-feagi-connector>=0.0.19
-setuptools

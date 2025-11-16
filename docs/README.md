@@ -4,13 +4,21 @@ This directory contains documentation for the FEAGI Connector library.
 
 ## Documentation Structure
 
+- **Strategic Planning**: Future vision and transformation roadmap
+  - [SDK Transformation Plan](FEAGI_SDK_TRANSFORMATION_PLAN.md) - Comprehensive 25-week plan to transform feagi-connector into the official FEAGI Python SDK
+  - [Executive Summary](FEAGI_SDK_EXECUTIVE_SUMMARY.md) - High-level overview of the SDK transformation
+  - [Codebase Evaluation & Strategy](CODEBASE_EVALUATION_AND_STRATEGY.md) - **⭐ RECOMMENDATION: Evolve existing codebase (80% reuse)**
+
 - **User Guides**: How to use the FEAGI Connector
   - [Connector Usage Guide](guide-connector-usage.md)
   - [ZMQ Communication Guide](guide-zmq-communication.md)
+  - [Gaze Control Guide](guide-gaze-control.md)
   
 - **Technical Documentation**: Design and implementation details
   - [Architecture Overview](arch-connector-overview.md)
   - [Protocol Specifications](spec-protocols.md)
+  - [Configuration](CONFIGURATION.md)
+  - [Dynamic Motor Registration](DYNAMIC_MOTOR_REGISTRATION.md)
   
 - **API Reference**: Generated from source code docstrings
   - Generated using mkdocstrings
