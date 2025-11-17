@@ -134,72 +134,189 @@ class GenomeService(BaseService):
             if hasattr(cm, "_index_to_neuron_id_map"):
                 cm._index_to_neuron_id_map.clear()
             
-            # Reset neuron arrays to empty state
+            # DELETE and recreate NPU data structures to release memory
             try:
                 if hasattr(cm, "_npu_interface") and cm._npu_interface:
                     npu = cm._npu_interface
                     
-                    # Clear regular neuron array
-                    if hasattr(npu, "neuron_array") and npu.neuron_array:
-                        na = npu.neuron_array
-                        if hasattr(na, "count"):
-                            na.count = 0
-                        if hasattr(na, "next_index"):
-                            na.next_index = 0
-                        if hasattr(na, "neuron_count"):
-                            na.neuron_count = 0
-                        if hasattr(na, "free_indices"):
-                            na.free_indices = set()
-                        if hasattr(na, "valid_mask"):
-                            na.valid_mask[:] = False
-                        if hasattr(na, "is_active"):
-                            na.is_active[:] = False
-                        self.logger.debug("Cleared regular neuron array")
+                    # DELETE and recreate regular neuron array
+                    if hasattr(npu, "neuron_array"):
+                        old_backend = getattr(npu.neuron_array, "backend", None) if npu.neuron_array else None
+                        del npu.neuron_array  # Delete old array and release memory
+                        # Import and recreate with same backend
+                        from feagi.npu.data_structures import NeuronArray
+                        npu.neuron_array = NeuronArray(backend=old_backend) if old_backend else NeuronArray()
+                        self.logger.debug("Deleted and recreated regular neuron array")
                     
-                    # Clear memory neuron array
-                    if hasattr(npu, "memory_neuron_array") and npu.memory_neuron_array:
-                        mna = npu.memory_neuron_array
-                        if hasattr(mna, "count"):
-                            mna.count = 0
-                        if hasattr(mna, "next_index"):
-                            mna.next_index = 0
-                        if hasattr(mna, "neuron_count"):
-                            mna.neuron_count = 0
-                        if hasattr(mna, "free_indices"):
-                            mna.free_indices = set()
-                        if hasattr(mna, "valid_mask"):
-                            mna.valid_mask[:] = False
-                        if hasattr(mna, "is_active"):
-                            mna.is_active[:] = False
-                        self.logger.debug("Cleared memory neuron array")
+                    # DELETE and recreate memory neuron array
+                    if hasattr(npu, "memory_neuron_array"):
+                        old_backend = getattr(npu.memory_neuron_array, "backend", None) if npu.memory_neuron_array else None
+                        del npu.memory_neuron_array  # Delete old array and release memory
+                        # Import and recreate with same backend
+                        from feagi.npu.data_structures import MemoryNeuronArray
+                        npu.memory_neuron_array = MemoryNeuronArray(backend=old_backend) if old_backend else MemoryNeuronArray()
+                        self.logger.debug("Deleted and recreated memory neuron array")
+                    
+                    # DELETE and recreate NPU interface mappings
+                    if hasattr(npu, "cortical_areas"):
+                        del npu.cortical_areas
+                        npu.cortical_areas = {}
+                    if hasattr(npu, "neuron_to_area"):
+                        del npu.neuron_to_area
+                        npu.neuron_to_area = {}
+                    if hasattr(npu, "area_neuron_ranges"):
+                        del npu.area_neuron_ranges
+                        npu.area_neuron_ranges = {}
+                    if hasattr(npu, "_area_excitability"):
+                        del npu._area_excitability
+                        npu._area_excitability = {}
+                    if hasattr(npu, "_low_ex_areas"):
+                        del npu._low_ex_areas
+                        npu._low_ex_areas = {}
+                    if hasattr(npu, "_next_burst_candidate_ids"):
+                        del npu._next_burst_candidate_ids
+                        npu._next_burst_candidate_ids = []
+                    self.logger.debug("Deleted and recreated NPU interface mappings")
                         
             except Exception as e:
-                self.logger.debug(f"Could not clear NPU arrays: {e}")
+                self.logger.debug(f"Could not delete/recreate NPU arrays: {e}")
             
-            # Clear synapse arrays
+            # DELETE and recreate synapse arrays to release memory
             try:
-                sa = getattr(cm, "synapse_array", None)
-                if sa is not None:
-                    for attr in ("next_slot", "count"):
-                        if hasattr(sa, attr):
-                            setattr(sa, attr, 0)
-                    for attr in ("free_slots",):
-                        if hasattr(sa, attr):
-                            setattr(sa, attr, set())
-                    self.logger.debug("Cleared synapse array")
+                # DELETE and recreate NPU synapse array (primary)
+                if hasattr(cm, "_npu_interface") and cm._npu_interface:
+                    npu = cm._npu_interface
+                    if hasattr(npu, "synapse_array"):
+                        old_backend = getattr(npu.synapse_array, "backend", None) if npu.synapse_array else None
+                        del npu.synapse_array  # Delete old array and release memory
+                        # Import and recreate with same backend
+                        from feagi.npu.data_structures import SynapseArray
+                        npu.synapse_array = SynapseArray(backend=old_backend) if old_backend else SynapseArray()
+                        self.logger.debug("Deleted and recreated NPU synapse array")
+                
+                # DELETE legacy synapse array (fallback)
+                if hasattr(cm, "synapse_array"):
+                    del cm.synapse_array
+                    cm.synapse_array = None
+                    self.logger.debug("Deleted legacy synapse array")
             except Exception as e:
-                self.logger.debug(f"Could not clear synapse array: {e}")
+                self.logger.debug(f"Could not delete/recreate synapse arrays: {e}")
             
-            # Clear FCL caches
+            # DELETE and recreate FCL Manager and all temporal data structures
             try:
-                fclm = getattr(cm, "fcl_manager", None)
-                if fclm is not None and hasattr(fclm, "clear_all_fcl_history"):
-                    fclm.clear_all_fcl_history()
-                    self.logger.debug("Cleared FCL history")
+                # DELETE FCL Manager completely
+                if hasattr(cm, "fcl_manager"):
+                    old_window_size = getattr(cm.fcl_manager, "window_size", 20) if cm.fcl_manager else 20
+                    del cm.fcl_manager  # Delete old FCL manager and release memory
+                    # Import and recreate with same window size
+                    from feagi.npu.fcl_manager import FCLManager
+                    cm.fcl_manager = FCLManager(window_size=old_window_size)
+                    self.logger.debug("Deleted and recreated FCL Manager")
+                
+                # Clear spatial hash structures
+                if hasattr(cm, "_spatial_hash") and cm._spatial_hash:
+                    del cm._spatial_hash
+                    cm._spatial_hash = None
+                    self.logger.debug("Deleted spatial hash")
+                
+                if hasattr(cm, "_spatial_index") and cm._spatial_index:
+                    del cm._spatial_index  
+                    cm._spatial_index = None
+                    self.logger.debug("Deleted spatial index")
+                
+                # Clear brain regions and mappings
+                if hasattr(cm, "brain_regions"):
+                    del cm.brain_regions
+                    cm.brain_regions = {}
+                
+                if hasattr(cm, "region_area_map"):
+                    del cm.region_area_map
+                    cm.region_area_map = {}
+                
+                # Clear neuron position tracking
+                if hasattr(cm, "_neuron_to_position"):
+                    del cm._neuron_to_position
+                    cm._neuron_to_position = {}
+                
+                # CRITICAL: Clear ConnectomeManager-level neuron ID mappings
+                if hasattr(cm, "_neuron_id_to_index_map"):
+                    cm._neuron_id_to_index_map.clear()
+                    self.logger.debug("Cleared ConnectomeManager _neuron_id_to_index_map")
+                
+                if hasattr(cm, "_index_to_neuron_id_map"):
+                    cm._index_to_neuron_id_map.clear()
+                    self.logger.debug("Cleared ConnectomeManager _index_to_neuron_id_map")
+                
+                # CRITICAL: Clear coordinate-to-neuron mappings in all CorticalArea objects
+                if hasattr(cm, "cortical_areas"):
+                    for cortical_id, area in cm.cortical_areas.items():
+                        if hasattr(area, "_position_map"):
+                            area._position_map.clear()
+                            self.logger.debug(f"Cleared position_map for area {cortical_id}")
+                        
+                        if hasattr(area, "_position_to_neurons"):
+                            area._position_to_neurons.clear()
+                            self.logger.debug(f"Cleared position_to_neurons for area {cortical_id}")
+                        
+                        if hasattr(area, "_neuron_indices"):
+                            area._neuron_indices.clear()
+                            self.logger.debug(f"Cleared neuron_indices for area {cortical_id}")
+                    
+                    self.logger.info("✅ Cleared all coordinate-to-neuron mappings in cortical areas")
+                
+                # Clear any burst engine queues or temporal structures
+                if hasattr(cm, "_burst_queues"):
+                    del cm._burst_queues
+                    cm._burst_queues = {}
+                
+                if hasattr(cm, "_fire_queues"):
+                    del cm._fire_queues
+                    cm._fire_queues = {}
+                
+                # Clear any membrane potential update queues
+                if hasattr(cm, "_membrane_update_queue"):
+                    del cm._membrane_update_queue
+                    cm._membrane_update_queue = []
+                
+                # Clear any refractory period tracking
+                if hasattr(cm, "_refractory_tracking"):
+                    del cm._refractory_tracking
+                    cm._refractory_tracking = {}
+                
+                self.logger.debug("Deleted all temporal and queue data structures")
+                
             except Exception as e:
-                self.logger.debug(f"Could not clear FCL history: {e}")
+                self.logger.debug(f"Could not delete/recreate temporal structures: {e}")
             
-            self.logger.info("✅ Connectome manager data cleared successfully")
+            # Clear state manager temporal caches and queues
+            try:
+                if self.state_manager:
+                    # Clear memory area cache
+                    if hasattr(self.state_manager, "_memory_area_cache"):
+                        self.state_manager._memory_area_cache.clear()
+                    
+                    # Clear cortical areas cache
+                    if hasattr(self.state_manager, "_cortical_areas_cache"):
+                        self.state_manager._cortical_areas_cache = None
+                        self.state_manager._cortical_areas_cache_dirty = True
+                    
+                    # Clear any FCL window size caches
+                    if hasattr(self.state_manager, "_fcl_window_cache"):
+                        self.state_manager._fcl_window_cache.clear()
+                    
+                    self.logger.debug("Cleared state manager temporal caches")
+            except Exception as e:
+                self.logger.debug(f"Could not clear state manager caches: {e}")
+            
+            # Force garbage collection to release deleted memory
+            try:
+                import gc
+                gc.collect()
+                self.logger.debug("Forced garbage collection to release memory")
+            except Exception as e:
+                self.logger.debug(f"Could not force garbage collection: {e}")
+            
+            self.logger.info("✅ All connectome data structures deleted and memory released successfully")
             
         except Exception as e:
             self.logger.warning(f"Error clearing connectome manager data: {e}")
@@ -456,13 +573,18 @@ class GenomeService(BaseService):
             try:
                 self.logger.info("Step 1: Initializing genome load process")
 
-                # Set genome loading state and clear all state manager entries
+                # CRITICAL: Set genome loading state FIRST to pause all concurrent processes
                 if self.state_manager:
                     from feagi.core.state_manager import GenomeState
 
                     self.state_manager.set_genome_state(GenomeState.LOADING)
+                    self.logger.info("🔄 Set genome state to LOADING - all concurrent processes should now be in STANDBY mode")
                     
-                    # Comprehensive state clearing for genome loading
+                    # Wait a brief moment for all processes to receive the state change
+                    import time
+                    time.sleep(0.1)  # 100ms should be enough for state propagation
+                    
+                    # Now safely clear all state manager entries and data structures
                     self._clear_state_for_genome_loading()
 
                 #  CRITICAL: Preserve old genome data BEFORE setting new values
@@ -3971,12 +4093,22 @@ class GenomeService(BaseService):
                     "version": "2.1",
                 }
 
+                # CRITICAL: Set genome loading state FIRST to pause all concurrent processes
+                if self.state_manager:
+                    from feagi.core.state_manager import GenomeState
+                    self.state_manager.set_genome_state(GenomeState.LOADING)
+                    self.logger.info("🔄 Set genome state to LOADING for reset - all concurrent processes should now be in STANDBY mode")
+                    
+                    # Wait a brief moment for all processes to receive the state change
+                    import time
+                    time.sleep(0.1)  # 100ms should be enough for state propagation
+
                 # Clear the current genome and update state manager
                 self._current_genome = empty_genome
                 if self.state_manager:
                     self.state_manager.genome = empty_genome
                     
-                    # Comprehensive state clearing for genome reset
+                    # Now safely clear all state manager entries and data structures
                     self._clear_state_for_genome_loading()
 
                 # Trigger NeuroEmbryogenesis to reset the connectome
