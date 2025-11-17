@@ -1,0 +1,53 @@
+name: "Update bridge version"
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'embodiments/godot-bridge/bridge_godot_python.py'
+      - 'embodiments/godot-bridge/configuration.json'
+      - '!embodiments/godot-bridge/version.py'
+      - 'generate_version.sh'
+  workflow_dispatch:
+
+jobs:
+  bridge_version:
+    name: Bridge Update Version
+    runs-on: ubuntu-20.04
+    if: github.repository == 'feagi/feagi-connector'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge in New Changes
+        run: |
+          # Set up Git
+          pwd
+          ls
+          git config --global user.name "BrainVisualizerPushAction"
+          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
+          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
+          echo "set vars"
+          git checkout -b temp
+      - name: Set Compile Time
+        run: |
+          cd src
+          ./version_generate.sh
+      - name: Push version changes
+        run: |
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+          else
+            echo "pre-release branch does not exist on remote repository. Continuing with the workflow."
+          fi
+          git add .
+          git commit -m "Updated Version"
+          echo "committed"
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+            git push origin temp:pre-release
+          else
+              git push origin temp:pre-release
+          fi

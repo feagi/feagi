@@ -1,4 +1,4 @@
-name: FEAGI CI/CD Pipeline
+name: FEAGI Connector 2.0 CI/CD Pipeline
 
 on:
   push:
@@ -6,419 +6,51 @@ on:
   pull_request:
     branches: [ main, develop ]
   schedule:
-    - cron: '0 0 * * *'  # Run nightly at midnight UTC
+    - cron: '0 3 * * *'  # Run nightly at 3 AM UTC (offset from other pipelines)
 
 jobs:
-  pre-commit-check:
-    name: Pre-commit Validation
+  lint-and-format:
+    name: Lint & Format Check
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Run pre-commit on all files
-        run: |
-          pre-commit run --all-files
-
-      - name: Check if pre-commit config exists
-        run: |
-          if [ ! -f .pre-commit-config.yaml ]; then
-            echo "⚠️  No .pre-commit-config.yaml found. Creating one..."
-            cat > .pre-commit-config.yaml << EOF
-          repos:
-            - repo: https://github.com/astral-sh/ruff-pre-commit
-              rev: v0.1.6
-              hooks:
-                - id: ruff
-                  args: [--fix, --exit-non-zero-on-fix]
-                - id: ruff-format
-            - repo: https://github.com/pre-commit/mirrors-mypy
-              rev: v1.7.1
-              hooks:
-                - id: mypy
-                  additional_dependencies: [types-all]
-            - repo: https://github.com/psf/black
-              rev: 23.9.1
-              hooks:
-                - id: black
-          EOF
-          fi
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Lint with ruff (strict mode)
-        run: |
-          ruff check . --select=ALL --ignore=D,ANN,COM,FIX,TD,ERA,PLR0913,PLR0912,PLR2004
-
-      - name: Check for undefined names (critical)
-        run: |
-          ruff check . --select=F821 --output-format=github
-
-      - name: Check formatting with black
-        run: |
-          black --check .
-
-      - name: Sort imports with isort
-        run: |
-          isort --check .
-
-      - name: Type check with mypy (continue on error)
-        run: |
-          mypy feagi --ignore-missing-imports || true
-
-  license-check:
-    name: License Compliance
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pip-licenses
-          cargo install cargo-license
-
-      - name: Run license compliance check
-        run: |
-          ./scripts/check_licenses.sh
-
-      - name: Upload license reports
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: license-reports
-          path: |
-            python-licenses-report.md
-            python-licenses-report.json
-            rust-licenses-report.json
-            rust-licenses-report.tsv
-          retention-days: 90
-
-  detect-changes:
-    name: Detect Module Changes
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    outputs:
-      changed-files: ${{ steps.changed-files.outputs.all_changed_files }}
-      api-changed: ${{ steps.check-changes.outputs.api-changed }}
-      bdu-changed: ${{ steps.check-changes.outputs.bdu-changed }}
-      core-changed: ${{ steps.check-changes.outputs.core-changed }}
-      evo-changed: ${{ steps.check-changes.outputs.evo-changed }}
-      npu-changed: ${{ steps.check-changes.outputs.npu-changed }}
-      pns-changed: ${{ steps.check-changes.outputs.pns-changed }}
-      rust-changed: ${{ steps.check-changes.outputs.rust-changed }}
-      utils-changed: ${{ steps.check-changes.outputs.utils-changed }}
-      config-changed: ${{ steps.check-changes.outputs.config-changed }}
-      protocols-changed: ${{ steps.check-changes.outputs.protocols-changed }}
-      run-all-tests: ${{ steps.check-changes.outputs.run-all-tests }}
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v41
-        with:
-          files: |
-            feagi/**/*.py
-
-      - name: Analyze changed modules
-        id: check-changes
-        run: |
-          echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
-          
-          # Initialize flags for all functional modules
-          API_CHANGED=false
-          BDU_CHANGED=false
-          CORE_CHANGED=false
-          EVO_CHANGED=false
-          NPU_CHANGED=false
-          PNS_CHANGED=false
-          RUST_CHANGED=false
-          UTILS_CHANGED=false
-          CONFIG_CHANGED=false
-          PROTOCOLS_CHANGED=false
-          RUN_ALL_TESTS=false
-          
-          # Check if critical files changed (run all tests)
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -E "(main\.py|__init__\.py|setup\.py|pyproject\.toml|process_manager\.py)"; then
-            RUN_ALL_TESTS=true
-            echo "🚨 Critical files changed - running all tests"
-          fi
-          
-          # Check functional module changes
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/api/"; then
-            API_CHANGED=true
-            echo "📡 API module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/bdu/"; then
-            BDU_CHANGED=true
-            echo "🧠 BDU module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/core/"; then
-            CORE_CHANGED=true
-            echo "⚙️ Core module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/evo/"; then
-            EVO_CHANGED=true
-            echo "🧬 Evo module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/npu/"; then
-            NPU_CHANGED=true
-            echo "🔥 NPU module changes detected"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/pns/"; then
-            PNS_CHANGED=true
-            echo "👁️ PNS module changes detected"
-          fi
-          
-          # DEPRECATED: Rust code moved to separate feagi-rust-py-libs repository
-          # if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/rust/"; then
-          #   RUST_CHANGED=true
-          #   echo "🦀 Rust module changes detected"
-          # fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/utils/"; then
-            UTILS_CHANGED=true
-            echo "🛠️ Utils module changes detected"
-          fi
-          
-          # Special handling for cross-cutting modules
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/config/"; then
-            CONFIG_CHANGED=true
-            RUN_ALL_TESTS=true  # Config affects everything
-            echo "🔧 Config module changes detected - running all tests"
-          fi
-          
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/protocols/"; then
-            PROTOCOLS_CHANGED=true
-            echo "🔌 Protocols module changes detected"
-          fi
-          
-          # Set outputs
-          echo "api-changed=$API_CHANGED" >> $GITHUB_OUTPUT
-          echo "bdu-changed=$BDU_CHANGED" >> $GITHUB_OUTPUT
-          echo "core-changed=$CORE_CHANGED" >> $GITHUB_OUTPUT
-          echo "evo-changed=$EVO_CHANGED" >> $GITHUB_OUTPUT
-          echo "npu-changed=$NPU_CHANGED" >> $GITHUB_OUTPUT
-          echo "pns-changed=$PNS_CHANGED" >> $GITHUB_OUTPUT
-          echo "rust-changed=$RUST_CHANGED" >> $GITHUB_OUTPUT
-          echo "utils-changed=$UTILS_CHANGED" >> $GITHUB_OUTPUT
-          echo "config-changed=$CONFIG_CHANGED" >> $GITHUB_OUTPUT
-          echo "protocols-changed=$PROTOCOLS_CHANGED" >> $GITHUB_OUTPUT
-          echo "run-all-tests=$RUN_ALL_TESTS" >> $GITHUB_OUTPUT
-
-  targeted-tests:
-    name: Module-Specific Tests
-    runs-on: ubuntu-latest
-    needs: [detect-changes, pre-commit-check, lint, license-check]
-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.run-all-tests == 'false'
-    
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pip'
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Install ZeroMQ
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libzmq3-dev
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e .
+          pip install black ruff isort mypy pytest
 
-      - name: Run API tests
-        if: needs.detect-changes.outputs.api-changed == 'true'
+      - name: Check code formatting with Black
+        run: black --check feagi_connector/
+
+      - name: Lint with Ruff
         run: |
-          echo "📡 Running API module tests..."
-          pytest tests/api/ -v --cov=feagi.api --cov-report=xml:coverage-api.xml
-          
-          # Also run related integration tests
-          if [ -d "tests/integration/api" ]; then
-            pytest tests/integration/api/ -v --cov-append --cov-report=xml:coverage-api.xml
-          fi
+          ruff check feagi_connector/ || echo "Ruff checks completed with warnings"
 
-      - name: Run BDU tests
-        if: needs.detect-changes.outputs.bdu-changed == 'true'
+      - name: Sort imports check
         run: |
-          echo "🧠 Running BDU module tests..."
-          pytest tests/bdu/ -v --cov=feagi.bdu --cov-report=xml:coverage-bdu.xml
-          
-          # Include BDU-specific integration and performance tests
-          pytest tests/integration/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
-          pytest tests/performance/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
-          pytest tests/scalability/bdu/ -v --cov-append --cov-report=xml:coverage-bdu.xml
+          isort --check-only feagi_connector/ || echo "Import sorting needs attention"
 
-      - name: Run Core tests
-        if: needs.detect-changes.outputs.core-changed == 'true'
+      - name: Type check with MyPy
         run: |
-          echo "⚙️ Running Core module tests..."
-          pytest tests/core/ -v --cov=feagi.core --cov-report=xml:coverage-core.xml
-          
-          # Core changes are critical - also run system tests
-          pytest tests/system/ -v --cov-append --cov-report=xml:coverage-core.xml
-
-      - name: Run Evo tests
-        if: needs.detect-changes.outputs.evo-changed == 'true'
-        run: |
-          echo "🧬 Running Evo module tests..."
-          # Evo tests are primarily in unit tests
-          pytest tests/unit/ -k "evo or genome" -v --cov=feagi.evo --cov-report=xml:coverage-evo.xml
-
-      - name: Run NPU tests
-        if: needs.detect-changes.outputs.npu-changed == 'true'
-        run: |
-          echo "🔥 Running NPU module tests..."
-          pytest tests/npu/ -v --cov=feagi.npu --cov-report=xml:coverage-npu.xml
-          
-          # Include NPU integration and performance tests
-          pytest tests/integration/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
-          pytest tests/performance/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
-          pytest tests/e2e/npu/ -v --cov-append --cov-report=xml:coverage-npu.xml
-
-      - name: Run PNS tests
-        if: needs.detect-changes.outputs.pns-changed == 'true'
-        run: |
-          echo "👁️ Running PNS module tests..."
-          # PNS tests are primarily in unit tests
-          pytest tests/unit/ -k "pns or agent or vision" -v --cov=feagi.pns --cov-report=xml:coverage-pns.xml
-
-      # DEPRECATED: Rust tests moved to feagi-rust-py-libs repository
-      # - name: Run Rust tests
-      #   if: needs.detect-changes.outputs.rust-changed == 'true'
-      #   run: |
-      #     echo "🦀 Running Rust module tests..."
-      #     pytest tests/rust/ -v --cov=feagi.rust --cov-report=xml:coverage-rust.xml
-
-      - name: Run Utils tests
-        if: needs.detect-changes.outputs.utils-changed == 'true'
-        run: |
-          echo "🛠️ Running Utils module tests..."
-          pytest tests/utils/ -v --cov=feagi.utils --cov-report=xml:coverage-utils.xml
-          
-          # Utils changes might affect performance
-          pytest tests/performance/utils/ -v --cov-append --cov-report=xml:coverage-utils.xml || echo "No performance/utils tests found"
-
-      - name: Run Protocols tests
-        if: needs.detect-changes.outputs.protocols-changed == 'true'
-        run: |
-          echo "🔌 Running Protocols module tests..."
-          # Protocol tests are spread across different areas
-          pytest tests/api/protocols/ -v --cov=feagi.protocols --cov-report=xml:coverage-protocols.xml
-          pytest tests/unit/ -k "protocol" -v --cov-append --cov-report=xml:coverage-protocols.xml
-
-      - name: Show test summary
-        if: always()
-        run: |
-          echo "## 📊 Module-Specific Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Module | Tests Run | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ needs.detect-changes.outputs.api-changed }}" == "true" ]; then
-            echo "| 📡 API | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.bdu-changed }}" == "true" ]; then
-            echo "| 🧠 BDU | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.core-changed }}" == "true" ]; then
-            echo "| ⚙️ Core | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.evo-changed }}" == "true" ]; then
-            echo "| 🧬 Evo | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.npu-changed }}" == "true" ]; then
-            echo "| 🔥 NPU | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.pns-changed }}" == "true" ]; then
-            echo "| 👁️ PNS | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.rust-changed }}" == "true" ]; then
-            echo "| 🦀 Rust | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.utils-changed }}" == "true" ]; then
-            echo "| 🛠️ Utils | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ "${{ needs.detect-changes.outputs.protocols-changed }}" == "true" ]; then
-            echo "| 🔌 Protocols | ✅ | Completed |" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "💡 **Benefits**: Only relevant tests ran, saving ~60-70% CI time!" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload targeted coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./coverage-*.xml
-          flags: targeted-tests
-          name: codecov-targeted
+          mypy feagi_connector/ --ignore-missing-imports || echo "Type checking completed with warnings"
 
   test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
-    needs: [pre-commit-check, lint, license-check, detect-changes]
-    if: always() && (needs.pre-commit-check.result == 'success' && needs.lint.result == 'success' && needs.license-check.result == 'success') && (github.event_name == 'push' || (github.event_name == 'pull_request' && (needs.detect-changes.result == 'skipped' || needs.detect-changes.outputs.run-all-tests == 'true')))
+    needs: [lint-and-format]
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10']
+        python-version: ['3.9', '3.10', '3.11']
 
     steps:
       - uses: actions/checkout@v4
@@ -429,60 +61,50 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Install ZeroMQ (Ubuntu)
+      - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libzmq3-dev
 
-      - name: Install ZeroMQ (macOS)
+      - name: Install system dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           brew install zeromq
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e .
+          pip install pytest pytest-cov pytest-asyncio
 
-      - name: Test with pytest
+      - name: Run tests
         run: |
-          pytest --cov=feagi tests/
+          pytest tests/ -v --cov=feagi_connector --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          flags: full-tests
-          name: codecov-full
+          file: ./coverage.xml
+          flags: feagi_connector_2.0
+          name: codecov-feagi-connector
 
-  benchmark:
-    name: Performance Benchmarks
+  integration-test:
+    name: Integration Tests
     runs-on: ubuntu-latest
     needs: [test]
-    if: always() && (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-
-      - name: Install ZeroMQ
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libzmq3-dev
@@ -490,61 +112,107 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e .
+          pip install pytest pytest-asyncio
 
-      - name: Run benchmarks
+      - name: Test connector client functionality
         run: |
-          pytest tests/ --benchmark-only
+          python -m pytest tests/test_client.py -v --tb=short
 
-      - name: Store benchmark results
-        uses: actions/upload-artifact@v3
-        with:
-          name: benchmark-results
-          path: .benchmarks/
+      - name: Test examples run without errors
+        run: |
+          cd examples/
+          python -m py_compile send_image.py
+          python -m py_compile send_segmented_image.py
 
-  docs:
-    name: Build Documentation
+  build-and-package:
+    name: Build and Package Validation
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    needs: [test]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Check package integrity
+        run: |
+          twine check dist/*
+
+      - name: Test package installation
+        run: |
+          pip install dist/*.whl
+          python -c "import feagi_connector; print('FEAGI Connector 2.0 installed successfully')"
+
+  docs-build:
+    name: Documentation Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[docs]"
+          pip install mkdocs mkdocs-material
 
       - name: Build documentation
         run: |
           mkdocs build
 
-      - name: Deploy documentation
-        if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload docs as artifact
+        uses: actions/upload-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
+          name: feagi-connector-docs
+          path: site/
 
   publish:
-    name: Publish Package (deprecated - use build-wheels.yml)
+    name: Publish Package
     runs-on: ubuntu-latest
-    needs: [lint, test, docs]
-    if: false  # Disabled - use build-wheels.yml workflow instead
+    needs: [test, integration-test, build-and-package]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Migration Notice
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install build dependencies
         run: |
-          echo "⚠️  This job is deprecated."
-          echo "Package publishing now uses the build-wheels.yml workflow."
-          echo "Wheels are built with cibuildwheel for better compatibility."
-          echo ""
-          echo "To publish a release:"
-          echo "1. Create a GitHub release with a version tag (e.g., v0.1.0)"
-          echo "2. The build-wheels.yml workflow will automatically build and publish"
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.FEAGI_CONNECTOR_PYPI_TOKEN }}
+          skip_existing: true

@@ -1,45 +1,47 @@
-"""FEAGI: Framework for Evolutionary Artificial General Intelligence.
+"""
+FEAGI Python SDK
 
-This package provides tools and utilities for creating, training, and deploying
-artificial general intelligence models that evolve over time.
+Complete SDK for building FEAGI agents, controlling the neural engine,
+and creating marketplace packages.
 
-The main components are:
-- API server: REST API for external communication
-- ZMQ server: Messaging system for internal component communication
-- Core modules: Neural processing, resource management, and other foundational components
+Version 3.0.0 - Clean architecture, no legacy code.
+
+Main modules:
+- feagi.engine: Start/stop FEAGI neural engine
+- feagi.agent: Agent framework (BaseAgent templates)
+- feagi.genome: Runtime genome manipulation
+- feagi.connectome: Runtime connectome operations
+- feagi.packaging: Build marketplace packages
+- feagi.pns: Peripheral Nervous System (communication layer)
+- feagi.cli: Command-line tools
 """
 
-__version__ = "0.1.0"
+__version__ = "3.0.0"
 
-# Import key components for easy access
-from feagi.core.resource_mgr import ResourceManager
+# Import key classes for convenience
+# Note: FeagiAgentClient requires feagi_rust_py_libs to be installed
+try:
+    from feagi.pns import FeagiAgentClient, AgentType
+    _pns_available = True
+except ImportError:
+    _pns_available = False
+    FeagiAgentClient = None
+    AgentType = None
 
-# Backward compatibility: Make feagi.rust accessible as feagi_rust module
-# This allows old code using "import feagi_rust" to continue working
-import sys
-from feagi import rust as _rust_module
-sys.modules['feagi_rust'] = _rust_module
+from feagi.agent import BaseAgent
 
+__all__ = [
+    "FeagiAgentClient",
+    "AgentType",
+    "BaseAgent",
+    "__version__",
+]
 
-# Create a factory function to initialize a complete FEAGI system
-def create_feagi(config=None):
-    """Initialize a complete FEAGI system.
+def check_rust_sdk():
+    """Check if Rust SDK is installed and print status"""
+    if _pns_available:
+        print("✅ FEAGI Rust SDK is available")
+    else:
+        print("⚠️  FEAGI Rust SDK not installed")
+        print("   Install with: pip install feagi_rust_py_libs")
 
-    This is a convenience function that initializes core components and returns
-    a dictionary with references to them.
-
-    Args:
-        config: Optional configuration dictionary
-
-    Returns:
-        Dictionary with references to core FEAGI components
-    """
-    # Initialize resource manager
-    resource_mgr = ResourceManager(config)
-
-    # Return references to core components
-    return {
-        "resource_mgr": resource_mgr,
-        "version": __version__,
-        "config": config or {},
-    }

@@ -1,0 +1,53 @@
+name: Publish rust_core_sensiomotor_functions To Cargo
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty to use version in Cargo.toml)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Update version if specified
+        if: ${{ inputs.version != '' }}
+        run: |
+          cd rust_core_sensiomotor_functions
+          cargo install cargo-edit
+          cargo set-version ${{ inputs.version }}
+
+      - name: Check formatting
+        run: |
+          cd rust_core_sensiomotor_functions
+          cargo fmt --check
+
+      - name: Run tests
+        run: |
+          cd rust_core_sensiomotor_functions
+          cargo test
+
+      - name: Build
+        run: |
+          cd rust_core_sensiomotor_functions
+          cargo build --release
+
+      - name: Login to crates.io
+        run: |
+          cargo login ${{ secrets.CARGO_PUSH_TOKEN }}
+
+      - name: Publish
+        run: |
+          cd rust_core_sensiomotor_functions
+          cargo publish --no-verify

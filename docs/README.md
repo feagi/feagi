@@ -1,63 +1,60 @@
-# FEAGI Documentation
+# FEAGI Connector Documentation
 
-This directory contains system-level architecture and design documentation for the FEAGI project.
+This directory contains documentation for the FEAGI Connector library.
 
 ## Documentation Structure
 
-FEAGI follows a structured documentation approach:
-- **System-level documentation** is stored in this `/docs` folder
-- **Module-specific documentation** is stored in each module's directory
+- **Strategic Planning**: Future vision and transformation roadmap
+  - [SDK Transformation Plan](FEAGI_SDK_TRANSFORMATION_PLAN.md) - Comprehensive 25-week plan to transform feagi-connector into the official FEAGI Python SDK
+  - [Executive Summary](FEAGI_SDK_EXECUTIVE_SUMMARY.md) - High-level overview of the SDK transformation
+  - [Codebase Evaluation & Strategy](CODEBASE_EVALUATION_AND_STRATEGY.md) - **⭐ RECOMMENDATION: Evolve existing codebase (80% reuse)**
 
-## Document Types
+- **User Guides**: How to use the FEAGI Connector
+  - [Connector Usage Guide](guide-connector-usage.md)
+  - [ZMQ Communication Guide](guide-zmq-communication.md)
+  - [Gaze Control Guide](guide-gaze-control.md)
+  
+- **Technical Documentation**: Design and implementation details
+  - [Architecture Overview](arch-connector-overview.md)
+  - [Protocol Specifications](spec-protocols.md)
+  - [Configuration](CONFIGURATION.md)
+  - [Dynamic Motor Registration](DYNAMIC_MOTOR_REGISTRATION.md)
+  
+- **API Reference**: Generated from source code docstrings
+  - Generated using mkdocstrings
 
-Documents follow a standardized naming convention with prefixes indicating their type:
+## Building the Documentation
 
-| Prefix | Type | Purpose |
-|--------|------|---------|
-| `arch-` | Architecture | System design and architecture documents |
-| `spec-` | Specification | Technical specifications and protocols |
-| `guide-` | Guide | User and developer guides |
-| `adr-` | Architecture Decision Record | Records of architectural decisions |
-| `plan-` | Planning | Project planning documents |
+The documentation is built using MkDocs with the Material theme and mkdocstrings for API reference generation.
 
-## Key Documents
+```bash
+# Install documentation dependencies
+pip install -e .[docs]
 
-### Architecture
-- [System Overview](arch-system-overview.md) - Core FEAGI architecture
-- [API Decorator Architecture](arch-api-decorator-architecture.md) - **CRITICAL** - Single source of truth API design and architectural compliance
-- [Burst Engine Lifecycle](arch-burst-engine-lifecycle.md) - **UPDATED** - Burst engine state management, workflow, and agent coordination
-- [Embedded Mode Architecture](arch-embedded-mode.md) - **NEW** - FastAPI elimination and embedded device optimization
-- [Godot Bridge Integration](arch-godot-bridge-integration.md) - **NEW** - Godot visualization bridge architecture and data flow
-- [Morton Spatial Hash Architecture](arch-morton-spatial-hash.md) - **NEW** - High-performance spatial indexing with 95%+ memory savings
-- [GPU Architecture](arch-gpu.md) - GPU acceleration design
-- [IPC Architecture](arch-ipc.md) - Inter-process communication
-- [State Management](arch-state-management.md) - System state management
-- [ZMQ Architecture](arch-zmq.md) - **UPDATED** - ZeroMQ communication architecture with agent registration coordination
-- [Agent Registration & FQ Sampler Solution](AGENT_FQ_SAMPLER_SOLUTION.md) - **NEW** - Comprehensive solution for intelligent agent coordination
+# Build the documentation
+mkdocs build
 
-### Specifications
-- [Shared Memory Protocol](spec-shared-memory.md) - Memory protocol specification
-- [Communication Protocols](spec-protocols.md) - FCP, FVP, and FSMP protocol specifications
-- [API Formats](spec-api-formats.md) - API response formats and compatibility
-
-### Guides
-- [Documentation Standards](guide-documentation-standards.md) - How to write documentation
-- [Coding Standards](guide-coding-standards.md) - Code quality guidelines
-- [Naming Conventions](guide-naming-conventions.md) - Naming rules
-- [Logging System](guide-logging-system.md) - **NEW** - Comprehensive logging system guide with CLI flags and debugging strategies
-
-### Architecture Decision Records
-- [API Refactoring](adr-api-refactoring.md) - API refactoring decisions
-
-### Planning
-- [Testing Strategy](plan-testing-strategy.md) - Test coverage planning
-- [Documentation Restructuring](plan-documentation-restructuring.md) - Documentation reorganization plan
-- [Documentation Progress](plan-documentation-restructuring-progress.md) - Current status of restructuring
-
-## Assets
-
-Diagrams and other visual assets are stored in the `/docs/assets` directory.
+# Serve the documentation locally
+mkdocs serve
+```
 
 ## Documentation Standards
 
-Please follow the [Documentation Standards](guide-documentation-standards.md) when creating or updating documents.
+All documentation follows these standards:
+
+1. **File naming conventions**:
+   - `guide-*`: User and developer guides
+   - `arch-*`: Architecture documents
+   - `spec-*`: Technical specifications
+   - `adr-*`: Architecture Decision Records
+
+2. **Markdown formatting**:
+   - Use ATX-style headers (`#` for h1, `##` for h2, etc.)
+   - Code blocks with language-specific syntax highlighting
+   - Tables for structured data
+
+3. **Code examples**:
+   - All code examples should be runnable
+   - Include import statements
+   - Use type hints
+   - Include comments explaining key concepts 
