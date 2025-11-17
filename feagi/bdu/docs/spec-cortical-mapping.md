@@ -1,1 +1,0 @@
-# Cortical Mapping Module Documentation
