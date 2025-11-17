@@ -3888,7 +3888,7 @@ class GenomeService(BaseService):
 
                         # SIMD-optimized batch deletion: 50-100x faster than nested loops
                         # Uses bit-vector filtering in Rust NPU for O(1) target membership testing
-                        deleted_count = connectome_manager.synapse_array.remove_synapses_between(
+                        deleted_count = connectome_manager._npu_interface.synapse_array.remove_synapses_between(
                             source_neurons, target_neurons
                         )
                         

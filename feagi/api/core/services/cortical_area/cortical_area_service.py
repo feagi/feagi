@@ -738,10 +738,11 @@ class CorticalAreaService(BaseService):
                     )
                     for pre_id, _ in connections:
                         # Skip connections within the same area
+                        # ARCHITECTURE: Get neuron's cortical area from Rust NPU
                         pre_area_idx = (
-                            self._connectome_manager._neuron_to_area.get(
-                                pre_id
-                            )
+                            self._connectome_manager._npu_interface.get_neuron_cortical_idx(pre_id)
+                            if self._connectome_manager._npu_interface
+                            else None
                         )
                         if (
                             pre_area_idx is not None
@@ -759,10 +760,11 @@ class CorticalAreaService(BaseService):
                     )
                     for post_id, _ in connections:
                         # Skip connections within the same area
+                        # ARCHITECTURE: Get neuron's cortical area from Rust NPU
                         post_area_idx = (
-                            self._connectome_manager._neuron_to_area.get(
-                                post_id
-                            )
+                            self._connectome_manager._npu_interface.get_neuron_cortical_idx(post_id)
+                            if self._connectome_manager._npu_interface
+                            else None
                         )
                         if (
                             post_area_idx is not None

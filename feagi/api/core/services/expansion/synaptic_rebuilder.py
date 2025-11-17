@@ -118,39 +118,18 @@ class SynapticRebuilder:
                 f"🔄 [SYNAPTIC-REBUILD] Deleting all synapses for {len(area_neurons)} neurons in {cortical_id}"
             )
             
-            # Get all synapses and delete ones involving neurons in this area
-            synapses_to_delete = []
-            
-            # CRITICAL FIX: Direct synapse deletion using SynapseArray
-            synapse_array = self.connectome_manager.synapse_array
-            
-            # Find all synapses involving neurons in this cortical area
-            for i in range(synapse_array.count):
-                if not synapse_array.valid_mask[i]:
-                    continue
-                    
-                source_id = synapse_array.source_neuron_ids[i]
-                target_id = synapse_array.target_neuron_ids[i]
-                
-                # Delete synapse if EITHER source OR target is in the cortical area
-                if source_id in area_neuron_set or target_id in area_neuron_set:
-                    synapses_to_delete.append((source_id, target_id))
-            
-            # Use the correct method name: delete_synapses (not delete_synapses_batch)
-            if synapses_to_delete:
-                synapses_deleted = self.connectome_manager.delete_synapses(synapses_to_delete)
+            # Use NPU interface for efficient synapse deletion
+            # Remove all outgoing synapses from neurons in this area
+            if hasattr(self.connectome_manager, '_npu_interface') and self.connectome_manager._npu_interface:
+                synapses_deleted = self.connectome_manager._npu_interface.synapse_array.remove_synapses_from_sources(area_neurons)
                 self.logger.info(
-                    f"🔄 [SYNAPTIC-REBUILD] Successfully identified {len(synapses_to_delete)} synapses to delete"
+                    f"🔄 [SYNAPTIC-REBUILD] Deleted {synapses_deleted} synapses from {cortical_id}"
                 )
             else:
-                synapses_deleted = 0
-                self.logger.info(
-                    f"🔄 [SYNAPTIC-REBUILD] No synapses found involving area {cortical_id}"
+                self.logger.error(
+                    f"🔄 [SYNAPTIC-REBUILD] NPU interface not available for synapse deletion in {cortical_id}"
                 )
-            
-            self.logger.info(
-                f"🔄 [SYNAPTIC-REBUILD] Deleted {synapses_deleted} synapses for area {cortical_id}"
-            )
+                synapses_deleted = 0
             
             return synapses_deleted
             
@@ -159,20 +138,6 @@ class SynapticRebuilder:
                 f"🔄 [SYNAPTIC-REBUILD] Error deleting synapses for {cortical_id}: {e}"
             )
             return 0
-
-    def _delete_synapses_fallback(self, area_neuron_set: set) -> int:
-        """Fallback method - this is no longer needed as we now have proper deletion.
-        
-        Args:
-            area_neuron_set: Set of neuron IDs in the cortical area
-            
-        Returns:
-            Number of synapses deleted (always 0 for this fallback)
-        """
-        self.logger.info(
-            f"🔄 [SYNAPTIC-REBUILD] Fallback method called - this should not happen with the new implementation"
-        )
-        return 0
 
     def _rebuild_synapses_from_morphologies(self, cortical_id: str) -> int:
         """Rebuild all synapses for a cortical area using morphology definitions.

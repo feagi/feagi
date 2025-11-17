@@ -120,6 +120,26 @@ class BrainService(BaseService):
                 return False
 
             rust_npu = rust_npu_integration._rust_npu
+            
+            # Wire PNS to burst engine BEFORE starting (enables direct Rust→Rust visualization)
+            try:
+                from feagi.process_manager import get_process_manager
+                process_manager = get_process_manager()
+                self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: process_manager={process_manager}")
+                self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: has _pns attr={hasattr(process_manager, '_pns') if process_manager else False}")
+                if process_manager:
+                    self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: _pns value={getattr(process_manager, '_pns', None)}")
+                
+                if process_manager and hasattr(process_manager, '_pns') and process_manager._pns:
+                    self.logger.info(f"🦀 [RUST-BURST] 🔍 DEBUG: Calling set_pns() with PNS={type(process_manager._pns)}")
+                    rust_npu.set_pns(process_manager._pns)
+                    self.logger.info("🦀 [RUST-BURST] ✅ PNS wired to burst engine (100% Rust-to-Rust hot path)")
+                else:
+                    self.logger.warning("🦀 [RUST-BURST] ⚠️ PNS not available - visualization will be disabled")
+            except Exception as e:
+                self.logger.error(f"🦀 [RUST-BURST] ❌ Failed to wire PNS: {e}")
+                import traceback
+                self.logger.error(f"🦀 [RUST-BURST] Traceback: {traceback.format_exc()}")
 
             # Check if burst loop is already running
             if rust_npu.is_burst_loop_running():
@@ -159,33 +179,26 @@ class BrainService(BaseService):
                         "🦀 [RUST-BURST] ✅ Rust burst loop started successfully!"
                     )
                     
-                    # Attach visualization SHM writer now that burst loop is running
+                    # ❌ OLD CODE (VIOLATED HOT PATH): Python was calling attach_viz_zmq_publisher() AFTER burst started
+                    # ✅ NEW CODE: PNS wired directly to burst engine in Rust (100% Rust-to-Rust, NO Python callbacks!)
+                    
+                    # Attach visualization SHM writer now that burst loop is running (only if --shared-mem flag set)
                     try:
                         from feagi.core.state_manager import FeagiStateManager
                         sm = FeagiStateManager.instance()
                         shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
                         
-                        rust_npu.attach_viz_shm_writer(viz_shm_path)
-                        self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
-                        
-                        # Attach ZMQ publisher (publishes viz data to port 5562 for Bridge/remote clients)
-                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: Attempting to attach ZMQ publisher...")
-                        from feagi.process_manager import get_process_manager
-                        process_manager = get_process_manager()
-                        self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: process_manager={process_manager}")
-                        if process_manager:
-                            has_pns = hasattr(process_manager, '_pns')
-                            self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: has _pns attribute={has_pns}")
-                            if has_pns:
-                                pns = process_manager._pns
-                                self.logger.info(f"📡 [RUST-BURST] 🔍 DEBUG: _pns={pns}")
-                                rust_npu.attach_viz_zmq_publisher(pns)
-                                self.logger.info(f"📡 [RUST-BURST] ✅ Visualization ZMQ publisher attached (port 5562)")
-                            else:
-                                self.logger.warning(f"📡 [RUST-BURST] ❌ PNS not available (_pns attribute missing)")
+                        # Only attach SHM writer if --shared-mem flag was set (registry will be empty otherwise)
+                        if shm_registry:
+                            viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
+                            rust_npu.attach_viz_shm_writer(viz_shm_path)
+                            self.logger.info(f"🎨 [RUST-BURST] ✅ Visualization SHM writer attached: {viz_shm_path}")
                         else:
-                            self.logger.warning(f"📡 [RUST-BURST] ❌ ProcessManager not available")
+                            self.logger.info(f"🎨 [RUST-BURST] Visualization using ZMQ mode (--shared-mem not set)")
+                        
+                        # REMOVED: Python-mediated attachment of PNS to burst engine (violated hot path architecture)
+                        # PNS is now wired directly to burst engine in Rust during initialization (NO PYTHON IN HOT PATH!)
+                        self.logger.info(f"📡 [RUST-BURST] Visualization ZMQ handled by Rust-to-Rust communication (port 5562)")
                     except Exception as e:
                         self.logger.error(f"🎨 [RUST-BURST] ❌ Exception during attachment: {e}")
                         import traceback
@@ -223,7 +236,7 @@ class BrainService(BaseService):
 
             # Start the burst engine in a daemon thread
             burst_thread = threading.Thread(
-                target=run_burst_engine, daemon=True
+                target=run_burst_engine, daemon=True, name="Burst-Engine"
             )
             burst_thread.start()
 
@@ -274,7 +287,7 @@ class BrainService(BaseService):
 
             # Start monitoring thread
             monitor_thread = threading.Thread(
-                target=monitor_startup, daemon=True
+                target=monitor_startup, daemon=True, name="Startup-Monitor"
             )
             monitor_thread.start()
 

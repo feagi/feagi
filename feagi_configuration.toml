@@ -13,6 +13,47 @@ debug = true
 log_level = "WARNING"
 data_dir = ""  # Must be set via environment variable or configuration override
 
+# CPU affinity: Pin FEAGI to specific CPU cores
+# Examples:
+#   cpu_affinity = []           # Use all cores (default)
+#   cpu_affinity = [0, 1, 2, 3] # Pin to cores 0-3
+#   cpu_affinity = [0, 2, 4, 6] # Pin to even cores only (avoid hyperthreading siblings)
+# Note: Core IDs are 0-indexed.
+#
+# Platform support:
+#   - Linux: ✅ Full support via sched_setaffinity()
+#   - Windows: ✅ Full support via SetProcessAffinityMask()
+#   - macOS: ❌ Not supported (macOS removed pthread_setaffinity_np)
+#            On macOS, use 'sudo renice -n -10 -p <pid>' or taskpolicy instead
+cpu_affinity = []  # Empty = use all cores
+
+# Process priority: Increase FEAGI's scheduling priority for better real-time performance
+# Higher values = higher priority = more CPU time allocated by the OS scheduler
+#
+# Linux/macOS (nice values):
+#   nice_value range: -20 to 19
+#   -20 = highest priority (requires sudo/root)
+#   -10 = high priority (requires sudo/root) - RECOMMENDED for real-time FEAGI
+#   0   = normal priority (default)
+#   10  = lower priority
+#   19  = lowest priority
+#
+# Windows (priority class):
+#   "realtime"      = REALTIME_PRIORITY_CLASS (requires admin, can freeze system)
+#   "high"          = HIGH_PRIORITY_CLASS (requires admin) - RECOMMENDED for real-time FEAGI
+#   "above_normal"  = ABOVE_NORMAL_PRIORITY_CLASS
+#   "normal"        = NORMAL_PRIORITY_CLASS (default)
+#   "below_normal"  = BELOW_NORMAL_PRIORITY_CLASS
+#   "idle"          = IDLE_PRIORITY_CLASS
+#
+# Examples:
+#   priority = 0                  # Normal priority (default, no special privileges needed)
+#   priority = -10                # High priority on Linux/macOS (requires sudo)
+#   priority = "high"             # High priority on Windows (requires admin)
+#
+# Note: Negative nice values and "high"/"realtime" Windows priorities require elevated privileges
+priority = 0  # 0 = normal priority (cross-platform default)
+
 [genome]
 # Genome loading and validation configuration
 auto_recovery_on_validation_failure = true  # Allow loading invalid genomes with auto-recovery (default: true)
@@ -58,6 +99,7 @@ zmq_sensory_port = 5558      # Sensory data input
 zmq_visualization_port = 5562 # Neural activity visualization
 zmq_rest_port = 5563         # REST API over ZMQ
 zmq_motor_port = 5564        # Motor data output
+zmq_api_control_port = 5565  # API control stream (FEAGI↔FastAPI process)
 
 [zmq]
 # ZMQ-specific settings
@@ -85,7 +127,12 @@ auto_enable_on_subscribers = true # Auto-enable FQ sampler when clients connect
 subscriber_check_interval = 1.0  # Seconds between subscriber checks
 
 [zmq.streams.sensory]
-enabled = true                    # Enable sensory stream
+enabled = true                           # Enable sensory stream
+receive_high_water_mark = 1              # Drop buffered frames immediately for real-time sensory processing  
+linger_ms = 0                            # Do not block on shutdown
+immediate = true                         # Fail fast if PNS sensory socket is unavailable
+poll_timeout_ms = 10                     # Poll frequently to minimize buffering latency
+startup_drain_timeout_ms = 500           # Drain stale buffered messages on startup (real-time requirement)
 
 [zmq.streams.motor]
 enabled = true                    # Enable motor stream

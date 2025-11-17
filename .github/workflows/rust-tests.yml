@@ -1,15 +1,13 @@
-name: Rust Tests
+name: Rust Tests (Deprecated)
+
+# DEPRECATED: Rust code has been moved to separate repositories:
+# - Pure Rust libraries → feagi-core repository
+# - PyO3 Python bindings → feagi-rust-py-libs repository
+#
+# This workflow is disabled. Rust tests now run in their respective repositories.
 
 on:
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'feagi-rust/**'
-      - '.github/workflows/rust-tests.yml'
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'feagi-rust/**'
+  workflow_dispatch:  # Manual trigger only
 
 jobs:
   detect-rust-changes:

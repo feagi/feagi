@@ -217,10 +217,11 @@ jobs:
             echo "👁️ PNS module changes detected"
           fi
           
-          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/rust/"; then
-            RUST_CHANGED=true
-            echo "🦀 Rust module changes detected"
-          fi
+          # DEPRECATED: Rust code moved to separate feagi-rust-py-libs repository
+          # if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/rust/"; then
+          #   RUST_CHANGED=true
+          #   echo "🦀 Rust module changes detected"
+          # fi
           
           if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep "feagi/utils/"; then
             UTILS_CHANGED=true
@@ -339,14 +340,12 @@ jobs:
           # PNS tests are primarily in unit tests
           pytest tests/unit/ -k "pns or agent or vision" -v --cov=feagi.pns --cov-report=xml:coverage-pns.xml
 
-      - name: Run Rust tests
-        if: needs.detect-changes.outputs.rust-changed == 'true'
-        run: |
-          echo "🦀 Running Rust module tests..."
-          pytest tests/rust/ -v --cov=feagi.rust --cov-report=xml:coverage-rust.xml
-          
-          # Also compile and test Rust components
-          cd feagi/rust && cargo test
+      # DEPRECATED: Rust tests moved to feagi-rust-py-libs repository
+      # - name: Run Rust tests
+      #   if: needs.detect-changes.outputs.rust-changed == 'true'
+      #   run: |
+      #     echo "🦀 Running Rust module tests..."
+      #     pytest tests/rust/ -v --cov=feagi.rust --cov-report=xml:coverage-rust.xml
 
       - name: Run Utils tests
         if: needs.detect-changes.outputs.utils-changed == 'true'

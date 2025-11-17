@@ -230,12 +230,16 @@ class BurstEngineAPI:
 
     @burst_engine_endpoint("GET", "/fcl", response_model=FCLContentResponse)
     async def get_fcl_content(self) -> FCLContentResponse:
-        """Get the complete Fire Candidate List (FCL) content at the current timestep.
+        """Get the Fire Candidate List (FCL) content at the current timestep.
         
         🦀 RUST: Uses Rust NPU's FCL (neurons that are candidates to fire, not yet fired).
         
-        Returns all neurons with accumulated potential organized by cortical areas.
+        Returns neurons with accumulated potential organized by cortical areas.
         These are neurons that MAY fire in the next burst depending on their threshold and dynamics.
+        
+        **Note**: To prevent overwhelming the network, this endpoint returns **only the first 20 neuron IDs**
+        per cortical area, even if there are millions of activations. This is a sampling limit for
+        monitoring purposes only.
         """
         try:
             # 🦀 RUST: Get FCL from Rust NPU (not Fire Queue!)
@@ -255,10 +259,14 @@ class BurstEngineAPI:
             if not fcl_dict:
                 fcl_dict = {}
             
-            # Build global FCL (all candidate neurons across all areas)
+            # Limit to first 20 neuron IDs per area to prevent overwhelming the network
+            MAX_NEURONS_PER_AREA = 20
+            
+            # Build global FCL (limited sample of candidate neurons across all areas)
             global_fcl_list = []
             for area_data in fcl_dict.values():
-                global_fcl_list.extend(area_data["neuron_ids"])
+                neuron_ids = area_data["neuron_ids"][:MAX_NEURONS_PER_AREA]
+                global_fcl_list.extend(neuron_ids)
             
             # Map cortical_idx -> cortical_id using NPU interface
             cortical_areas = {}
@@ -272,16 +280,17 @@ class BurstEngineAPI:
                     for cortical_idx, area_data in fcl_dict.items():
                         area_info = npu.cortical_areas.get(cortical_idx, {})
                         cortical_id = area_info.get("cortical_id", str(cortical_idx))
-                        cortical_areas[cortical_id] = area_data["neuron_ids"]
+                        # Limit to first 20 neuron IDs per area
+                        cortical_areas[cortical_id] = area_data["neuron_ids"][:MAX_NEURONS_PER_AREA]
                 else:
                     # Fallback: use cortical_idx as strings
                     for cortical_idx, area_data in fcl_dict.items():
-                        cortical_areas[str(cortical_idx)] = area_data["neuron_ids"]
+                        cortical_areas[str(cortical_idx)] = area_data["neuron_ids"][:MAX_NEURONS_PER_AREA]
             except Exception as map_err:
                 logger.warning(f"Error mapping cortical_idx to cortical_id: {map_err}")
                 # Safe fallback to indices as strings
                 for cortical_idx, area_data in fcl_dict.items():
-                    cortical_areas[str(cortical_idx)] = area_data["neuron_ids"]
+                    cortical_areas[str(cortical_idx)] = area_data["neuron_ids"][:MAX_NEURONS_PER_AREA]
             
             # Fire Ledger default window size (from Rust NPU config)
             default_window_size = 20  # Standard window size

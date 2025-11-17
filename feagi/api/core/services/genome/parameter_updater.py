@@ -6,13 +6,9 @@ massive performance improvements for parameter-only changes.
 """
 
 import time
-from typing import Any, Dict, List, Union
-# Removed unused numpy import
+from typing import Any, Dict
 
-from feagi.api.core.services.genome.change_classifier import (
-    CorticalChangeClassifier,
-)
-from feagi.bdu.connectome_manager import ConnectomeManager, NeuronPropertyType
+from feagi.bdu.connectome_manager import ConnectomeManager
 from feagi.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -41,15 +37,15 @@ class CorticalParameterUpdater:
         'neuron_excitability': ('excitabilities', _validate_0_1_float, 'Excitability'),
         'snooze_length': ('snooze_periods', lambda v: int(max(0, round(float(v)))), 'Snooze period'),
         'firing_threshold_limit': ('thresholds', float, 'Firing threshold'),
+        'neuron_fire_threshold': ('thresholds', float, 'Firing threshold'),  # Alternative name
+        'firing_threshold': ('thresholds', float, 'Firing threshold'),  # Alternative name
         'leak': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),
         'neuron_leak_coefficient': ('leak_coefficients', _validate_0_1_float, 'Leak coefficient'),  # Alternative name
         'neuron_leak_variability': ('leak_coefficients', _validate_0_1_float, 'Leak variability'),  # Neurogenesis parameter (genome only)
         'refrac': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),
         'neuron_refractory_period': ('refractory_periods', lambda v: int(max(0, round(float(v)))), 'Refractory period'),  # Alternative name
         'consecutive_fire_cnt_max': ('consecutive_fire_limits', lambda v: int(max(0, round(float(v)))), 'Consecutive fire limit'),
-        'neuron_membrane_potential': ('membrane_potentials', float, 'Membrane potential'),
-        'neuron_resting_potential': ('resting_potentials', float, 'Resting potential'),
-        'neuron_type': ('neuron_types', int, 'Neuron type'),
+        'neuron_mp_charge_accumulation': ('mp_charge_accumulation', bool, 'MP charge accumulation'),  # Genome: nx-mp_acc-b
     }
 
     def __init__(self, connectome_manager: ConnectomeManager):
@@ -122,10 +118,10 @@ class CorticalParameterUpdater:
                     # Use dedicated Rust method for excitability updates
                     updated_count = rust_npu.update_cortical_area_excitability(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated excitability to {converted_value} for {updated_count} neurons in area {cortical_id}")
-                elif property_name in ('neuron_refractory_period', 'refractory_period'):
+                elif property_name in ('neuron_refractory_period', 'refractory_period', 'refrac'):
                     updated_count = rust_npu.update_cortical_area_refractory_period(cortical_idx, int(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated refractory_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
-                elif property_name in ('neuron_fire_threshold', 'firing_threshold'):
+                elif property_name in ('neuron_fire_threshold', 'firing_threshold', 'firing_threshold_limit'):
                     updated_count = rust_npu.update_cortical_area_threshold(cortical_idx, float(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated threshold to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 elif property_name in ('leak', 'leak_coefficient', 'neuron_leak_coefficient', 'neuron_leak_variability'):
@@ -141,6 +137,9 @@ class CorticalParameterUpdater:
                 elif property_name in ('snooze_length', 'neuron_snooze_period'):
                     updated_count = rust_npu.update_cortical_area_snooze_period(cortical_idx, int(converted_value))
                     self.logger.info(f"🦀 [RUST-NPU] ✅ Updated snooze_period to {converted_value} for {updated_count} neurons in area {cortical_id}")
+                elif property_name == 'neuron_mp_charge_accumulation':
+                    updated_count = rust_npu.update_cortical_area_mp_charge_accumulation(cortical_idx, bool(converted_value))
+                    self.logger.info(f"🦀 [RUST-NPU] ✅ Updated mp_charge_accumulation to {converted_value} for {updated_count} neurons in area {cortical_id}")
                 else:
                     # For other properties, we'll need to add specific Rust methods as needed
                     self.logger.warning(f"🦀 [RUST-NPU] Live update for {property_name} not yet implemented - will require FEAGI restart")
@@ -163,7 +162,10 @@ class CorticalParameterUpdater:
     def update_neuron_parameters(
         self, cortical_id: str, parameter_changes: Dict[str, Any]
     ) -> bool:
-        """Update neuron parameters directly in ConnectomeManager.
+        """Update neuron parameters for a cortical area via Rust NPU.
+        
+        ARCHITECTURE: Rust NPU owns all neurons. Python just tells Rust
+        which cortical area and what value to update. Rust does everything internally.
 
         Args:
             cortical_id: ID of the cortical area to update
@@ -175,7 +177,7 @@ class CorticalParameterUpdater:
         start_time = time.time()
 
         try:
-            # Fetch neuron IDs via NPU interface to avoid legacy paths and ensure SoA source of truth
+            # Get cortical index for Rust NPU updates
             npu = getattr(self.connectome_manager, "_npu_interface", None)
             if not npu:
                 self.logger.error(
@@ -190,199 +192,41 @@ class CorticalParameterUpdater:
                 )
                 return True
 
-            neuron_ids = npu.get_neurons_by_area(cortical_idx) or []
-            if not neuron_ids:
-                self.logger.info(
-                    f"No neurons found in cortical area {cortical_id} - skipping parameter updates"
-                )
-                return True  # Not an error - empty areas are valid
-
-            self.logger.info(
-                f"[FAST-UPDATE] Updating {len(neuron_ids)} neurons in {cortical_id}"
-            )
-
-            # Get neuron property mappings
-            mappings = CorticalChangeClassifier.get_neuron_property_mappings(
-                parameter_changes
-            )
-
-            if not mappings:
-                self.logger.warning(
-                    f"No mappable parameters found in {list(parameter_changes.keys())}"
-                )
-                return True
-
-            # Apply each parameter change
-            for param_name, value, property_type, conversion_func in mappings:
-                success = self._update_single_parameter(
-                    cortical_id,
-                    neuron_ids,
-                    param_name,
-                    value,
-                    property_type,
-                    conversion_func,
-                )
-                if not success:
-                    self.logger.error(
-                        f"Failed to update {param_name} for {cortical_id}"
+            # Apply each parameter change directly via Rust NPU (no neuron ID manipulation!)
+            success_count = 0
+            for param_name, value in parameter_changes.items():
+                # Check if this property is in our mapping
+                if param_name in self.NEURON_PROPERTY_MAPPING:
+                    success = self._update_neuron_array_property(
+                        cortical_id,
+                        cortical_idx,
+                        param_name,
+                        value
                     )
-                    return False
+                    if success:
+                        success_count += 1
+                    else:
+                        self.logger.error(
+                            f"Failed to update {param_name} for {cortical_id}"
+                        )
+                else:
+                    self.logger.debug(
+                        f"Property {param_name} not in neuron property mapping - skipping"
+                    )
 
             # Log performance metrics
             duration = time.time() - start_time
             self.logger.info(
-                f"[FAST-UPDATE] Completed {len(mappings)} parameter updates "
-                f"for {len(neuron_ids)} neurons in {duration * 1000:.1f}ms"
+                f"[FAST-UPDATE] Completed {success_count}/{len(parameter_changes)} parameter updates "
+                f"for cortical area {cortical_id} in {duration * 1000:.1f}ms"
             )
 
-            return True
+            return success_count > 0
 
         except Exception as e:
             duration = time.time() - start_time
             self.logger.error(
                 f"Failed to update parameters for {cortical_id} after {duration * 1000:.1f}ms: {e}"
             )
-            return False
-
-    def _update_single_parameter(
-        self,
-        cortical_id: str,
-        neuron_ids: List[int],
-        param_name: str,
-        value: Any,
-        property_type: Union[NeuronPropertyType, str],
-        conversion_func: type,
-    ) -> bool:
-        """Update a single parameter across all neurons in the cortical
-        area."""
-
-        try:
-            # Convert value to correct type
-            converted_value = conversion_func(value)
-
-            # Handle standard neuron properties vs custom properties
-            if isinstance(property_type, NeuronPropertyType):
-                # Standard neuron property - use batch update
-                success = self.connectome_manager.batch_update_neuron_properties(
-                    neuron_ids=neuron_ids,
-                    property_name=property_type,
-                    values=converted_value,  # Single value applied to all neurons
-                )
-
-                if success:
-                    self.logger.info(
-                        f"[FAST-UPDATE] Updated {param_name}={converted_value} "
-                        f"for {len(neuron_ids)} neurons"
-                    )
-                else:
-                    self.logger.error(f"Batch update failed for {param_name}")
-
-                return success
-
-            else:
-                # Custom property - handle with special logic
-                return self._update_custom_property(
-                    cortical_id,
-                    neuron_ids,
-                    param_name,
-                    converted_value,
-                    property_type,
-                )
-
-        except Exception as e:
-            self.logger.error(f"Error updating {param_name}: {e}")
-            return False
-
-    def _update_custom_property(
-        self,
-        cortical_id: str,
-        neuron_ids: List[int],
-        param_name: str,
-        value: Any,
-        property_type: str,
-    ) -> bool:
-        """Handle custom neuron properties that don't map to NeuronPropertyType
-        enum."""
-
-        # Handle cortical area-level parameters (not per-neuron properties)
-        if property_type == "consecutive_fire_count":
-            # This is a cortical area-level parameter, not per-neuron
-            # It sets the max consecutive fires allowed for the area
-            
-            # 🦀 RUST: Consecutive fire limits are updated through the standard property update mechanism
-            # The Rust NPU updates these automatically when genome properties are reloaded
-            try:
-                self.logger.info(
-                    f"[FAST-UPDATE] Consecutive fire limits for cortical area {cortical_id} set to {value} (will be applied on Rust NPU reload)"
-                )
-                    
-            except Exception as e:
-                self.logger.error(f"[FAST-UPDATE] Error updating BurstEngine consecutive fire limits: {e}")
-            
-            self.logger.info(
-                f"[FAST-UPDATE] Updated cortical area consecutive fire limit to {value} "
-                f"(affects {len(neuron_ids)} neurons via area configuration)"
-            )
-            return True
-
-        # SYSTEMATIC APPROACH: Check if this is a neuron array property
-        elif property_type in self.NEURON_PROPERTY_MAPPING:
-            # Use the unified method for all neuron array properties
-            try:
-                cortical_area = self.connectome_manager.get_cortical_area(cortical_id)
-                if not cortical_area:
-                    self.logger.error(f"Cortical area {cortical_id} not found for {property_type} update")
-                    return False
-                
-                cortical_idx = cortical_area.cortical_idx
-                
-                # Update neuron_array using the systematic method
-                success = self._update_neuron_array_property(cortical_id, cortical_idx, property_type, value)
-                
-                if success:
-                    # Mirror to ConnectomeManager area properties for API reads
-                    try:
-                        if not hasattr(cortical_area, "properties") or cortical_area.properties is None:
-                            cortical_area.properties = {}
-                        cortical_area.properties[property_type] = value
-                    except Exception:
-                        pass
-                    
-                    # 🦀 RUST: No excitability cache - Rust NPU always uses latest values
-                    # (Legacy Python cache invalidation removed)
-                    
-                    self.logger.info(f"[FAST-UPDATE] Updated {property_type} to {value} for area {cortical_id}")
-                
-                return success
-                
-            except Exception as e:
-                self.logger.error(f"Failed to update {property_type} for {cortical_id}: {e}")
-                return False
-
-        elif property_type in [
-            "postsynaptic_current",
-            "postsynaptic_current_max",
-            "firing_threshold_limit",
-            "degeneration",
-            "longterm_mem_threshold",
-            "lifespan_growth_rate",
-            "init_lifespan",
-            "temporal_depth",
-            "mp_charge_accumulation",
-            "mp_driven_psp",
-        ]:
-            #  These are cortical area-level parameters that affect neuron
-            #  behavior
-            #  but are not direct neuron array properties - genome update
-            #  handles them
-            #  NOTE: The ConnectomeManager update will be handled by
-            #  GenomeService
-            self.logger.info(
-                f"[FAST-UPDATE] Updated cortical area {property_type} to {value} "
-                f"(affects {len(neuron_ids)} neurons via area configuration)"
-            )
-            return True
-
-        else:
-            self.logger.error(f"Unknown custom property type: {property_type}")
+            self.logger.exception("Full traceback:")
             return False

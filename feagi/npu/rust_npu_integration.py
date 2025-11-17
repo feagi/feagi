@@ -11,10 +11,29 @@ import time
 from feagi.utils.logger import setup_logger
 
 try:
-    import feagi_rust
+    # Import from new feagi-rust-py-libs package
+    from feagi_rust_py_libs import feagi_python as feagi_rust
     RUST_AVAILABLE = True
-except ImportError:
-    RUST_AVAILABLE = False
+except ImportError as e1:
+    # Try backward compatibility import
+    try:
+        import feagi_rust  # type: ignore # Old import path
+        RUST_AVAILABLE = True
+    except ImportError as e2:
+        # NO FALLBACKS - FAIL FAST
+        raise RuntimeError(
+            f"🦀 [RUST-NPU] CRITICAL: Cannot import Rust NPU!\n"
+            f"  Primary import failed: {e1}\n"
+            f"  Fallback import failed: {e2}\n"
+            "\n"
+            "FEAGI REQUIRES Rust NPU to run. Build and install:\n"
+            "  cd feagi-rust-py-libs/\n"
+            "  cargo build --release\n"
+            "  cp target/release/libfeagi_rust_py_libs.dylib feagi_data_processing.so\n"
+            "  Add to PYTHONPATH or install package\n"
+            "\n"
+            "FEAGI WILL NOT RUN WITHOUT RUST - NO FALLBACKS"
+        ) from e2
 
 logger = setup_logger(__name__)
 
@@ -177,11 +196,14 @@ class RustNPUIntegration:
             # Note: snooze_countdown removed - now unified in refractory_countdown
             cfc, cfc_limit, snooze_period, potential, threshold, refrac_countdown = state
             
-            # Get cortical_idx from neuron_to_area mapping (no Python array needed!)
+            # Get cortical_idx from Rust NPU (single source of truth)
             cortical_idx = -1
             if hasattr(self.connectome_manager, '_npu_interface'):
                 npu_interface = self.connectome_manager._npu_interface
-                cortical_idx = npu_interface.neuron_to_area.get(neuron_id, -1)
+                try:
+                    cortical_idx = npu_interface.get_neuron_cortical_idx(neuron_id)
+                except Exception:
+                    cortical_idx = -1
             
             logger.info("🔍 [RUST-NEURON-STATE] Neuron %d (cortical_idx=%d) from RUST NPU:", neuron_id, cortical_idx)
             logger.info("🔍   potential=%.3f, threshold=%.3f, above_threshold=%s", 

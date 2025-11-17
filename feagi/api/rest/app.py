@@ -492,7 +492,7 @@ async def log_requests(request: Request, call_next):
     # Start timing
     start_time = time.time()
 
-    # ===== ENHANCED REQUEST LOGGING =====
+    # ===== DETAILED REQUEST LOGGING =====
     logger.info("🔵 [API-DEBUG] ═══════════════════════════════════════")
     logger.info(f"🔵 [API-DEBUG] REQUEST START [ID: {idem}]")
     logger.info("🔵 [API-DEBUG] ═══════════════════════════════════════")
@@ -529,7 +529,7 @@ async def log_requests(request: Request, call_next):
     else:
         logger.info("🔵 [API-DEBUG] Path Parameters: <none>")
 
-    # Capture and log request body
+    # Capture and log request body (FIX: Don't log errors repeatedly)
     request_body = None
     body_bytes = b""
     try:
@@ -557,7 +557,8 @@ async def log_requests(request: Request, call_next):
         else:
             logger.info("🔵 [API-DEBUG] Request Body: <empty>")
     except Exception as e:
-        logger.warning(f"🔵 [API-DEBUG] Failed to read request body: {e}")
+        # FIX: Log error ONCE, not repeatedly
+        logger.debug(f"🔵 [API-DEBUG] Could not read request body: {e}")
 
     #  Store original body for downstream handlers (since we consumed the
     #  stream)
@@ -575,7 +576,7 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000
 
-        # ===== ENHANCED RESPONSE LOGGING =====
+        # ===== DETAILED RESPONSE LOGGING =====
         logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
         logger.info(f"🟢 [API-DEBUG] RESPONSE [ID: {idem}]")
         logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
@@ -595,60 +596,6 @@ async def log_requests(request: Request, call_next):
         logger.info("🟢 [API-DEBUG] Response Headers:")
         for name, value in response.headers.items():
             logger.info(f"🟢 [API-DEBUG]   {name}: {value}")
-
-        # Try to capture and log response body (route-scoped capture for JSON)
-        try:
-            should_capture = request.url.path in (
-                "/v1/cortical_mapping/mapping_properties",
-                "/v1/cortical_mapping/mapping",
-            )
-            content_type = response.headers.get("content-type", "")
-            if should_capture and content_type.startswith("application/json"):
-                # Safely materialize the response body for both standard and streaming responses
-                body_bytes = b""
-                if hasattr(response, "body_iterator") and response.body_iterator is not None:
-                    try:
-                        async for chunk in response.body_iterator:
-                            if chunk:
-                                body_bytes += chunk
-                    except Exception:
-                        body_bytes = b""
-                else:
-                    # Starlette Response exposes raw body as bytes
-                    try:
-                        body_bytes = response.body  # type: ignore[attr-defined]
-                    except Exception:
-                        body_bytes = b""
-
-                if body_bytes:
-                    try:
-                        parsed = json.loads(body_bytes)
-                        pretty = json.dumps(parsed, indent=2)
-                        logger.info("🟢 [API-DEBUG] Response Body (JSON):")
-                        for line in pretty.split("\n"):
-                            logger.info(f"🟢 [API-DEBUG]   {line}")
-                    except Exception:
-                        # Not JSON or parse failed, log as text (truncate)
-                        text = body_bytes.decode("utf-8", errors="replace")
-                        if len(text) > 2000:
-                            text = text[:2000] + "... (truncated)"
-                        logger.info(f"🟢 [API-DEBUG] Response Body: {text}")
-
-                    # Rebuild response so downstream can still read the body
-                    response = Response(
-                        content=body_bytes,
-                        status_code=response.status_code,
-                        headers=dict(response.headers),
-                        media_type=content_type,
-                    )
-                else:
-                    logger.info("🟢 [API-DEBUG] Response Body: <empty>")
-            else:
-                logger.info("🟢 [API-DEBUG] Response Body: <streaming/uncaptured>")
-        except Exception as e:
-            logger.info(
-                f"🟢 [API-DEBUG] Response Body: <could not capture: {e}>"
-            )
 
         # Summary line
         logger.info("🟢 [API-DEBUG] ═══════════════════════════════════════")
@@ -730,7 +677,7 @@ async def set_api_state_ready():
     state.set_api_state(ServiceState.READY)
     # Start FD monitor thread
     try:
-        t = threading.Thread(target=_fd_monitor_thread, daemon=True)
+        t = threading.Thread(target=_fd_monitor_thread, daemon=True, name="FD-Monitor")
         t.start()
     except Exception:
         pass

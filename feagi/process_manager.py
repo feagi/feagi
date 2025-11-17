@@ -1,16 +1,14 @@
-"""Copyright 2025 Neuraville Inc.
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright 2025 Neuraville Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+# this file except in compliance with the License. You may obtain a copy of the
+# License at http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 """FEAGI Process Manager.
 
@@ -29,12 +27,6 @@ MIGRATION PATH: Python → Rust
 - Memory-mapped files → memmap2 crate
 - Singleton pattern → std::sync::Once
 """
-import asyncio
-
-from feagi.utils.logger import setup_logger
-
-logger = setup_logger(name="feagi.process_manager")
-
 import os
 import sys
 import threading
@@ -50,6 +42,10 @@ from feagi.config.toml_loader import (
     load_feagi_config,
 )
 from feagi.utils.port_checker import PortConflictError, check_port_availability
+from feagi.utils.logger import setup_logger
+
+
+logger = setup_logger(name="feagi.process_manager")
 
 # Process priority levels
 PRIORITY_CRITICAL = 1  # Real-time critical processes
@@ -477,6 +473,7 @@ class ProcessManager:
             # --- Get Stream Configuration Early ---
             zmq_config = config.get("zmq", {})
             stream_config = zmq_config.get("streams", {})
+            sensory_stream_config = stream_config.get("sensory", {})
 
             #  Check which streams are enabled (disable visualization in
             #  embedded mode)
@@ -580,8 +577,41 @@ class ProcessManager:
                 state_manager = FeagiStateManager.instance()
                 logger.info("🦀 Initializing Rust PNS (Peripheral Nervous System) for ZMQ services")
 
+                pns_kwargs = {}
+                if sensory_stream_config:
+                    required_keys = [
+                        "receive_high_water_mark",
+                        "linger_ms",
+                        "immediate",
+                        "poll_timeout_ms",
+                        "startup_drain_timeout_ms",
+                    ]
+                    missing_keys = [
+                        key
+                        for key in required_keys
+                        if key not in sensory_stream_config
+                    ]
+                    if missing_keys:
+                        raise RuntimeError(
+                            "Missing required ZMQ sensory stream configuration keys: "
+                            + ", ".join(missing_keys)
+                        )
+
+                    pns_kwargs.update(
+                        {
+                            "zmq_sensory_recv_hwm": sensory_stream_config["receive_high_water_mark"],
+                            "zmq_sensory_linger_ms": sensory_stream_config["linger_ms"],
+                            "zmq_sensory_immediate": sensory_stream_config["immediate"],
+                            "zmq_sensory_poll_timeout_ms": sensory_stream_config["poll_timeout_ms"],
+                            "zmq_sensory_startup_drain_ms": sensory_stream_config["startup_drain_timeout_ms"],
+                        }
+                    )
+
                 # Create Rust PNS
-                pns = feagi_rust.PyPNS()
+                if pns_kwargs:
+                    pns = feagi_rust.PyPNS.new_with_config(**pns_kwargs)
+                else:
+                    pns = feagi_rust.PyPNS()
                 
                 # Register Python callbacks for agent lifecycle events (BEFORE start)
                 logger.info("🦀 Registering Python callbacks with Rust PNS")
@@ -589,17 +619,65 @@ class ProcessManager:
                 pns.set_on_agent_deregistered(self._on_agent_deregistered)
                 logger.info("🦀 Callbacks registered successfully")
 
-                # Start PNS ZMQ streams (creates sensory stream)
-                pns.start()
-                logger.info("🦀 PNS ZMQ streams started successfully")
+                # 🚨 CRITICAL: Start ONLY control streams (REST/registration)
+                # DO NOT start sensory/motor/viz streams yet - burst engine is not ready!
+                pns.start_control_streams()
+                logger.info("🦀 ✅ PNS control streams started (REST/registration only)")
+                logger.info("🦀 ⏸️  Data streams (sensory/motor/viz) NOT started - waiting for burst engine")
                 
-                # CRITICAL: Connect NPU to sensory stream AFTER pns.start()
-                # This must happen after ZMQ streams are created
+                # CRITICAL: Connect NPU to streams (streams not started yet)
+                # This prepares the connections but doesn't allow data flow yet
+                print("=" * 80, flush=True)
+                print("🦀 [MAIN] ABOUT TO CHECK NPU FOR RPC REGISTRATION", flush=True)
+                print(f"🦀 [MAIN] rust_npu_integration = {self.rust_npu_integration}", flush=True)
+                print(f"🦀 [MAIN] _rust_npu = {self.rust_npu_integration._rust_npu if self.rust_npu_integration else 'N/A'}", flush=True)
+                print("=" * 80, flush=True)
+                
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
+                    print("🦀 [MAIN] ✅ NPU CHECK PASSED - PROCEEDING WITH RPC SETUP", flush=True)
                     pns.connect_npu_to_sensory_stream(self.rust_npu_integration._rust_npu)
-                    logger.info("🦀 ✅ PNS sensory stream connected to Rust NPU for direct injection")
+                    pns.connect_npu_to_api_control_stream(self.rust_npu_integration._rust_npu)
+                    logger.info("🦀 ✅ PNS streams connected to Rust NPU (sensory + API control)")
+                    
+                    # Register RPC handler for API subprocess (for generic method calls)
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] REGISTERING RPC HANDLER FOR API SUBPROCESS", flush=True)
+                    print("=" * 80, flush=True)
+                    logger.info("🦀 [MAIN] ========================================")
+                    logger.info("🦀 [MAIN] REGISTERING RPC HANDLER FOR API SUBPROCESS")
+                    logger.info("🦀 [MAIN] ========================================")
+                    
+                    from feagi.core.rpc_handler import CoreAPIServiceRpcHandler
+                    from feagi.api.core.services.core_api_service import CoreAPIService
+                    from feagi.bdu.connectome_manager import ConnectomeManager
+                    
+                    logger.info("🦀 [MAIN] Step 1: Getting ConnectomeManager instance...")
+                    connectome_manager = ConnectomeManager.instance()
+                    logger.info(f"🦀 [MAIN] Step 1: ✅ ConnectomeManager = {connectome_manager}")
+                    
+                    logger.info("🦀 [MAIN] Step 2: Creating CoreAPIService...")
+                    real_core_api = CoreAPIService(connectome_manager=connectome_manager)
+                    logger.info(f"🦀 [MAIN] Step 2: ✅ CoreAPIService = {real_core_api}")
+                    
+                    logger.info("🦀 [MAIN] Step 3: Creating RPC handler...")
+                    rpc_handler = CoreAPIServiceRpcHandler(real_core_api)
+                    logger.info(f"🦀 [MAIN] Step 3: ✅ RPC handler = {rpc_handler}")
+                    
+                    logger.info("🦀 [MAIN] Step 4: Registering with PNS...")
+                    pns.set_api_rpc_callback(rpc_handler.handle_rpc_call)
+                    logger.info("🦀 [MAIN] Step 4: ✅ RPC callback registered with Rust PNS")
+                    
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] ✅✅✅ RPC HANDLER FULLY REGISTERED ✅✅✅", flush=True)
+                    print("=" * 80, flush=True)
+                    logger.info("🦀 [MAIN] ========================================")
+                    logger.info("🦀 [MAIN] ✅ RPC HANDLER FULLY REGISTERED")
+                    logger.info("🦀 [MAIN] ========================================")
                 else:
-                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized - sensory injection disabled")
+                    print("=" * 80, flush=True)
+                    print("🦀 [MAIN] ❌❌❌ NPU CHECK FAILED - NO RPC HANDLER REGISTERED ❌❌❌", flush=True)
+                    print("=" * 80, flush=True)
+                    logger.warning("🦀 ⚠️  PNS created but Rust NPU not yet initialized")
                 
                 # Store PNS for access by registration manager and other components
                 self._processes["zmq_server"] = pns  # Use same key for compatibility
@@ -821,10 +899,14 @@ class ProcessManager:
         Returns:
             True if successfully initialized, False otherwise.
         """
+        print("=" * 80, flush=True)
+        print("🚀🚀🚀 init_background_processes() CALLED 🚀🚀🚀", flush=True)
+        print("=" * 80, flush=True)
         logger.info("Initializing background (Priority 3) processes...")
 
         # Check if embedded mode is enabled
         embedded_mode = config.get("system", {}).get("embedded", False)
+        print(f"🚀 Embedded mode: {embedded_mode}", flush=True)
 
         try:
             # --- REST API (normal mode only) ---
@@ -843,103 +925,36 @@ class ProcessManager:
 
             if not embedded_mode:
                 try:
-                    # Only run FastAPI if not in embedded mode
-                    api_config = {
+                    print("🚀 [INIT-BG] About to start API process...", flush=True)
+                    # Run FastAPI in separate process via ZMQ (zero GIL contention)
+                    api_config_full = {
                         "host": api_host,
                         "port": api_port,
-                        "reload": config.get("development", {}).get(
-                            "reload", False
-                        ),
-                        "access_log": config.get("api", {}).get(
-                            "access_log", True
-                        ),
+                        "_full_config": config,
                     }
-
-                    def run_uvicorn():
-                        """Run uvicorn server in background thread."""
-                        import sys
-                        try:
-                            print("🔵 REST API thread started - creating FastAPI app...", file=sys.stderr, flush=True)
-                            logger.info("🔵 REST API thread started - creating FastAPI app...")
-                            # Import FastAPI app here to avoid circular imports
-                            from feagi.api.rest.app import create_rest_app
-
-                            print("🔵 About to call create_rest_app()...", file=sys.stderr, flush=True)
-                            app = create_rest_app()
-                            print("🔵 FastAPI app created successfully - starting uvicorn...", file=sys.stderr, flush=True)
-                            logger.info("🔵 FastAPI app created successfully - starting uvicorn...")
-
-                            import uvicorn
-
-                            # Determine Uvicorn log level based on debug flags
-                            import os
-                            
-                            # Check if API debugging is enabled
-                            debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
-                            
-                            if debug_api_enabled:
-                                # API debug mode: show INFO level logs
-                                uvicorn_log_level = "info"
-                            else:
-                                # Use global log level from environment or config
-                                global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
-                                uvicorn_log_level = global_level.lower()
-                            
-                            uvicorn.run(
-                                app,
-                                host=api_config["host"],
-                                port=api_config["port"],
-                                access_log=api_config.get("access_log", True),
-                                log_level=uvicorn_log_level,
-                                loop="asyncio",
-                                timeout_keep_alive=1,
-                                limit_concurrency=256,
-                            )
-                        except Exception as e:
-                            logger.error(f"Failed to start uvicorn: {e}")
-                            logger.error(
-                                f"Full traceback: {traceback.format_exc()}"
-                            )
-                            #  Also log the exception type and context for
-                            #  debugging
-                            logger.error(f"Exception type: {type(e).__name__}")
-                            logger.error(
-                                f"Host: {api_config['host']}, Port: {api_config['port']}"
-                            )
-                            #  Re-raise to ensure the thread actually exits
-                            #  with failure
-                            raise
-
-                    # Start uvicorn in background thread
-                    api_thread = threading.Thread(
-                        target=run_uvicorn, daemon=True, name="REST-API"
-                    )
-                    api_thread.start()
                     
-                    import sys
-                    print(f"🔵 Main thread: REST API thread started, continuing...", file=sys.stderr, flush=True)
-
-                    # Store the thread reference for shutdown
-                    self._processes["rest_api"] = api_thread
-                    logger.info(
-                        f"REST API server starting on http://{api_host}:{api_port}"
-                    )
-                    print(f"🔵 Main thread: Logged REST API message, continuing to WebSocket check...", file=sys.stderr, flush=True)
+                    print(f"🚀 [INIT-BG] Calling _start_api_process with config: {api_host}:{api_port}", flush=True)
+                    api_process = self._start_api_process(api_config_full)
+                    print(f"🚀 [INIT-BG] _start_api_process returned: {api_process}", flush=True)
+                    
+                    if api_process:
+                        self._processes["rest_api"] = api_process
+                        print(f"🚀 [INIT-BG] ✅ API process registered in _processes", flush=True)
+                        logger.info(f"[OK] API process started on http://{api_host}:{api_port}")
+                    else:
+                        print("🚀 [INIT-BG] ❌ API process returned None!", flush=True)
+                        logger.error("Failed to start API process")
+                        return False
 
                 except Exception as e:
-                    logger.error(f"Failed to initialize REST API server: {e}")
+                    print(f"🚀 [INIT-BG] 💥 Exception starting API process: {e}", flush=True)
+                    import traceback
+                    traceback.print_exc()
+                    logger.error(f"Failed to initialize API process: {e}")
+                    logger.debug(traceback.format_exc())
                     return False
             else:
-                # Embedded mode: No HTTP interface at all
-                logger.info(
-                    "[CONFIG] Embedded mode: REST API completely disabled for minimal resource usage"
-                )
-                logger.info(
-                    "[CONFIG] Control interface available only via ZMQ REST stream (port 5563)"
-                )
-                logger.info(
-                    "[CONFIG] No web interface, no FastAPI imports, no uvicorn server"
-                )
+                logger.info("[CONFIG] Embedded mode: REST API disabled")
 
             # --- WebSocket Server (Optional) ---
             try:
@@ -1009,85 +1024,173 @@ class ProcessManager:
             logger.debug(traceback.format_exc())
             return False
 
-    def _start_api_service_task(self, config: Dict[str, Any]) -> Optional[Any]:
-        """Start API service as async task instead of subprocess.
+    def _start_api_process(self, config: Dict[str, Any]) -> Optional[Any]:
+        """Start API service as separate process via subprocess (preserves venv)."""
+        print("=" * 80, flush=True)
+        print("🚀 [_START_API_PROCESS] METHOD ENTERED", flush=True)
+        print("=" * 80, flush=True)
+        
+        import subprocess
+        import sys
+        import os
+        
+        api_host = config.get("host", "0.0.0.0")
+        api_port = config.get("port", 8000)
+        
+        print(f"🚀 [_START_API_PROCESS] API config: {api_host}:{api_port}", flush=True)
+        
+        # Get ZMQ configuration
+        from feagi.config.toml_loader import get_host_config, get_port_config
+        feagi_config = config.get("_full_config", {})
+        host_config = get_host_config(feagi_config)
+        port_config = get_port_config(feagi_config)
+        
+        # API subprocess connects to localhost (not bind address)
+        zmq_port = port_config.zmq_api_control_port
+        zmq_address = f"tcp://127.0.0.1:{zmq_port}"
+        
+        print(f"🚀 [_START_API_PROCESS] ZMQ address: {zmq_address}", flush=True)
+        
+        logger.info(f"🚀 Starting API process: {api_host}:{api_port}")
+        logger.info(f"   ZMQ connection: {zmq_address}")
+        
+        # Create inline script for subprocess with error handling
+        # Uses existing FEAGI REST API (all endpoints preserved)
+        # State queries proxied via ZMQ to main process
+        script_content = f'''#!/usr/bin/env python3
+# Log everything to a file for debugging
+import sys
+import os
 
-        RUST/RTOS COMPATIBLE: This pattern translates directly to Rust async
-        tasks.
-        """
-        try:
-            import asyncio
-            import threading
+log_file_path = "/Users/nadji/code/FEAGI-2.0/feagi-py/tmp/api_subprocess.log"
+log_file = open(log_file_path, "w", buffering=1)  # Line buffered
 
-            #  CRITICAL FIX: Ensure state synchronization between main process
-            #  and FastAPI thread
-            #  Set environment variable so FastAPI thread uses the same state
-            #  file
-            from feagi.core.state_manager import FeagiStateManager
+def log_and_print(msg):
+    """Write to both console and log file"""
+    print(msg, flush=True)
+    print(msg, file=sys.stderr, flush=True)
+    print(msg, file=log_file, flush=True)
 
-            state_manager = FeagiStateManager.instance()
-            if hasattr(state_manager, "path"):
-                os.environ["FEAGI_STATE_FILE"] = state_manager.path
-                logger.info(
-                    f"[LINK] Sharing state file with FastAPI thread: {state_manager.path}"
-                )
-            else:
-                logger.warning("[WARN]  State manager has no path attribute")
+log_and_print("=" * 80)
+log_and_print("[API-PROCESS] SUBPROCESS SCRIPT STARTED")
+log_and_print(f"[API-PROCESS] PID: {{os.getpid()}}")
+log_and_print(f"[API-PROCESS] Log file: {{log_file_path}}")
+log_and_print("=" * 80)
 
-            # Create dedicated event loop for API service
-            # In Rust, this would be a tokio::spawn() call
-            def run_api_service():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+import traceback
 
-                try:
-                    # Import and create FastAPI app with direct dependencies
-                    from feagi.api.rest.app import create_rest_app_direct
+try:
+    log_and_print("[API-PROCESS] Importing uvicorn...")
+    import uvicorn
+    log_and_print("[API-PROCESS] ✅ uvicorn imported")
+    
+    # CRITICAL: Inject proxies BEFORE any imports that use them
+    log_and_print("=" * 80)
+    log_and_print("[API-PROCESS] STARTING PROXY INJECTION")
+    log_and_print("=" * 80)
+    log_and_print(f"[API-PROCESS] ZMQ Address: {zmq_address}")
+    
+    # 1. State manager proxy
+    log_and_print("[API-PROCESS] Step 1: Injecting State Manager proxy...")
+    from feagi.core.zmq_state_proxy import ZmqStateProxy
+    from feagi.core.state_manager import FeagiStateManager
+    
+    state_proxy = ZmqStateProxy("{zmq_address}")
+    FeagiStateManager._instance = state_proxy
+    log_and_print(f"[API-PROCESS] Step 1: ✅ State proxy created")
+    
+    # 2. CoreAPIService RPC proxy (replaces the class so it can be inherited from)
+    log_and_print("[API-PROCESS] Step 2: Injecting CoreAPIService RPC proxy...")
+    from feagi.core.zmq_rpc_proxy import create_core_api_service_proxy
+    from feagi.api.core.services import core_api_service
+    
+    log_and_print(f"[API-PROCESS] Step 2a: Importing core_api_service...")
+    _original_CoreAPIService = core_api_service.CoreAPIService
+    
+    # Create proxy class that can be inherited from
+    log_and_print("[API-PROCESS] Step 2b: Creating proxy class...")
+    ProxyClass = create_core_api_service_proxy("{zmq_address}")
+    log_and_print(f"[API-PROCESS] Step 2b: ✅ ProxyClass created")
+    
+    log_and_print("[API-PROCESS] Step 2c: Replacing CoreAPIService with proxy...")
+    core_api_service.CoreAPIService = ProxyClass
+    log_and_print(f"[API-PROCESS] Step 2c: ✅ CoreAPIService replaced")
+    
+    # Also patch core_api_factory module (it has CoreAPI that inherits from CoreAPIService)
+    log_and_print("[API-PROCESS] Step 2d: Patching core_api_factory...")
+    from feagi.core import core_api_factory
+    
+    core_api_factory.CoreAPI = ProxyClass
+    log_and_print(f"[API-PROCESS] Step 2d: ✅ core_api_factory.CoreAPI replaced")
+    
+    log_and_print("=" * 80)
+    log_and_print("[API-PROCESS] ✅ ALL PROXIES INJECTED")
+    log_and_print("=" * 80)
+    
+    # NOW import and create app (will use our proxies)
+    log_and_print("[API-PROCESS] Step 3: Importing create_rest_app...")
+    from feagi.api.rest.app import create_rest_app
+    
+    log_and_print("[API-PROCESS] Step 4: Calling create_rest_app()...")
+    app = create_rest_app()
+    log_and_print(f"[API-PROCESS] Step 4: ✅ App created")
+    
+    log_and_print("[API-PROCESS] Starting uvicorn server...")
+    log_and_print(f"[API-PROCESS] Host: {api_host}, Port: {api_port}")
+    log_file.close()  # Close log file before uvicorn takes over
+    uvicorn.run(app, host="{api_host}", port={api_port}, log_level="info")
 
-                    app = create_rest_app_direct(config)
-
-                    # Run uvicorn in the same process
-                    import uvicorn
-                    import os
-                    
-                    # Determine Uvicorn log level based on debug flags
-                    debug_api_enabled = os.environ.get("FEAGI_DEBUG_API", "0") == "1"
-                    
-                    if debug_api_enabled:
-                        # API debug mode: show INFO level logs
-                        uvicorn_log_level = "info"
+except Exception as e:
+    error_msg = f"[API-PROCESS] FATAL ERROR: {{e}}"
+    print(error_msg, flush=True)
+    print(error_msg, file=sys.stderr, flush=True)
+    print(error_msg, file=log_file, flush=True)
+    traceback.print_exc(file=sys.stderr)
+    traceback.print_exc(file=log_file)
+    log_file.close()
+    sys.exit(1)
+'''
+        
+        # Write to persistent location for debugging
+        script_dir = os.path.join(os.path.dirname(__file__), "..", "tmp")
+        os.makedirs(script_dir, exist_ok=True)
+        script_path = os.path.join(script_dir, "api_process.py")
+        
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        
+        logger.info(f"🚀 [START-API] Script written to: {script_path}")
+        logger.info(f"🚀 [START-API] You can test it manually with: python {script_path}")
+        
+        # Start subprocess with current Python and venv environment
+        api_process = subprocess.Popen(
+            [sys.executable, "-u", script_path],  # -u for unbuffered output
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
+            text=True,
+            bufsize=1,  # Line buffered
+            env=os.environ.copy(),  # Inherit venv environment
+        )
+        
+        # Monitor output in background thread
+        def log_output():
+            try:
+                for line in api_process.stdout:
+                    line = line.rstrip()
+                    # Only log as error if line actually contains error/fatal
+                    if "ERROR" in line.upper() or "FATAL" in line.upper() or "TRACEBACK" in line.upper():
+                        logger.error(f"[API-PROCESS] {line}")
                     else:
-                        # Use global log level from environment or config
-                        global_level = os.environ.get("FEAGI_CLI_LOG_LEVEL", "WARNING")
-                        uvicorn_log_level = global_level.lower()
-
-                    uvicorn.run(
-                        app,
-                        host=config["host"],
-                        port=config["port"],
-                        log_level=uvicorn_log_level,
-                        loop="asyncio",
-                        timeout_keep_alive=1,
-                        limit_concurrency=256,
-                    )
-                except Exception as e:
-                    logger.error(f"API service task failed: {e}")
-                finally:
-                    loop.close()
-
-            #  Start as daemon thread (in Rust: tokio::spawn with proper task
-            #  management)
-            api_thread = threading.Thread(target=run_api_service, daemon=True)
-            api_thread.start()
-
-            logger.info(
-                "[OK] API service task started successfully", status="[OK] "
-            )
-            return api_thread
-
-        except Exception as e:
-            logger.error(f"Failed to start API service task: {e}")
-            return None
+                        logger.info(f"[API-PROCESS] {line}")
+            except Exception as e:
+                logger.error(f"Error reading API process output: {e}")
+        
+        import threading
+        output_thread = threading.Thread(target=log_output, daemon=True)
+        output_thread.start()
+        
+        logger.info(f"[OK] API process started (PID: {api_process.pid})")
+        return api_process
 
     def start(self, config: Dict[str, Any]) -> bool:
         """Start all FEAGI processes in priority order.
@@ -1224,7 +1327,7 @@ class ProcessManager:
                 time.sleep(monitor_interval)  # Use configurable interval
 
         self._monitor_thread = threading.Thread(
-            target=monitor_processes, daemon=True
+            target=monitor_processes, daemon=True, name="Process-Monitor"
         )
         self._monitor_thread.start()
 
@@ -1316,37 +1419,60 @@ class ProcessManager:
         """
         try:
             if mode == 'visualization':
-                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz (Rust burst loop handles FQ sampling + SHM write)")
+                # Check if shared memory mode is enabled via command-line flag
+                from feagi.core.state_manager import FeagiStateManager
+                sm = FeagiStateManager.instance()
+                
+                # Only attach SHM writer if --shared-mem flag was set
+                # Otherwise, visualization uses ZMQ pub/sub pattern
+                shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
+                use_shared_memory = bool(shm_registry)  # Registry only exists if --shared-mem flag was set
+                
+                if not use_shared_memory:
+                    logger.info("🎨 [FQ-CREATE] Visualization using ZMQ mode (--shared-mem not set)")
+                    return True
+                
+                logger.info(f"🎨 [FQ-CREATE] Setting up visualization at {frequency_hz}Hz with shared memory (Rust burst loop handles FQ sampling + SHM write)")
                 
                 # Try to attach Rust NPU visualization SHM writer
                 # The Rust burst loop samples FQ every burst and writes to SHM
                 # Per-agent rate limiting happens in capability rate manager
                 if self.rust_npu_integration and self.rust_npu_integration._rust_npu:
                     try:
-                        from feagi.core.state_manager import FeagiStateManager
-                        sm = FeagiStateManager.instance()
-                        shm_registry = sm.get_shared_memory_registry() if hasattr(sm, "get_shared_memory_registry") else {}
-                        viz_shm_path = shm_registry.get("visualization_stream", "/tmp/feagi-shared-mem-visualization_stream.bin")
-                        
-                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                        logger.info(f"🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
-                        logger.info(f"🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager")
+                        viz_shm_path = shm_registry.get(
+                            "visualization_stream",
+                            "/tmp/feagi-shared-mem-visualization_stream.bin",
+                        )
+
+                        self.rust_npu_integration._rust_npu.attach_viz_shm_writer(
+                            viz_shm_path
+                        )
+                        logger.info(
+                            "🎨 [FQ-CREATE] ✅ Rust NPU visualization SHM writer attached: %s",
+                            viz_shm_path,
+                        )
+                        logger.info(
+                            "🎨 [FQ-CREATE] ℹ️  FQ Sampler runs at burst frequency, per-agent throttling by capability manager"
+                        )
                         return True
                     except Exception as e:
                         # Burst loop may not be running yet if agent registers early
                         if "Burst loop not running" in str(e):
-                            logger.info(f"🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts")
+                            logger.info(
+                                "🎨 [FQ-CREATE] ℹ️  Burst loop not started yet - SHM writer will attach when burst loop starts"
+                            )
                             return True
-                        else:
-                            raise
+                        raise
                 
                 # If Rust NPU not ready yet (early startup), that's OK
                 # The burst loop will start writing to SHM automatically once initialized
-                logger.info(f"🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts")
+                logger.info(
+                    "🎨 [FQ-CREATE] ℹ️  Rust NPU not ready yet - SHM writer will attach when burst loop starts"
+                )
                 return True
             
             elif mode == 'motor':
-                logger.info(f"🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
+                logger.info("🚗 [FQ-CREATE] Motor output handled by Rust burst engine")
                 # Motor is handled by Rust burst engine directly
                 return True
             
@@ -1403,9 +1529,11 @@ class ProcessManager:
                                     self._viz_fq_sampler, 
                                     name='rust_fq_sampler_wrapper'
                                 )
-                                logger.info(f"🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
+                                logger.info("🦀 [CALLBACK] ✅ Visualization FQ sampler created and attached")
                             else:
-                                logger.warning(f"🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration")
+                                logger.warning(
+                                    "🦀 [CALLBACK] ⚠️  Burst engine not available for FQ sampler registration"
+                                )
                                 
                             # Attach Rust NPU visualization SHM writer AND set frequency
                             if self._core_api and hasattr(self._core_api, '_rust_npu_integration'):
@@ -1418,14 +1546,20 @@ class ProcessManager:
                                     
                                     # CRITICAL FIX: Set FQ sampler frequency to agent's requested rate
                                     rust_npu_integration.set_fq_sampler_frequency(rate_hz)
-                                    logger.info(f"🦀 [CALLBACK] ✅ FQ Sampler frequency set to {rate_hz}Hz")
+                                    logger.info(
+                                        "🦀 [CALLBACK] ✅ FQ Sampler frequency set to %sHz",
+                                        rate_hz,
+                                    )
                                     
                                     rust_npu_integration._rust_npu.attach_viz_shm_writer(viz_shm_path)
-                                    logger.info(f"🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: {viz_shm_path}")
+                                    logger.info(
+                                        "🦀 [CALLBACK] ✅ Rust NPU visualization SHM writer attached: %s",
+                                        viz_shm_path,
+                                    )
                         except Exception as e:
                             logger.error(f"🦀 [CALLBACK] Failed to create visualization FQ sampler: {e}")
                     else:
-                        logger.info(f"🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
+                        logger.info("🦀 [CALLBACK] Visualization FQ sampler already exists, reusing")
             
             # Check for motor capability
             if 'motor' in capabilities:
@@ -1613,7 +1747,7 @@ class ProcessManager:
 
                     # Run shutdown with timeout using a separate thread
                     shutdown_thread = threading.Thread(
-                        target=shutdown_service, daemon=True
+                        target=shutdown_service, daemon=True, name=f"Shutdown-{name}"
                     )
                     shutdown_thread.start()
                     shutdown_thread.join(timeout=graceful_shutdown_timeout)
@@ -2032,6 +2166,17 @@ class ProcessManager:
                     logger.info(
                         "✅ Burst engine started successfully after genome load"
                     )
+                    
+                    # 🚨 CRITICAL: NOW start data streams (sensory/motor/viz)
+                    # Burst engine is ready to process sensory data
+                    if hasattr(self, '_pns') and self._pns:
+                        try:
+                            self._pns.start_data_streams()
+                            logger.info("🦀 ✅ PNS data streams started - sensory data will now be processed")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to start PNS data streams: {e}")
+                    else:
+                        logger.warning("⚠️  PNS not available - data streams not started")
                 else:
                     logger.error(
                         "❌ Failed to start burst engine after genome load"
@@ -2271,7 +2416,7 @@ class SleepManager:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread = threading.Thread(target=self._run, daemon=True, name="Sleep-Manager")
         self._thread.start()
 
     def stop(self) -> None:
@@ -2422,9 +2567,9 @@ class SleepManager:
         )
         
         if success:
-            logger.debug(f"🌍 Sleep Manager acquired global brain lock for maintenance")
+            logger.debug("🌍 Sleep Manager acquired global brain lock for maintenance")
         else:
-            logger.warning(f"Failed to acquire global brain lock for maintenance")
+            logger.warning("Failed to acquire global brain lock for maintenance")
         
         return success
 
@@ -2438,9 +2583,9 @@ class SleepManager:
         success = state_manager.unlock_global_brain(locked_by=self._component_name)
         
         if success:
-            logger.debug(f"🌍 Sleep Manager released global brain lock after maintenance")
+            logger.debug("🌍 Sleep Manager released global brain lock after maintenance")
         else:
-            logger.warning(f"Failed to release global brain lock")
+            logger.warning("Failed to release global brain lock")
 
     def _cleanup_locked_areas(self) -> None:
         """Emergency cleanup of global brain lock (called during shutdown)."""
@@ -2452,7 +2597,7 @@ class SleepManager:
         unlocked = state_manager.force_unlock_global_brain(locked_by=self._component_name)
         
         if unlocked:
-            logger.info(f"🚨 Sleep Manager emergency cleanup: released global brain lock")
+            logger.info("🚨 Sleep Manager emergency cleanup: released global brain lock")
 
     def _run_memory_maintenance(self, current_ts: int) -> None:
         """Run memory maintenance operations with cortical area locking coordination.

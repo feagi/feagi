@@ -16,8 +16,6 @@ from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
 # Core models
 from feagi.bdu.models.brain_region import BrainRegion
 from feagi.bdu.models.cortical_area import CorticalArea
-from feagi.bdu.models.neuron import NeuronMappingProvider
-from feagi.bdu.models.synapse import SynapseManager
 
 __all__ = [
     # Core connectome management
@@ -25,9 +23,7 @@ __all__ = [
     "NeuronPropertyType",
     # Data models
     "CorticalArea",
-    "NeuronMappingProvider",
     "BrainRegion",
-    "SynapseManager",
     # Neuroembryogenesis
     "NeuroEmbryogenesis",
 ]

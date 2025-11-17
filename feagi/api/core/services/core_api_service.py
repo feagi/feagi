@@ -682,8 +682,8 @@ class CoreAPIService:
             
             consecutive_fire_count, consecutive_fire_limit, snooze_period, threshold, membrane_potential, refractory_countdown = state
             
-            # Get cortical area from NPUInterface mapping (still needed for API response)
-            cortical_idx = npu_interface.neuron_to_area.get(neuron_id)
+            # Get cortical area from Rust NPU (single source of truth)
+            cortical_idx = npu_interface.get_neuron_cortical_idx(neuron_id)
             
             properties = {}
             # cortical_id via NPU registry
@@ -695,8 +695,8 @@ class CoreAPIService:
             except Exception:
                 cortical_id = None
 
-            # Get position from NPUInterface mapping
-            position = npu_interface.neuron_to_position.get(neuron_id, (0, 0, 0))
+            # Get position from Rust NPU (single source of truth)
+            position = npu_interface.get_neuron_position(neuron_id) or (0, 0, 0)
             
             # Get additional properties by calling Rust NPU individual getters (use neuron_id directly!)
             # CRITICAL: These methods now use neuron_id_to_index HashMap internally
@@ -4377,20 +4377,13 @@ class CoreAPIService:
                 )
 
 
-                # CRITICAL FIX: Convert neuron IDs to indices using NPU-owned mapping (single source of truth)
+                # ARCHITECTURE: In Rust NPU, neuron_id == index (identity mapping)
+                # Just validate neuron existence and use IDs directly as indices
                 firing_indices = []
-                if hasattr(neuron_array, "neuron_id_to_index"):
-                    for neuron_id in firing_neuron_ids:
-                        idx = neuron_array.neuron_id_to_index.get(int(neuron_id))
-                        if idx is not None:
-                            firing_indices.append(idx)
-
-                else:
-                    # As a last resort, use ConnectomeManager mapping if present
-                    for neuron_id in firing_neuron_ids:
-                        neuron_index = self._connectome_manager.get_neuron_index(neuron_id)
-                        if neuron_index is not None:
-                            firing_indices.append(neuron_index)
+                for neuron_id in firing_neuron_ids:
+                    neuron_id_int = int(neuron_id)
+                    if self._connectome_manager.has_neuron(neuron_id_int):
+                        firing_indices.append(neuron_id_int)
 
                 if len(firing_indices) == 0:
                     self.logger.debug(
@@ -4679,17 +4672,14 @@ class CoreAPIService:
             # Convert to aligned numpy array for SIMD optimization
             # alignment = simd_config["alignment"]  # Unused variable removed
 
-            # CRITICAL FIX: Convert neuron IDs to array indices first
-            # Neuron IDs are NOT array indices - they must be mapped!
+            # ARCHITECTURE: In Rust NPU, neuron_id == index (identity mapping)
+            # Just validate neuron existence and use IDs directly as indices
             neuron_indices_list = []
             valid_neuron_ids = []
             
             for neuron_id in neuron_ids:
-                array_index = self._connectome_manager.get_neuron_index(
-                    neuron_id
-                )
-                if array_index is not None:
-                    neuron_indices_list.append(array_index)
+                if self._connectome_manager.has_neuron(neuron_id):
+                    neuron_indices_list.append(neuron_id)
                     valid_neuron_ids.append(neuron_id)
                     
             if not neuron_indices_list:
@@ -6614,36 +6604,45 @@ class CoreAPIService:
                     #  connections
             
             #  Calculate ACTUAL memory per synapse by inspecting the
-            #  GlobalSynapseArray
-            synapse_array = self._connectome_manager.synapse_array
-            
-            # Calculate actual memory per synapse from the SoA structure
+            #  Synapse array (if available)
             bytes_per_synapse = 0.0
             
-            # Inspect all the actual arrays in GlobalSynapseArray
-            arrays_to_check = [
-                "pre_neuron_ids",
-                "post_neuron_ids",
-                "weights",
-                "delays",
-                "types",
-                "plasticity_coeffs",
-                "conductances",
-                "is_plastic_flags",
-            ]
+            # Check if synapse_array is accessible
+            synapse_array = getattr(self._connectome_manager, "synapse_array", None)
             
-            for array_name in arrays_to_check:
-                if hasattr(synapse_array, array_name):
-                    array = getattr(synapse_array, array_name)
-                    if hasattr(array, "itemsize"):
-                        bytes_per_synapse += array.itemsize
-                        self.logger.debug(
-                            f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
-                        )
-            
-            self.logger.info(
-                f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)"
-            )
+            if synapse_array is not None:
+                # Calculate actual memory per synapse from the SoA structure
+                # Inspect all the actual arrays in GlobalSynapseArray
+                arrays_to_check = [
+                    "pre_neuron_ids",
+                    "post_neuron_ids",
+                    "weights",
+                    "delays",
+                    "types",
+                    "plasticity_coeffs",
+                    "conductances",
+                    "is_plastic_flags",
+                ]
+                
+                for array_name in arrays_to_check:
+                    if hasattr(synapse_array, array_name):
+                        array = getattr(synapse_array, array_name)
+                        if hasattr(array, "itemsize"):
+                            bytes_per_synapse += array.itemsize
+                            self.logger.debug(
+                                f"Synapse array {array_name}: {array.itemsize} bytes per item, dtype: {array.dtype}"
+                            )
+                
+                self.logger.info(
+                    f"Calculated ACTUAL memory per synapse: {bytes_per_synapse} bytes (from {len(arrays_to_check)} arrays)"
+                )
+            else:
+                # Fallback: Use estimated memory per synapse (Rust NPU architecture)
+                # Based on Rust SynapseArray SoA structure: source(u32) + target(u32) + weight(u8) + conductance(u8) + type(u8) + valid(bool) = 14 bytes
+                bytes_per_synapse = 14.0
+                self.logger.debug(
+                    f"Using estimated memory per synapse: {bytes_per_synapse} bytes (Rust NPU architecture)"
+                )
             return {
                 "incoming": {
                     "count": incoming_count,

@@ -202,7 +202,7 @@ def test_power_neurons_have_correct_cortical_area(feagi_system, minimal_genome):
     
     # Verify mapping
     for neuron_id in power_neurons:
-        mapped_cortical_idx = npu_interface.neuron_to_area.get(neuron_id)
+        mapped_cortical_idx = npu_interface.get_neuron_cortical_idx(neuron_id)
         assert mapped_cortical_idx == power_cortical_idx, \
             f"Neuron {neuron_id} has cortical_idx={mapped_cortical_idx}, expected {power_cortical_idx}"
     

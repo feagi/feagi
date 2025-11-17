@@ -42,103 +42,6 @@ def region_id_2_title(region_id):
     return None
 
 
-def construct_genome_from_region(region_id):
-    """Construct a genome payload for a given brain region ID."""
-    from feagi.evo.genome_processor import genome_v1_v2_converter
-
-    # Use our local implementation instead of importing
-    # from feagi.evo.genome_editor import generate_hash
-
-    genome = state.genome
-    brain_regions = genome.get("brain_regions", {})
-    if region_id not in brain_regions:
-        raise ValueError(f"Region ID {region_id} not found in genome.")
-
-    region = brain_regions[region_id]
-
-    # Gather all areas and subregions recursively
-    def direct_region_cortical_areas(region_id):
-        return brain_regions[region_id].get("areas", [])
-
-    def recursive_sub_regions(region_id):
-        region_list = set(brain_regions[region_id].get("regions", []))
-        return region_list
-
-    def recursive_region_cortical_areas(region_id):
-        recursive_region_list = recursive_sub_regions(region_id)
-        area_list = set(direct_region_cortical_areas(region_id))
-        for sub_region_id in recursive_region_list:
-            area_list.update(set(direct_region_cortical_areas(sub_region_id)))
-        return area_list
-
-    # region_cortical_list = direct_region_cortical_areas(region_id)
-    # Unused variable removed
-    comprehensive_subregion_list = recursive_sub_regions(region_id)
-    comprehensive_area_list = recursive_region_cortical_areas(region_id)
-
-    # Build the genome payload
-    genome_from_region = {
-        "genome_title": region.get("title", "No Title"),
-        "genome_description": region.get("description", "No Description"),
-        "timestamp": time(),
-        "genome_id": f"{datetime.now().strftime('%Y%m%d%H%M%S%f')[2:]}_{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}_R",
-        "version": genome.get("version", "2.0"),
-        "signatures": {},
-        "stats": {},
-        "hosts": {},
-        "physiology": genome.get("physiology", {}),
-        "neuron_morphologies": {},
-        "blueprint": {},
-        "brain_regions": {
-            "root": {
-                "title": region.get("title", "No Title"),
-                "parent_region_id": None,
-                "coordinate_2d": [0, 0],
-                "coordinate_3d": [0, 0, 0],
-                "areas": region.get("areas", []),
-                "regions": region.get("regions", []),
-                "inputs": [],
-                "outputs": [],
-            }
-        },
-    }
-
-    # Add blueprint for all areas in the region
-    for cortical_area in comprehensive_area_list:
-        if cortical_area in genome["blueprint"]:
-            genome_from_region["blueprint"][cortical_area] = genome[
-                "blueprint"
-            ][cortical_area].copy()
-
-    # Add subregions
-    genome_from_region["brain_regions"]["root"] = region.copy()
-    genome_from_region["brain_regions"]["root"]["parent_region_id"] = None
-    genome_from_region["brain_regions"]["root"]["coordinate_2d"] = [0, 0]
-    genome_from_region["brain_regions"]["root"]["coordinate_3d"] = [0, 0, 0]
-    for subregion in comprehensive_subregion_list:
-        genome_from_region["brain_regions"][subregion] = brain_regions[
-            subregion
-        ].copy()
-
-    # Set signatures
-    genome_from_region["signatures"]["genome"] = generate_hash(
-        genome_from_region
-    )
-    genome_from_region["signatures"]["blueprint"] = generate_hash(
-        genome_from_region["blueprint"]
-    )
-    genome_from_region["signatures"]["physiology"] = generate_hash(
-        genome_from_region["physiology"]
-    )
-
-    # Convert Genome to 2.0
-    genome_from_region["blueprint"] = genome_v1_v2_converter(
-        genome_from_region
-    )["blueprint"]
-
-    return genome_from_region
-
-
 def region_id_gen(
     size: int = 6, chars: str = string.ascii_uppercase + string.digits
 ) -> str:
@@ -264,34 +167,6 @@ def update_region(region_data: dict) -> None:
             raise ValueError(f"{update} cannot be updated using this endpoint")
 
 
-def delete_region_with_members(region_id: str) -> None:
-    """Delete a region and reassign its areas and subregions to its parent."""
-    if region_id in state.genome["brain_regions"]:
-        parent_region = state.genome["brain_regions"][region_id][
-            "parent_region_id"
-        ]
-        # Move areas to parent
-        for area in state.genome["brain_regions"][region_id]["areas"]:
-            change_cortical_area_parent(
-                cortical_area_id=area, new_parent_id=parent_region
-            )
-        # Move subregions to parent
-        for subregion in state.genome["brain_regions"][region_id]["regions"]:
-            change_brain_region_parent(
-                region_id=subregion, new_parent_id=parent_region
-            )
-        # Remove from parent's regions list
-        if (
-            region_id
-            in state.genome["brain_regions"][parent_region]["regions"]
-        ):
-            state.genome["brain_regions"][parent_region]["regions"].remove(
-                region_id
-            )
-        # Delete the region
-        state.genome["brain_regions"].pop(region_id)
-
-
 def relocate_region_members(relocation_data: dict) -> None:
     """Relocate areas or regions (update coordinates and/or parent region).
 
@@ -372,14 +247,6 @@ class BrainRegion:
         self.properties = properties or {}
         self.cortical_areas = set()  # Set of cortical area IDs
 
-    def add_area(self, area_id: str) -> None:
-        """Add a cortical area to this region.
-
-        Args:
-            area_id: ID of the cortical area to add
-        """
-        self.cortical_areas.add(area_id)
-
     def remove_area(self, area_id: str) -> bool:
         """Remove a cortical area from this region.
 
@@ -393,17 +260,6 @@ class BrainRegion:
             self.cortical_areas.remove(area_id)
             return True
         return False
-
-    def contains_area(self, area_id: str) -> bool:
-        """Check if the region contains a specific cortical area.
-
-        Args:
-            area_id: ID of the cortical area to check
-
-        Returns:
-            True if the area is in this region, False otherwise
-        """
-        return area_id in self.cortical_areas
 
     def get_all_areas(self) -> list:
         """Get a list of all cortical area IDs in this region.
@@ -446,11 +302,6 @@ class BrainRegion:
                 self.properties.update(value)
             else:
                 setattr(self, key, value)
-
-    def clear_areas(self) -> None:
-        """Remove all cortical areas from this region."""
-        self.cortical_areas.clear()
-
 
 def generate_hash(data):
     """Simple placeholder for the hash generation function.
