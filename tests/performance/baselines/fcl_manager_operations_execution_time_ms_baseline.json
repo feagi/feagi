@@ -1,0 +1,15 @@
+{
+  "test_name": "fcl_manager_operations",
+  "metric_name": "execution_time_ms",
+  "baseline_value": 0.13013115514897639,
+  "baseline_timestamp": 1755280650.595935,
+  "sample_count": 54,
+  "std_deviation": 0.16007190619225903,
+  "confidence_interval": [
+    0.08743642154017908,
+    0.1728258887577737
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.595694
+  }
+}

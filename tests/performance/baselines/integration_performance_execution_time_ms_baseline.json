@@ -1,0 +1,15 @@
+{
+  "test_name": "integration_performance",
+  "metric_name": "execution_time_ms",
+  "baseline_value": 0.1002636660511295,
+  "baseline_timestamp": 1755280650.59964,
+  "sample_count": 3,
+  "std_deviation": 0.031575919030607975,
+  "confidence_interval": [
+    0.06453214996075607,
+    0.13599518214150294
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.59954
+  }
+}

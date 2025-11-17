@@ -1,9 +1,0 @@
-version: "3"
-
-services:
-  feagi:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile.private
-      ssh:
-        - default

@@ -1,0 +1,15 @@
+{
+  "test_name": "rust_optimized_fcl",
+  "metric_name": "throughput_neurons_per_sec",
+  "baseline_value": 808950.7139704073,
+  "baseline_timestamp": 1755280650.598622,
+  "sample_count": 8,
+  "std_deviation": 348549.3232257699,
+  "confidence_interval": [
+    567418.355740102,
+    1050483.0722007125
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.598318
+  }
+}

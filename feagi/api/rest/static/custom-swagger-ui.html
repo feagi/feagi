@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FEAGI API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui.css"/>
+  <link rel="stylesheet" type="text/css" href="/static/css/swagger-dark.css" media="(prefers-color-scheme: dark)" id="theme-dark"/>
+  <link rel="stylesheet" type="text/css" href="/static/css/swagger-light.css" media="(prefers-color-scheme: light)" id="theme-light"/>
+  <link rel="icon" type="image/png" href="/static/favicon.ico"/>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .topbar-wrapper img {
+      content: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNDAgODAiPjxwYXRoIGZpbGw9IiM2YzVjZTciIGQ9Ik02MCw3LjYyQzI4LjA0LDcuNjIsMi4yMywzMy40MywyLjIzLDY1LjM4aDExNS41NFYzMy40M0M5Ni40MiwxOC42Niw3OS43Niw3LjYyLDYwLDcuNjJ6Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTYwLDcuNjJDMjguMDQsNy4yMywyLjIzLDMzLjQzLDIuMjMsNjUuMzhoMTE1LjU0VjMzLjQzQzk2LjQyLDE4LjY2LDc5Ljc2LDcuNjIsNjAsNy42MnogTTYwLDUwLjc2Yy04Ljk5LDAtMTYuMjctNy4yOC0xNi4yNy0xNi4yN2MwLTguOTksNy4yOC0xNi4yNywxNi4yNy0xNi4yN2M4Ljk5LDAsMTYuMjcsNy4yOCwxNi4yNywxNi4yN0M3Ni4yNyw0My40OCw2OC45OSw1MC43Niw2MCw1MC43NnoiLz48cGF0aCBmaWxsPSIjNmM1Y2U3IiBkPSJNMTgwLDcuNjJjMzEuOTYsMCw1Ny43NywyNS44MSw1Ny43Nyw1Ny43NkgxMjIuMjNWMzMuNDNDMTQzLjU4LDE4LjY2LDE2MC4yNCw3LjYyLDE4MCw3LjYyeiIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xODAsNy42MmMzMS45NiwwLDU3Ljc3LDI1LjgxLDU3Ljc3LDU3Ljc2SDEyMi4yM1YzMy40M0MxNDMuNTgsMTguNjYsMTYwLjI0LDcuNjIsMTgwLDcuNjJ6IE0xODAsNTAuNzZjOC45OSwwLDE2LjI3LTcuMjgsMTYuMjctMTYuMjdjMC04Ljk5LTcuMjgtMTYuMjctMTYuMjctMTYuMjdjLTguOTksMC0xNi4yNyw3LjI4LTE2LjI3LDE2LjI3QzE2My43Myw0My40OCwxNzEuMDEsNTAuNzYsMTgwLDUwLjc2eiIvPjwvc3ZnPg==');
+      height: 50px;
+      width: auto;
+      margin-right: 10px;
+    }
+
+    .custom-header {
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #ccc;
+      background: var(--header-bg, #f9f9f9);
+    }
+
+    .custom-header h1 {
+      font-size: 1.5em;
+      margin: 0;
+      flex: 1 1 auto;
+      color: var(--header-text, #000);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .header-button {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      background-color: #007acc;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background-color 0.2s;
+    }
+
+    .header-button:hover {
+      background-color: #005fa3;
+    }
+
+    .header-button.load-essential {
+      background-color: #dc3545;
+    }
+
+    .header-button.load-essential:hover {
+      background-color: #c82333;
+    }
+
+    .header-button.load-barebones {
+      background-color: #28a745;
+    }
+
+    .header-button.load-barebones:hover {
+      background-color: #218838;
+    }
+
+    .theme-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-selector-label {
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+
+    .theme-selector select {
+      padding: 6px 28px 6px 10px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      border: 1px solid #ccc;
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg fill='currentColor' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px;
+      min-width: 140px;
+    }
+
+    /* Custom filter container */
+    .custom-filter-container {
+      width: 100%;
+      padding: 10px 20px;
+      background: var(--filter-bg, #f0f0f0);
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Filter input styling */
+    .custom-filter-input {
+      width: 300px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 2px solid #007acc;
+      font-size: 14px;
+      background-color: white;
+      color: #333;
+      transition: all 0.2s ease;
+    }
+
+    .custom-filter-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+    }
+
+    .custom-filter-label {
+      font-weight: 600;
+      margin-right: 10px;
+      color: var(--filter-text, #333);
+    }
+
+    /* Windows compatibility - Error message styling */
+    .feagi-error-message {
+      padding: 20px;
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      color: #856404;
+      border-radius: 5px;
+      margin: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .feagi-error-message h3 {
+      margin-top: 0;
+      color: #856404;
+    }
+
+    .feagi-error-message a {
+      color: #007acc;
+      text-decoration: none;
+    }
+
+    .feagi-error-message a:hover {
+      text-decoration: underline;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --header-bg: #222;
+        --header-text: #fff;
+        --filter-bg: #333;
+        --filter-text: #fff;
+      }
+
+      /* Dark mode filter input */
+      .custom-filter-input {
+        background-color: #444;
+        color: #fff;
+        border-color: #007acc;
+      }
+
+      .custom-filter-input::placeholder {
+        color: #aaa;
+      }
+
+      /* Dark mode error message */
+      .feagi-error-message {
+        background: #2d2d2d;
+        border-color: #444;
+        color: #f0f0f0;
+      }
+
+      .feagi-error-message h3 {
+        color: #f0f0f0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="custom-header">
+    <h1>FEAGI API Documentation</h1>
+    <div class="header-actions">
+      <button class="header-button" id="expand-all">Expand All</button>
+      <button class="header-button" id="collapse-all">Collapse All</button>
+      <button class="header-button load-essential" id="load-essential">Load Essential</button>
+      <button class="header-button load-barebones" id="load-barebones">Load Barebones</button>
+      <div class="theme-selector">
+        <span class="theme-selector-label">Theme:</span>
+        <select id="theme-select">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom filter section -->
+  <div class="custom-filter-container" id="custom-filter-container">
+    <span class="custom-filter-label">Filter:</span>
+    <input type="text" class="custom-filter-input" id="custom-filter-input" placeholder="Filter by tag, operation, or path...">
+  </div>
+
+  <div id="swagger-ui"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+  <script>
+    // Windows compatibility debugging and error handling
+    console.log('FEAGI Swagger UI: Starting initialization...');
+    console.log('OpenAPI URL:', '{{ openapi_url }}');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Platform:', navigator.platform);
+
+    function showErrorMessage(title, details) {
+      document.getElementById('swagger-ui').innerHTML =
+        '<div class="feagi-error-message">' +
+        '<h3>' + title + '</h3>' +
+        '<p>The Swagger UI failed to load. This can happen due to:</p>' +
+        '<ul>' +
+        '<li>Network connectivity issues</li>' +
+        '<li>CORS restrictions</li>' +
+        '<li>OpenAPI specification errors</li>' +
+        '<li>JavaScript errors (check browser console)</li>' +
+        '</ul>' +
+        '<p><strong>Details:</strong> ' + details + '</p>' +
+        '<p><strong>Solutions:</strong></p>' +
+        '<ul>' +
+        '<li>Check browser console for detailed errors (F12)</li>' +
+        '<li>Try accessing <a href="{{ openapi_url }}" target="_blank">OpenAPI spec directly</a></li>' +
+        '<li>Refresh the page or try a different browser</li>' +
+        '<li>Disable browser extensions temporarily</li>' +
+        '<li>Check if antivirus/firewall is blocking requests</li>' +
+        '</ul>' +
+        '</div>';
+    }
+
+    // Enhanced error handling for Windows compatibility
+    window.addEventListener('error', function(e) {
+      console.error('FEAGI Swagger UI Error:', e);
+      showErrorMessage('API Documentation Loading Error', e.message || 'Unknown error occurred');
+    });
+
+    window.addEventListener('unhandledrejection', function(e) {
+      console.error('FEAGI Swagger UI Promise Rejection:', e);
+      showErrorMessage('Promise Rejection Error', e.reason || 'Promise was rejected');
+    });
+
+    function getSystemTheme() {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function setTheme(theme) {
+      const darkThemeLink = document.getElementById('theme-dark');
+      const lightThemeLink = document.getElementById('theme-light');
+      const themeSelect = document.getElementById('theme-select');
+      themeSelect.value = theme;
+
+      if (theme === 'system') {
+        darkThemeLink.media = '(prefers-color-scheme: dark)';
+        lightThemeLink.media = '(prefers-color-scheme: light)';
+        localStorage.removeItem('feagi-theme');
+      } else if (theme === 'dark') {
+        darkThemeLink.media = 'all';
+        lightThemeLink.media = 'not all';
+        localStorage.setItem('feagi-theme', 'dark');
+      } else {
+        darkThemeLink.media = 'not all';
+        lightThemeLink.media = 'all';
+        localStorage.setItem('feagi-theme', 'light');
+      }
+
+      // Determine the actual theme to apply (system, dark, or light)
+      let actualThemeToApply = theme;
+      if (theme === 'system') {
+        actualThemeToApply = getSystemTheme();
+      }
+
+      // Apply theme colors dynamically to custom elements
+      document.documentElement.style.setProperty('--header-bg', actualThemeToApply === 'dark' ? '#222' : '#f9f9f9');
+      document.documentElement.style.setProperty('--header-text', actualThemeToApply === 'dark' ? '#fff' : '#000');
+      document.documentElement.style.setProperty('--filter-bg', actualThemeToApply === 'dark' ? '#333' : '#f0f0f0');
+      document.documentElement.style.setProperty('--filter-text', actualThemeToApply === 'dark' ? '#fff' : '#333');
+    }
+
+    document.getElementById('theme-select').addEventListener('change', (e) => {
+      setTheme(e.target.value);
+    });
+
+    window.onload = function () {
+      try {
+        console.log('FEAGI Swagger UI: Window loaded, initializing...');
+
+        const savedTheme = localStorage.getItem('feagi-theme') || 'system';
+        setTheme(savedTheme);
+
+        // Test if SwaggerUIBundle is available
+        if (typeof SwaggerUIBundle === 'undefined') {
+          throw new Error('SwaggerUIBundle is not loaded. CDN may be blocked or unavailable.');
+        }
+
+        // Create Swagger UI instance with Windows-compatible configuration
+        const ui = SwaggerUIBundle({
+          url: "{{ openapi_url }}",
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIBundle.SwaggerUIStandalonePreset
+          ],
+          layout: "BaseLayout",
+          docExpansion: "none",
+          filter: false, // Disable built-in filter since we're using our own
+          persistAuthorization: true,
+          tryItOutEnabled: true,
+          // Windows compatibility settings
+          requestInterceptor: function(request) {
+            console.log('FEAGI API Request:', request);
+            return request;
+          },
+          responseInterceptor: function(response) {
+            console.log('FEAGI API Response:', response);
+            return response;
+          },
+          onComplete: function() {
+            console.log('FEAGI Swagger UI: Initialization complete');
+          },
+          onFailure: function(error) {
+            console.error('FEAGI Swagger UI: Initialization failed', error);
+            showErrorMessage('Swagger UI Initialization Failed', error.message || 'Failed to initialize Swagger UI');
+          }
+        });
+
+        window.ui = ui;
+
+        // Expand/collapse functionality
+        document.getElementById('expand-all').addEventListener('click', () => {
+          document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+            if (!tag.classList.contains('is-open')) {
+              tag.querySelector('.opblock-tag').click();
+            }
+          });
+        });
+
+        document.getElementById('collapse-all').addEventListener('click', () => {
+          document.querySelectorAll('.opblock-tag-section.is-open').forEach(tag => {
+            tag.querySelector('.opblock-tag').click();
+          });
+        });
+
+        // Listen for system theme changes to update our custom elements
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+          if (document.getElementById('theme-select').value === 'system') {
+            setTheme('system'); // Re-apply system theme to update colors
+          }
+        });
+
+        // Set up the filter functionality with a timeout to ensure Swagger UI is fully loaded
+        setTimeout(() => {
+          setupFilter();
+        }, 1000);
+
+        // Add Load Essential button functionality
+        document.getElementById('load-essential').addEventListener('click', async () => {
+          try {
+            const response = await fetch('/v1/genome/upload/essential', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            alert('Essential genome loaded successfully!');
+            console.log('Essential genome loaded:', result);
+          } catch (error) {
+            console.error('Error loading essential genome:', error);
+            alert('Failed to load essential genome. Check console for details.');
+          }
+        });
+
+        // Add Load Barebones button functionality
+        document.getElementById('load-barebones').addEventListener('click', async () => {
+          try {
+            const response = await fetch('/v1/genome/upload/barebones', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            alert('Barebones genome loaded successfully!');
+            console.log('Barebones genome loaded:', result);
+          } catch (error) {
+            console.error('Error loading barebones genome:', error);
+            alert('Failed to load barebones genome. Check console for details.');
+          }
+        });
+
+        // Prefill POST /v1/system/debug_logging body with live state
+        async function prefillDebugLogging() {
+          try {
+            const stateResp = await fetch('/v1/system/debug_logging', { method: 'GET' });
+            if (!stateResp.ok) return;
+            const flags = await stateResp.json();
+            const jsonBody = JSON.stringify(flags, null, 2);
+
+            // Locate the opblock for POST /v1/system/debug_logging
+            const opblocks = Array.from(document.querySelectorAll('.opblock'));
+            const target = opblocks.find(op => {
+              const methodEl = op.querySelector('.opblock-summary-method');
+              const pathEl = op.querySelector('.opblock-summary-path, .opblock-summary-path__deprecated');
+              const method = methodEl ? methodEl.textContent.trim().toUpperCase() : '';
+              const path = pathEl ? pathEl.textContent.trim() : '';
+              return method === 'POST' && path === '/v1/system/debug_logging';
+            });
+            if (!target) return;
+
+            // Helper: try to fill textarea (non-invasive)
+            const tryFillTextarea = () => {
+              const ta = target.querySelector('textarea');
+              if (!ta) return false;
+
+              // Guard: attach one-time listeners to detect user edits
+              if (!ta._feagiGuarded) {
+                ta.addEventListener('input', () => {
+                  // Mark as user-edited unless a programmatic prefill is in progress
+                  if (ta.dataset.prefillInProgress !== '1') {
+                    ta.dataset.userEdited = '1';
+                  }
+                });
+                ta.addEventListener('focus', () => { ta.dataset.focused = '1'; });
+                ta.addEventListener('blur', () => { ta.dataset.focused = '0'; });
+                ta._feagiGuarded = true;
+              }
+
+              // Do not overwrite while focused or after user edits
+              if (ta.dataset.focused === '1' || ta.dataset.userEdited === '1') {
+                return false;
+              }
+
+              // Avoid redundant writes if already prefilled with same content
+              if (ta.dataset.prefilled === '1' && ta.value && ta.value.trim() === jsonBody.trim()) {
+                return true;
+              }
+
+              // Perform programmatic prefill
+              ta.dataset.prefillInProgress = '1';
+              ta.value = jsonBody;
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+              ta.dataset.prefillInProgress = '0';
+              ta.dataset.prefilled = '1';
+              return true;
+            };
+
+            // 1) If Try it out already active, fill the textarea
+            if (tryFillTextarea()) return;
+
+            // 2) Update the visible example block to mirror live state
+            const exampleBlocks = target.querySelectorAll('.microlight, pre, code');
+            if (exampleBlocks && exampleBlocks.length > 0) {
+              exampleBlocks[0].textContent = jsonBody;
+            }
+
+            // 3) Hook into Try it out to fill when textarea appears
+            const tryBtn = target.querySelector('.try-out__btn');
+            if (tryBtn && !tryBtn._feagiHooked) {
+              tryBtn.addEventListener('click', () => {
+                // Wait for UI to render textarea
+                setTimeout(() => { tryFillTextarea(); }, 200);
+              });
+              tryBtn._feagiHooked = true;
+            }
+
+            // 4) Observe DOM changes within this opblock to catch dynamic renders
+            if (!target._feagiObserver) {
+              const observer = new MutationObserver(() => {
+                // Attempt to fill textarea whenever structure changes
+                const filled = tryFillTextarea();
+                // Stop observing if filled once or user started editing
+                const ta = target.querySelector('textarea');
+                if (filled || (ta && ta.dataset.userEdited === '1')) {
+                  observer.disconnect();
+                  target._feagiObserver = null;
+                }
+              });
+              observer.observe(target, { childList: true, subtree: true });
+              target._feagiObserver = observer;
+            }
+          } catch (e) {
+            console.warn('Failed to prefill debug_logging body:', e);
+          }
+        }
+
+        // Attempt prefill shortly after initialization and after filter setup
+        setTimeout(prefillDebugLogging, 1200);
+        // Also prefill when user expands the system tag or toggles operation
+        document.addEventListener('click', (e) => {
+          const el = e.target;
+          if (!el || !el.classList) return;
+          if (el.classList.contains('opblock-tag') ||
+              el.classList.contains('opblock-summary') ||
+              el.classList.contains('btn') && /try-out|cancel/.test(el.className)) {
+            setTimeout(prefillDebugLogging, 300);
+          }
+        });
+
+        function setupFilter() {
+          const filterInput = document.getElementById('custom-filter-input');
+
+          filterInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.trim().toLowerCase();
+
+            // If search term is empty, show everything
+            if (!searchTerm) {
+              document.querySelectorAll('.opblock-tag-section').forEach(tag => {
+                tag.style.display = '';
+              });
+              document.querySelectorAll('.opblock').forEach(op => {
+                op.style.display = '';
+              });
+              return;
+            }
+
+            // Ensure all tags are expanded to check their operations
+            document.querySelectorAll('.opblock-tag-section:not(.is-open)').forEach(tagSection => {
+              const tagButton = tagSection.querySelector('.opblock-tag');
+              if (tagButton) tagButton.click();
+            });
+
+            // Process operations one by one
+            document.querySelectorAll('.opblock').forEach(opblock => {
+              let isMatch = false;
+
+              // 1. Check operation path
+              const pathElement = opblock.querySelector('.opblock-summary-path');
+              const deprecatedPathElement = opblock.querySelector('.opblock-summary-path__deprecated');
+              const pathText = pathElement ? pathElement.textContent.trim().toLowerCase() :
+                               deprecatedPathElement ? deprecatedPathElement.textContent.trim().toLowerCase() : '';
+              if (pathText.includes(searchTerm)) {
+                console.log('Path match:', pathText);
+                isMatch = true;
+              }
+
+              // 2. Check operation method (GET, POST, etc.)
+              if (!isMatch) {
+                const methodElement = opblock.querySelector('.opblock-summary-method');
+                const methodText = methodElement ? methodElement.textContent.trim().toLowerCase() : '';
+                if (methodText.includes(searchTerm)) {
+                  console.log('Method match:', methodText);
+                  isMatch = true;
+                }
+              }
+
+              // 3. Check operation description
+              if (!isMatch) {
+                const descriptionElement = opblock.querySelector('.opblock-summary-description');
+                const descriptionText = descriptionElement ? descriptionElement.textContent.trim().toLowerCase() : '';
+                if (descriptionText.includes(searchTerm)) {
+                  console.log('Description match:', descriptionText);
+                  isMatch = true;
+                }
+              }
+
+              // Show/hide operation based on match
+              opblock.style.display = isMatch ? '' : 'none';
+            });
+
+            // Process tag sections: show if the tag itself matches or if any of its operations are visible
+            document.querySelectorAll('.opblock-tag-section').forEach(tagSection => {
+              const tagElement = tagSection.querySelector('.opblock-tag');
+              const tagText = tagElement ? tagElement.textContent.trim().toLowerCase() : '';
+
+              // Check if tag name matches
+              const tagMatches = tagText.includes(searchTerm);
+
+              // Check if any operations within this tag are visible
+              const hasVisibleOps = Array.from(tagSection.querySelectorAll('.opblock'))
+                                     .some(op => op.style.display !== 'none');
+
+              // Show the tag section if either condition is met
+              tagSection.style.display = (tagMatches || hasVisibleOps) ? '' : 'none';
+
+              // If tag name matches, ensure all its operations are visible
+              if (tagMatches) {
+                tagSection.querySelectorAll('.opblock').forEach(op => {
+                  op.style.display = '';
+                });
+              }
+            });
+          });
+
+          console.log('FEAGI Swagger UI: Filter setup complete');
+        }
+
+      } catch (error) {
+        console.error('FEAGI Swagger UI: Critical error during initialization', error);
+        showErrorMessage('Critical Initialization Error', error.message || 'Unknown error during initialization');
+      }
+    };
+  </script>
+</body>
+</html>

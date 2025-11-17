@@ -1,0 +1,15 @@
+{
+  "test_name": "system_performance",
+  "metric_name": "latency_p95_ms",
+  "baseline_value": 0.009100171155296263,
+  "baseline_timestamp": 1755280650.600931,
+  "sample_count": 4,
+  "std_deviation": 0.0028635430868371526,
+  "confidence_interval": [
+    0.0062938989301958535,
+    0.011906443380396672
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.600467
+  }
+}

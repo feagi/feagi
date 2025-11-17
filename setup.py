@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# Copyright 2019 The FEAGI Authors. All Rights Reserved.
+# Copyright 2025 Neuraville Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,27 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==============================================================================
 
 """
-    Setup file for feagi.
-    Use setup.cfg to configure your project.
+Setup configuration for FEAGI.
 
-    This file was generated with PyScaffold 3.2.3.
-    PyScaffold helps you to put up the scaffold of your new Python project.
-    Learn more under: https://pyscaffold.org/
+NOTE: Rust extensions have been moved to the feagi-rust-py-libs package.
+Install separately: pip install feagi-rust-py-libs
 """
-import sys
 
-from pkg_resources import VersionConflict, require
 from setuptools import setup
 
-try:
-    require('setuptools>=38.3')
-except VersionConflict:
-    print("Error: version of setuptools is too old (<38.3)!")
-    sys.exit(1)
+setup(
+    zip_safe=False,
+)
 
-
-if __name__ == "__main__":
-    setup(use_pyscaffold=True)

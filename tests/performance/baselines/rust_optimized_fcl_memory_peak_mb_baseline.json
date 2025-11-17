@@ -1,0 +1,15 @@
+{
+  "test_name": "rust_optimized_fcl",
+  "metric_name": "memory_peak_mb",
+  "baseline_value": 0.23067808151245117,
+  "baseline_timestamp": 1755280650.598526,
+  "sample_count": 8,
+  "std_deviation": 0.25466442983618676,
+  "confidence_interval": [
+    0.05420463515356125,
+    0.4071515278713411
+  ],
+  "system_info": {
+    "creation_timestamp": 1755280650.598318
+  }
+}

@@ -1,0 +1,48 @@
+name: Run timer on FEAGI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "staging"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build setuptools
+        ls -a
+
+    - name: Install Root Requirements
+      run: pip3 install -r requirements.txt
+
+    - name: Run Main Python Script in src
+      run: |
+        ls
+        cd src/
+        python3 main.py &
+      
+    - name: Work with Controller
+      run: |
+        cd tests/timer
+        pip3 install -r requirements.txt
+        python3 controller.py
+
+    - name: Exit Container
+      if: ${{ success() }}
+      run: |
+        echo "No error"
+        exit 0
