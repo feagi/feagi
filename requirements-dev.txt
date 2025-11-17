@@ -1,0 +1,32 @@
+# FEAGI Core - Development Dependencies
+# This file includes both core and development dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Include core dependencies
+-r requirements.txt
+
+# Testing framework
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-benchmark>=4.0.0
+pytest-mock>=3.10.0
+
+# Code formatting and linting
+black>=23.0.0
+isort>=5.12.0
+ruff>=0.1.0
+mypy>=1.0.0
+
+# Pre-commit hooks
+pre-commit>=3.0.0
+
+# Performance profiling and debugging
+memory-profiler>=0.60.0
+dataclasses-json>=0.5.7
+
+# Documentation (handled by Docusaurus - see /website folder)
+# No Python dependencies needed for docs generation
+
+# Optional GPU monitoring (uncomment if needed)
+# GPUtil>=1.4.0

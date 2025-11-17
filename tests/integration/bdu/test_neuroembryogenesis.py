@@ -1,0 +1,377 @@
+#!/usr/bin/env python3
+"""
+Copyright 2025 Neuraville Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+"""
+Pytest tests for the Neuroembryogenesis module.
+
+Tests the functionality of the Neuroembryogenesis module for developing
+a brain from a genome file.
+"""
+
+import json
+import logging
+import os
+import shutil
+import sys
+import tempfile
+import time
+
+import pytest
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+# Add the project root to the path if needed
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.insert(0, project_root)
+
+# Import the modules to test
+from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.bdu.embryogenesis.neuroembryogenesis import (
+    DevelopmentStage,
+    NeuroEmbryogenesis,
+)
+from feagi.utils.config import FeagiConfig
+
+
+@pytest.fixture(autouse=True)
+def reset_connectome_singleton():
+    """Reset ConnectomeManager singleton before each test to ensure clean state."""
+    ConnectomeManager.reset_singleton()
+    yield
+    # Optionally reset after test as well
+    ConnectomeManager.reset_singleton()
+
+
+@pytest.fixture
+def genome_file():
+    """Use the essential_genome.json file for testing."""
+    # Path to the essential genome file - fix the path to be relative to feagi_core
+    essential_genome_path = os.path.join(
+        os.path.dirname(__file__),
+        "../../../feagi/evo/defaults/genome/essential_genome.json",
+    )
+
+    # Copy to a temporary file so tests don't modify the original
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp:
+        temp_path = temp.name
+
+    shutil.copy2(essential_genome_path, temp_path)
+
+    yield temp_path
+
+    # Cleanup
+    os.unlink(temp_path)
+
+
+@pytest.fixture
+def config():
+    """Create a FeagiConfig for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config_dict = {
+            "connectome_path": temp_dir,
+            "skip_memory_neurogenesis": True,
+            "connectome.max_neurons": 10000000,  # Increase to handle large essential genome
+            "connectome.max_synapses_per_neuron": 1000,  # Also increase max synapses
+        }
+
+        try:
+            config = FeagiConfig(**config_dict)
+        except TypeError:
+            # Try alternative initialization methods if needed
+            try:
+                config = FeagiConfig(config_dict)
+            except TypeError:
+                config = FeagiConfig()
+                for key, value in config_dict.items():
+                    config.set(key, value)
+
+        yield config
+
+
+@pytest.fixture
+def connectome_manager(config):
+    """Create a ConnectomeManager for testing."""
+    # Create a ConnectomeManager with the new API
+    max_neurons = config.get("connectome.max_neurons", 100000000)
+    max_synapses = config.get("connectome.max_synapses_per_neuron", 1000) * max_neurons
+    return ConnectomeManager(
+        config_or_max_neurons=max_neurons, max_synapses=max_synapses
+    )
+
+
+@pytest.fixture
+def embryo(connectome_manager, config):
+    """Create a Neuroembryogenesis instance for testing."""
+    progress_logs = []
+
+    def progress_callback(stage, progress, message):
+        progress_logs.append((stage, progress, message))
+
+    embryo = NeuroEmbryogenesis(
+        connectome_manager=connectome_manager,
+        config=config,
+        progress_callback=progress_callback,
+    )
+    embryo.progress_logs = progress_logs
+    return embryo
+
+
+def test_neuroembryogenesis_initialization(embryo):
+    """Test that Neuroembryogenesis initializes correctly."""
+    assert embryo is not None
+    assert embryo.connectome_manager is not None
+    assert embryo.stage == DevelopmentStage.INITIALIZATION
+
+
+def test_load_genome(embryo, genome_file):
+    """Test that a genome can be loaded."""
+    success = embryo.load_genome(genome_file)
+    assert success
+    assert embryo.genome is not None
+    assert "blueprint" in embryo.genome
+
+
+def test_cortical_area_setup(embryo, genome_file):
+    """Test setting up cortical areas from a genome."""
+    # Load the genome first
+    embryo.load_genome(genome_file)
+
+    # Setup cortical areas
+    success = embryo._setup_cortical_areas()
+    assert success
+
+    # Check that areas were created in the connectome manager
+    assert len(embryo.connectome_manager.cortical_areas) > 0
+
+    # Verify the connectome manager has the areas
+    area_ids = set(embryo.cortical_id_map.keys())
+    assert len(area_ids) > 0
+
+
+def test_neurogenesis(embryo, genome_file):
+    """Test neurogenesis process."""
+    total_start = time.time()
+
+    # Load the genome and setup areas
+    genome_load_start = time.time()
+    embryo.load_genome(genome_file)
+    genome_load_end = time.time()
+    print(f"\nGenome load time: {genome_load_end - genome_load_start:.3f} seconds")
+
+    setup_areas_start = time.time()
+    embryo._setup_cortical_areas()
+    setup_areas_end = time.time()
+    print(
+        f"Cortical area setup time: {setup_areas_end - setup_areas_start:.3f} seconds"
+    )
+
+    # Perform neurogenesis with timing
+    neurogenesis_start = time.time()
+    success = embryo._perform_neurogenesis()
+    neurogenesis_end = time.time()
+
+    # Get detailed metrics from development statistics
+    stats = embryo.get_development_statistics()
+    total_neurons = stats.get("total_neurons", 0)
+    total_areas = len(embryo.connectome_manager.cortical_areas)
+    neurogenesis_duration = neurogenesis_end - neurogenesis_start
+
+    print(f"Neurogenesis execution time: {neurogenesis_duration:.3f} seconds")
+    print(f"Created {total_neurons} neurons across {total_areas} areas")
+
+    if total_neurons > 0:
+        print(f"Rate: {total_neurons / neurogenesis_duration:.2f} neurons/second")
+
+    total_end = time.time()
+    print(f"Total test time: {total_end - total_start:.3f} seconds")
+
+    assert success
+
+
+def test_synaptogenesis(embryo, genome_file):
+    """Test synaptogenesis process."""
+    total_start = time.time()
+
+    # Load the genome, setup areas, and create neurons
+    setup_start = time.time()
+    embryo.load_genome(genome_file)
+    embryo._setup_cortical_areas()
+    embryo._perform_neurogenesis()
+    setup_end = time.time()
+    print(
+        f"\nSetup time (genome, areas, neurons): {setup_end - setup_start:.3f} seconds"
+    )
+
+    # Count neurons before synaptogenesis
+    count_start = time.time()
+    neuron_count = sum(
+        len(embryo.connectome_manager.get_neurons_by_area(area_id))
+        for area_id in embryo.connectome_manager.cortical_areas.keys()
+    )
+    count_end = time.time()
+    print(f"Neuron counting time: {count_end - count_start:.3f} seconds")
+    print(
+        f"Created {neuron_count} neurons across {len(embryo.connectome_manager.cortical_areas)} areas"
+    )
+
+    # Determine if genome has any cortical mappings using the same method as the actual code
+    mappings_start = time.time()
+
+    # Check for mappings in the genome blueprint directly
+    blueprint = embryo.genome.get("blueprint", {})
+    has_mappings = False
+    
+    # Look for cortical mapping keys: "_____10c-{cortical_id}-cx-dstmap-d"
+    for gene_key, gene_value in blueprint.items():
+        if (
+            isinstance(gene_key, str)
+            and gene_key.startswith("_____10c-")
+            and gene_key.endswith("-cx-dstmap-d")
+            and isinstance(gene_value, dict)
+            and gene_value
+        ):
+            has_mappings = True
+            break
+
+    mappings_end = time.time()
+    print(f"Mapping check time: {mappings_end - mappings_start:.3f} seconds")
+
+    # Print mapping information
+    if has_mappings:
+        mapping_count = len(cortical_mappings)
+        print(f"Found {mapping_count} cortical mappings in genome via EVO processor")
+    else:
+        print("No cortical mappings found in genome via EVO processor")
+
+    # Perform synaptogenesis with timing
+    synapse_start = time.time()
+    success = embryo._perform_synaptogenesis()
+    synapse_end = time.time()
+    print(f"Synaptogenesis execution time: {synapse_end - synapse_start:.3f} seconds")
+
+    assert success
+
+    # Get the synapse count from the statistics
+    stats_start = time.time()
+    stats = embryo.get_development_statistics()
+    stats_end = time.time()
+    print(f"Statistics collection time: {stats_end - stats_start:.3f} seconds")
+
+    synapse_count = stats.get("total_synapses", 0)
+    print(f"Created {synapse_count} synapses")
+
+    # If there are no mappings in the genome, we expect synapse count to be 0
+    # Otherwise, there should be synapses created
+    if has_mappings:
+        assert synapse_count > 0, (
+            f"Expected synapses > 0 when mappings exist, got {synapse_count}"
+        )
+    else:
+        assert synapse_count == 0, (
+            f"Expected synapses == 0 when no mappings exist, got {synapse_count}"
+        )
+
+    total_end = time.time()
+    print(f"Total test time: {total_end - total_start:.3f} seconds")
+
+
+def test_full_development(embryo, genome_file):
+    """Test the full brain development process."""
+    # Measure overall time
+    total_start = time.time()
+
+    # Measure development time
+    develop_start = time.time()
+    success = embryo.develop_brain(genome_file)
+    develop_end = time.time()
+    print(f"\nBrain development time: {develop_end - develop_start:.3f} seconds")
+
+    assert success
+
+    # Check development statistics
+    stats = embryo.get_development_statistics()
+
+    # Get actual counts from connectome manager for verification
+    actual_neuron_count = embryo.connectome_manager.get_neuron_count()
+    actual_synapse_count = embryo.connectome_manager.get_synapse_count()
+    actual_area_count = len(embryo.connectome_manager.cortical_areas)
+
+    print("\nActual counts from connectome manager:")
+    print(f"  Cortical Areas: {actual_area_count}")
+    print(f"  Neurons: {actual_neuron_count}")
+    print(f"  Synapses: {actual_synapse_count}")
+
+    # Detailed timing breakdown from statistics
+    print("\nDetailed Development Timing:")
+    for stage, duration in stats.get("stage_durations", {}).items():
+        print(f"  {stage}: {duration:.3f} seconds")
+
+    # Print statistics using correct keys
+    print("\nDevelopment Statistics:")
+    print(f"  Cortical Areas: {stats.get('cortical_areas', 0)}")
+    print(f"  Neurons: {stats.get('total_neurons', 0)}")
+    print(f"  Synapses: {stats.get('total_synapses', 0)}")
+
+    # Verify that development was successful using actual counts
+    assert actual_area_count > 0
+    assert actual_neuron_count > 0
+
+    # Also verify statistics match actual counts
+    assert stats.get("cortical_areas", 0) == actual_area_count
+    assert stats.get("total_neurons", 0) == actual_neuron_count
+    assert stats.get("total_synapses", 0) == actual_synapse_count
+
+    total_end = time.time()
+    print(f"Total test time: {total_end - total_start:.3f} seconds")
+
+
+def test_synapse_manager_use_in_development(embryo, genome_file):
+    """Test that the SynapseManager is properly used during development."""
+    # Develop the brain
+    success = embryo.develop_brain(genome_file)
+    assert success
+
+    # Check if the genome has cortical mappings
+    with open(genome_file, "r") as f:
+        genome_data = json.load(f)
+
+    has_mappings = (
+        "cortical_mappings" in genome_data and len(genome_data["cortical_mappings"]) > 0
+    )
+
+    # Get the synapse count from the development statistics using correct key
+    stats = embryo.get_development_statistics()
+    synapse_count = stats.get("total_synapses", 0)
+
+    print(f"Synapse count: {synapse_count}")
+    print(f"Has cortical mappings: {has_mappings}")
+
+    # If there are cortical mappings, we should have synapses
+    if has_mappings:
+        assert synapse_count > 0, (
+            f"Expected synapses > 0 when mappings exist, got {synapse_count}"
+        )
+    else:
+        # If no mappings, synapse count could be 0
+        print("No cortical mappings found - synapse count may be 0")
+
+    # Verify that the connectome manager has the expected structure
+    assert len(embryo.connectome_manager.cortical_areas) > 0
+    assert embryo.connectome_manager.get_neuron_count() > 0

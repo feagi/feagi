@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feagi"
+version = "3.0.0"
+description = "Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Neuraville Inc.", email = "feagi@neuraville.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "pyzmq>=24.0.0",
+    "aiohttp>=3.9.0",
+    "toml>=0.10.2",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+video = [
+    "opencv-python>=4.9.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "ruff>=0.0.270",
+    "pre-commit>=3.0.0",
+]
+docs = [
+    "mkdocs>=1.4.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings>=0.20.0",
+    "mkdocstrings-python>=1.0.0",
+]
+full = [
+    "opencv-python>=4.9.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Neuraville/FEAGI-2.0"
+"Bug Tracker" = "https://github.com/Neuraville/FEAGI-2.0/issues"
+"Documentation" = "https://docs.feagi.org"
+
+[project.scripts]
+feagi = "feagi.cli:main"
+
+[tool.setuptools]
+packages = ["feagi_connector"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "B", "I"]
+ignore = []

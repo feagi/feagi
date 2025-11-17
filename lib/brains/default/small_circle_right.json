@@ -1,9 +1,0 @@
-{
-  "stimulation_script": {
-      "small_circle":
-      {
-        "definition": [ [{"o__mot": ["0-0-4", "2-0-1", "4-0-4", "6-0-1"]}, 1] ] }
-  }
-}
-
-

@@ -1,0 +1,15 @@
+name: Release Action Example
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Run a script
+      run: echo "A release was published!"

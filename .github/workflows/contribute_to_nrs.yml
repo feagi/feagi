@@ -1,0 +1,81 @@
+name: Contribute to NRS FEAGI
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - '.github/workflows/**'
+    branches:
+      - pre-nrs
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out Neuraville code
+      uses: actions/checkout@v4
+      with:
+        repository: Neuraville/feagi-connector
+        ref: pre-nrs
+        fetch-depth: 0
+        path: neuraville-feagi-connector
+
+    - name: Generate branch name
+      run: echo "BRANCH_NAME=neuraville-$(date +'%Y-%m-%d-%H-%M-%S')" >> $GITHUB_ENV
+
+    - name: Check out Community code
+      uses: actions/checkout@v4
+      with:
+        repository: feagi/feagi-connector
+        ref: staging
+        path: community-feagi-connector
+        token: ${{ secrets.PUBLIC_PAT_MNT }}
+        sparse-checkout: .
+        fetch-depth: 0
+
+
+    - name: Setup Git Identity for Merge
+      run: |
+        cd community-feagi-connector
+        git config user.email "dev@neuraville.com"
+        git config user.name "NeuravilleDeveloper"
+
+
+    - name: Merge Neuraville code into Community code
+      run: |
+        cd community-feagi-connector
+        git remote add neuraville ../neuraville-feagi-connector
+        git fetch neuraville
+        git merge neuraville/pre-nrs --allow-unrelated-histories
+
+    - name: Check for merge conflicts
+      run: |
+        if git diff --name-only --diff-filter=U | grep -q .; then
+          echo "Merge conflicts detected!"
+          exit 1
+        fi
+
+    - name: Setup Git with PAT and commit changes
+      run: |
+        cd community-feagi-connector
+        git config user.email "dev@neuraville.com"
+        git config user.name "NeuravilleDeveloper"
+        git remote | grep public && git remote remove public
+        git remote add public https://github.com/feagi/feagi-connector.git
+        git branch --all
+        git status
+        git checkout $BRANCH_NAME || git checkout -b $BRANCH_NAME
+        git diff --exit-code || git commit -m "Sync with pre-nrs excluding .env and .github directory changes"
+        git push public ${{ env.BRANCH_NAME }}
+
+    - name: Create PR using GitHub CLI
+      run: |
+        gh auth login --with-token <<< "${{ secrets.PUBLIC_PAT_MNT }}"
+        gh pr create \
+          --repo feagi/feagi-connector \
+          --base staging \
+          --head ${{ env.BRANCH_NAME }} \
+          --title "Updates from Neuraville Inc" \
+          --body "This PR syncs with latest Neuraville Inc. development code."
+      env:
+        GH_CLI_TOKEN: ${{ secrets.PUBLIC_PAT_MNT }}

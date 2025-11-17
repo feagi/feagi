@@ -1,156 +1,241 @@
-# Hello and welcome to FEAGI! 
+# FEAGI Python SDK
 
-[![Bouncing a pebble](thumbnail.png)](https://github.com/user-attachments/assets/c1b57ce8-6b66-4a29-a0a9-9f2e9e21da0e)
+**Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages**
 
+Version 3.0.0 - Clean architecture, no legacy code.
 
-[![GitHub Release](https://img.shields.io/github/v/release/feagi/brain-visualizer)](https://github.com/feagi/feagi/releases) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![GitHub License](https://img.shields.io/github/license/feagi/feagi)](https://www.apache.org/licenses/LICENSE-2.0.txt)
+## Overview
 
-* For the most up to date information about our platform and approach, please reference our [Wiki](https://github.com/feagi/feagi/wiki).
-* To get started using our platform please follow our [**Deployment Guide**](https://github.com/feagi/feagi/wiki/Deployment) and start by following our [**tutorials**](https://github.com/feagi/feagi/wiki/Tutorials)
-* To learn more and get involved in the community, join our the FEAGI [Linkedin group](https://www.linkedin.com/groups/12777894/).
+FEAGI SDK provides everything needed to:
+- Build agents for robots, simulators, and embedded devices
+- Start and stop the FEAGI neural engine from Python
+- Manipulate genomes and connectomes at runtime
+- Create packages for the FEAGI marketplace
 
-# About FEAGI
-The Framework for Evolutionary Artificial General Intelligence (FEAGI) is an open-source framework designed from the 
-ground up as a brain-inspired platform to help develop artificial general intelligence. FEAGI has been under development 
-since 2016 and has been publicly introduced in 2020 through 
-"[A Brain-Inspired Framework for Evolutionary Artificial General Intelligence](https://ieeexplore.ieee.org/document/9034490)", 
-a journal paper published in IEEE Transactions on Neural Networks. Thus far, [Neuraville](https://neuraville.com) has 
-been the biggest contributor to this open-source software but we hope others would join in building an amazing solution.
+## Installation
 
-To learn more and get involved, join the FEAGI [LinkedIn group](https://www.linkedin.com/groups/12777894/).
-
-Here are some key highlights of the framework differentiating it from others:
-* Inspired by the evolutionary process that developed the human brain over millions of years
-* Inspired by the maturity process that grows a human brain from a few cells within a human embryo and transforms it 
-  into an adult brain
-* Based on Spiking Neural Network concept
-* Developed using Python programming language
-* Event-based implementation making it suitable for low power deployments
-* Designed with a highly modular architecture making it easy to adapt to new hardware environments
-* Built-in tooling for powerful data visualization and functional insights 
-
-&nbsp;
-# Deployment
-For deployment instructions, please refer to the ***[Deployment Guide](https://github.com/feagi/feagi/wiki/Deployment)***.
-
-&nbsp;
-# Framework Overview
-There are a few key aspects to FEAGI: the evolutionary aspect, the maturity aspect, and the brain-inspired anatomical 
-aspects. The process begins with what we call a "*seed genome*." The seed genome is a densely coded data structure that 
-captures the anatomical properties of the artificial brain, which can be used in conjunction with a set of growth algorithms 
-to develop a fully functional artificial brain in the form of a neural network. The evolutionary aspect of the framework 
-has the capability of using the seed genome as a starting point and evolving it through time, leading to a more capable 
-and more functional artificial brain over generations.
-
-![evolutionary process](_static/evolutionary_process.png)
-The process of evolving an artificial brain.
-
-We have decided to build integration with [MongoDb](https://www.mongodb.com) as the repository for maintaining 
-artificial genomes. We have also built an integration with [InfluxDb](https://www.influxdata.com/products/influxdb/) as a 
-repository for all the time-bound or sequential statistics that can be collected from the artificial brain. The design 
-is highly modular, and other databases can be utilized as needed.
-
-![ecosystem](_static/ecosystem.png)
-An overview of the FEAGI ecosystem.
-
-&nbsp;
-# Monitoring
-FEAGI has been designed with the capability of monitoring artificial brain activities through selective sampling. 
-When sampling is enabled, select metrics are measured and stored in a time-series database, currently InfluxDb. From 
-there, any monitoring software can be utilized to visualize the activities. We have chosen [Grafana](https://grafana.com) 
-as our web-based software of choice to build insightful visualization, but this should not limit you from going with your 
-favorite.
-
-
-Similar to how fMRI helps us visualize the activities of a functioning brain, we have developed tools to help you gain
-insights into how the artificial brain operates.
-
-![IMG_5253](https://github.com/Neuraville/feagi/assets/26581495/8b2354b9-d13a-4e0c-b1d5-0c738b8f7518)
-
-
-Another powerful tool to help gain insights into how the artificial brain developed by FEAGI operates is the use of 
-time-series dashboards that provide an EEG like visualization but much cooler!
-
-![Grafana](_static/monitoring.png "Monitoring the activity of the artificial brain.")
-
-&nbsp;
-# Device Integration
-FEAGI acts as the brain and requires embodiment to interact with the environment. FEAGI utilizes an open-source universal 
-messaging library called [ZeroMQ](https://zeromq.org/) to communicate with its peripheral devices. 
-
-![](_static/zmq.png)
-
-* Available integrations:
-  * Pyserial
-  * [ROS (Robot Operating System)](third_party/gazebo/smart_car/README.md)
-  
-&nbsp;
-# Definitions
-Here is a list of terminologies and common terms used throughout the documentation. 
-###
-
-**Artificial Brain (Robot Control System)**
-* A system consisted of a combination of hardware and software working in harmony to process internally and externally 
-  generated information.
-
-**Connectome (Artificial Neural Network)**
-* A centralized or distributed data structure representing the physical structure and properties of a working artificial 
-  brain consisted of artificial neurons and the synaptic connectivity in between them.
-
-**Genome (Neural Network Parameters File)**
-* A data structure containing a set of properties needed to build a Connectome
-
-**Genome repository (Database of configuration files)**
-* A distributed or centralized database housing a collection of genome instances
-
-**Gene (Parameter)**
-* A portion of the genome capturing the properties of a particular section of the artificial brain
-
-**Cortical Area (Neural Network Layer)**
-* A virtual 3D space consisted of a collection of neurons scattered across its virtual 3d space
-
-**Neurogenesis (Creation of a Neuron)**
-* The process of reading neuron properties from the genome, creating an entry in the connectome, and having the 
-  associated with a particular cortical area
-
-**Synaptogenesis (Creation of neural network edges or connecting between neurons)**
-* The process of reading rules of connectivity from a neuron to its neighbors from the genome and creating an entry in 
-  the connectome and associated with a neuron outlining the information about the neighboring neuron it is connected with
-
-**Input Processing Unit (IPU)**
-* A software program designed to create an interface between an input device such as a microphone or camera and the 
-  connectome by translating the data packets received from the input device to a set of neuronal stimulation as part 
-  of the connectome
-
-**Output Processing Unit (OPU)**
-* A software program designed to create an interface between the connectome and with an output device such as a speaker by 
-  translating the neuronal activities as part of a specific region of connectome to data packets so the output device 
-  can process it.
-
-**Neuron Processing Unit (NPU)**
-* A software program designed to process all the operations associated with neuron firing across the entire connectome
-
-
-## Citation
-
-If you use FEAGI for published research, please cite:
-
-```
-@ARTICLE{9034490,
-  author={Nadji-Tehrani, Mohammad and Eslami, Ali},
-  journal={IEEE Transactions on Neural Networks and Learning Systems}, 
-  title={A Brain-Inspired Framework for Evolutionary Artificial General Intelligence}, 
-  year={2020},
-  volume={31},
-  number={12},
-  pages={5257-5271},
-  keywords={Neural networks;Brain modeling;Genetic programming;Character recognition;Artificial intelligence;Artificial general intelligence;evolutionary algorithms;genetic programming;indirect encoding;spiking neural networks},
-  doi={10.1109/TNNLS.2020.2965567}}
+```bash
+pip install feagi
 ```
 
-## License and Disclaimer
+For video processing support:
+```bash
+pip install feagi[video]
+```
 
-Copyright 2025 Neuraville Inc.
+## Quick Start
 
-Source code is licensed under the Apache License, Version 2.0. You may obtain a
-copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
+### Basic Agent
+
+```python
+from feagi.agent import BaseAgent
+from feagi.pns import FeagiAgentClient, AgentType
+
+class MyRobotAgent(BaseAgent):
+    def initialize_hardware(self):
+        # Connect to your robot/simulator
+        pass
+    
+    def map_sensors(self, hw_data):
+        # Convert robot sensors → FEAGI format
+        return {"camera": image_bytes}
+    
+    def map_motors(self, feagi_output):
+        # Convert FEAGI commands → robot format
+        return motor_commands
+
+# Run the agent
+agent = MyRobotAgent("my-robot-01")
+await agent.connect()
+await agent.run()
+```
+
+### Direct PNS Communication
+
+```python
+from feagi.pns import FeagiAgentClient, AgentType
+
+# Create client
+client = FeagiAgentClient("my-agent", AgentType.SENSORY)
+client.configure(feagi_host="localhost")
+await client.connect()
+
+# Send sensory data
+await client.send_sensory_data(sensor_data)
+```
+
+## Architecture
+
+```
+feagi/
+├── engine/          # Engine control (start/stop FEAGI)
+├── agent/           # Agent framework (BaseAgent templates)
+├── genome/          # Runtime genome manipulation
+├── connectome/      # Runtime connectome operations
+├── packaging/       # Build marketplace packages
+├── pns/             # Peripheral Nervous System (communication)
+└── cli/             # Command-line tools
+```
+
+## Modules
+
+### `feagi.engine`
+Start and stop the FEAGI neural engine from Python.
+- `FeagiEngine` - Control local FEAGI instance
+- PyO3 bindings to Rust `feagi::FeagiInstance`
+
+**Status:** Planned for Phase 2
+
+### `feagi.agent`
+Agent framework with base classes and templates.
+- `BaseAgent` - Abstract base class
+- `SDKRobotAgent` - For SDK-based robots (Cozmo, NAO)
+- `SimulatorAgent` - For physics simulators (Webots, Gazebo)
+- `EmbeddedAgent` - For embedded devices (ESP32, Arduino)
+- `VirtualAgent` - For game engines (Unity, Unreal)
+
+**Status:** ✅ BaseAgent implemented
+
+### `feagi.genome`
+Manipulate genomes on a running FEAGI instance via REST API.
+- `GenomeAPI` - Add/remove cortical areas, modify parameters
+- `GenomeLoader` - Load genome from local file
+- `GenomeValidator` - Validate genome structure
+
+**Status:** Planned for Phase 3
+
+### `feagi.connectome`
+Download and upload connectomes via REST API.
+- `ConnectomeAPI` - Snapshot/restore trained brain state
+- Download from running instance for backup
+- Upload pre-trained connectomes
+
+**Status:** Planned for Phase 3
+
+### `feagi.packaging`
+Build marketplace packages locally.
+- `PackageBuilder` - Create `.feagi-personality`, `.feagi-firmware`, etc.
+- `PackageValidator` - Validate package structure
+- `ManifestGenerator` - Generate manifest.json
+
+**Status:** Planned for Phase 4
+
+### `feagi.pns`
+Peripheral Nervous System - Communication layer.
+- `FeagiAgentClient` - Modern Rust-backed client (RECOMMENDED)
+- `CapabilitiesManager` - Device capability management
+- `MotorProcessor` - Motor command processing
+- `VisionProcessor` - Vision data processing
+- `SegmentedVisionProcessor` - Advanced segmented vision
+- Supports ZMQ and WebSocket transports
+
+**Status:** ✅ Fully implemented
+
+### `feagi.cli`
+Command-line tools for development.
+- `feagi create-agent` - Scaffold new agent from template
+- `feagi build-package` - Build marketplace package locally
+
+**Status:** Planned for Phase 4
+
+## Development Workflow
+
+### 1. Create Agent
+```bash
+# Scaffold new agent (future)
+feagi create-agent cozmo --template sdk_robot
+
+# Edit generated agent code
+vim cozmo_agent.py
+```
+
+### 2. Test Locally
+```python
+# Run agent with local FEAGI
+python cozmo_agent.py --genome ~/.feagi/genomes/vision_nav.json
+```
+
+### 3. Build Package
+```bash
+# Create marketplace package (future)
+feagi build-package \
+    --genome vision_nav.json \
+    --docs README.md \
+    --output vision_nav_v1.feagi-personality
+```
+
+### 4. Upload via UI
+Upload the package through Neurorobotics Studio or FEAGI Desktop.
+
+## Examples
+
+See `examples/` directory for complete agent implementations:
+- Basic sensory agent
+- SDK robot agent (Cozmo example)
+- Simulator agent (Webots example)
+- Vision processing examples
+
+## Documentation
+
+- [API Reference](https://docs.feagi.org/api)
+- [Agent Development Guide](https://docs.feagi.org/agent-guide)
+- [Marketplace Guide](https://docs.feagi.org/marketplace)
+
+## What's New in 3.0.0
+
+**Complete rewrite with clean architecture:**
+- ✅ Renamed from `feagi_connector` to `feagi`
+- ✅ Modular structure: `engine`, `agent`, `genome`, `connectome`, `packaging`, `pns`, `cli`
+- ✅ No legacy code, no deprecated APIs, no fallbacks
+- ✅ Modern `BaseAgent` framework for agent development
+- ✅ `feagi.pns` module for Peripheral Nervous System communication
+- ✅ Prepared for engine control (PyO3 bindings in Phase 2)
+- ✅ Prepared for runtime genome/connectome manipulation (Phase 3)
+- ✅ Prepared for marketplace package building (Phase 4)
+
+**Breaking Changes:**
+- Package renamed: `feagi_connector` → `feagi`
+- All legacy clients removed (`FeagiClient`, `FeagiAgentConnector`)
+- Only modern `FeagiAgentClient` supported
+- Python 3.10+ required
+- Imports changed: `from feagi_connector import X` → `from feagi.pns import X`
+
+## Migration from 2.x
+
+```python
+# Old (2.x)
+from feagi_connector import FeagiAgentClient
+
+# New (3.0)
+from feagi.pns import FeagiAgentClient
+```
+
+## Requirements
+
+- Python 3.10+
+- `feagi_rust_py_libs` (for Rust-backed performance)
+- NumPy 1.20+
+- PyZMQ 24.0+
+- aiohttp 3.9+
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+Apache-2.0 - See [LICENSE.txt](LICENSE.txt) for details.
+
+## Links
+
+- **Homepage**: https://feagi.org
+- **Repository**: https://github.com/Neuraville/FEAGI-2.0
+- **Issues**: https://github.com/Neuraville/FEAGI-2.0/issues
+- **Neurorobotics Studio**: https://neurorobotics.studio
+- **FEAGI Desktop**: Download from https://feagi.org
+
+## Authors
+
+Neuraville Inc. - <feagi@neuraville.com>
+
+Copyright 2016-2025 Neuraville Inc. All Rights Reserved.

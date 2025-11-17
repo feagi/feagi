@@ -1,7 +1,0 @@
-{
-  "stimulation_script": {
-      "spins":
-      {
-        "definition": [ [{"o__mot": ["1-0-4", "2-0-4", "5-0-4", "6-0-4"]}, 1] ] }
-  }
-}

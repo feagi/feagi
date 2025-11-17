@@ -1,0 +1,98 @@
+name: Build Python Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to TestPyPI'
+        required: true
+        type: boolean
+        default: false
+      version:
+        description: 'Version to publish (leave empty to use version in pyproject.toml)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest] # Define OS targets
+        #python-version: ["3.8", "3.9", "3.10", "3.11"] # Define Python Version Targets
+        python-version: ["3.11"]
+        target: [x86_64, aarch64] # Define Arch Targets
+        include:
+          # ARM Linux builds
+          - os: ubuntu-latest
+            target: armv7
+          # Skip building ARM Windows (not relevant)
+          - os: windows-latest
+            target: aarch64
+            skip: true
+          # ARM macOS builds only on macOS
+          - os: ubuntu-latest
+            target: aarch64-apple-darwin
+            skip: true
+          - os: windows-latest
+            target: aarch64-apple-darwin
+            skip: true
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update version if specified
+        if: ${{ inputs.version != '' }}
+        run: |
+          cd rust_core_sensiomotor_functions_py
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            (Get-Content pyproject.toml) -replace 'version = "([0-9.]+)"', 'version = "${{ inputs.version }}"' | Set-Content pyproject.toml
+          else
+            sed -i 's/version = "[0-9.]*"/version = "${{ inputs.version }}"/g' pyproject.toml
+          fi
+        shell: bash
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --strip -m Python_Connector/rust_core_sensiomotor_functions_py/Cargo.toml
+          sccache: 'true'
+          manylinux: auto
+          skip: ${{ matrix.skip || false }}
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.python-version }}
+          path: target/wheels/*.whl
+          compression-level: 0  # No compression for binary wheels
+
+  publish:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ inputs.publish }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: wheels
+          merge-multiple: true
+
+      - name: Move all wheels to one directory
+        run: |
+          mkdir -p dist
+          find wheels -name "*.whl" -exec cp {} dist/ \;
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/

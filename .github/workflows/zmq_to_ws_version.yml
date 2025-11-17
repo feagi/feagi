@@ -1,0 +1,50 @@
+name: "Update zmq_to_ws Controller version"
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'embodiments/controller-bridge/**'
+      - '!embodiments/controller-bridge/version.py'
+      - 'generate_version.sh'
+  workflow_dispatch:
+
+jobs:
+  zmq_to_ws_bridge:
+    runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi-connector'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Merge in New Changes
+        run: |
+          # Set up Git
+          git config --global user.name "BrainVisualizerPushAction"
+          git config --global user.email "BrainVisualizerPushAction@neuraville.com"
+          git config --global --add safe.directory /__w/brain-visualizer/brain-visualizer
+          echo "set vars"
+          git checkout -b temp
+      - name: Update Dockerfile and version
+        run: |
+          export FEAGI_PATH=$(pwd)
+          cd embodiments/controller-bridge/
+          bash $FEAGI_PATH/generate_version.sh
+      - name: Push version changes
+        run: |
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+          else
+            echo "pre-release branch does not exist on remote repository. Continuing with the workflow."
+          fi
+          git add .
+          git commit -m "Updated ZMQ_to_WS Version"
+          echo "committed"
+          if git ls-remote --heads origin pre-release | grep -q 'pre-release'; then
+            git pull origin pre-release
+            git push origin temp:pre-release
+          else
+              git push origin temp:pre-release
+          fi

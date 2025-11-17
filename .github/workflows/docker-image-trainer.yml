@@ -1,0 +1,48 @@
+name: Update Trainer Hub
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+    paths:
+      - '!embodiments/neuraville/feagi_trainer/version.py'
+      - 'embodiments/neuraville/feagi_trainer/**'
+      - 'generate_version.sh'
+
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    if: github.repository == 'feagi/feagi-connector'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update Dockerfile
+        run: |
+          cd embodiments/neuraville/feagi_trainer/
+          if [ -f Dockerfile ]; then
+              sed -e 's|COPY controller.py /root/|COPY controller.py /root/|' \
+                  -e 's|COPY configuration.json /root/|COPY configuration.json /root/|' \
+                  -e 's|COPY version.py /root/|COPY version.py /root/|' \
+              "Dockerfile" > "NewDockerfile"
+          fi
+          mv NewDockerfile Dockerfile
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: embodiments/neuraville/feagi_trainer
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: neuraville/feagi_trainer:latest
