@@ -44,11 +44,11 @@ _rust_sdk_available = False
 _rust_import_error = None
 
 try:
-    from feagi_rust_py_libs import feagi_agent_sdk_py as rust_sdk
+    from feagi_rust_py_libs import feagi_agent_sdk as rust_sdk
     _rust_sdk_available = True
 except ImportError as e1:
     try:
-        import feagi_agent_sdk_py as rust_sdk
+        import feagi_agent_sdk as rust_sdk
         _rust_sdk_available = True
     except ImportError as e2:
         _rust_import_error = str(e2)
@@ -187,9 +187,9 @@ class FeagiAgentClient:
         """
         # Map Python AgentType to Rust AgentType
         rust_agent_type = {
-            AgentType.SENSORY: RustAgentType.Sensory,
-            AgentType.MOTOR: RustAgentType.Motor,
-            AgentType.BOTH: RustAgentType.Both,
+            AgentType.SENSORY: RustAgentType.sensory(),
+            AgentType.MOTOR: RustAgentType.motor(),
+            AgentType.BOTH: RustAgentType.both(),
         }[self.agent_type]
         
         # Create configuration
