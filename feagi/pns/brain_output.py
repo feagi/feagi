@@ -70,7 +70,7 @@ class BrainOutput:
         
         try:
             import feagi_rust_py_libs as frpl
-            self._cache = frpl.io_processing.cache.IOCache()
+            self._cache = frpl.connector_core.caching.IOCache()
             self._cache_available = True
             logger.info("✅ Rust IOCache initialized")
         except ImportError as e:

@@ -67,7 +67,7 @@ class BrainInput:
         
         try:
             import feagi_rust_py_libs as frpl
-            self._cache = frpl.io_processing.cache.IOCache()
+            self._cache = frpl.connector_core.caching.IOCache()
             self._cache_available = True
             logger.info("✅ Rust IOCache initialized")
         except ImportError as e:
@@ -173,20 +173,17 @@ class BrainInput:
                 logger.error(f"Error writing {input_instance.__class__.__name__} to cache: {e}")
                 raise
         
-        # Encode all sensors to neurons (Rust)
+        # Get encoded byte container (Rust)
         try:
-            neuron_data = self._cache.sensor_encode_to_neurons()
+            serialized = self._cache.sensor_get_byte_container()
         except Exception as e:
-            logger.error(f"Error encoding sensors to neurons: {e}")
+            logger.error(f"Error getting sensor byte container: {e}")
             raise
         
-        # Serialize to bytes
-        try:
-            byte_struct = neuron_data.as_new_feagi_byte_structure()
-            serialized = byte_struct.copy_out_as_byte_vector()
-        except Exception as e:
-            logger.error(f"Error serializing neuron data: {e}")
-            raise
+        # Check if we have data
+        if not serialized:
+            logger.warning("No sensor data to send")
+            return
         
         # Send via transport
         if self._transport:
@@ -196,8 +193,8 @@ class BrainInput:
                 logger.error(f"Error sending data: {e}")
                 raise
         else:
-            # TODO: For now, just log the size
-            logger.debug(f"📤 Encoded {len(self._inputs)} inputs → {len(serialized)} bytes")
+            # No transport configured yet (shouldn't happen in normal use)
+            logger.warning(f"No transport configured - cannot send {len(self._inputs)} inputs")
     
     def get_input_count(self) -> int:
         """Get number of registered inputs"""

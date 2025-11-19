@@ -16,7 +16,7 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "3.0.0"
+__version__ = "2.0.0"
 
 # Import key classes for convenience
 # Note: FeagiAgentClient requires feagi_rust_py_libs to be installed
@@ -28,12 +28,15 @@ except ImportError:
     FeagiAgentClient = None
     AgentType = None
 
-from feagi.agent import BaseAgent
+from feagi.agent import BaseAgent, VideoStreamAgent
+from feagi.engine import FeagiEngine
 
 __all__ = [
     "FeagiAgentClient",
     "AgentType",
     "BaseAgent",
+    "VideoStreamAgent",
+    "FeagiEngine",
     "__version__",
 ]
 

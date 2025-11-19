@@ -1,0 +1,338 @@
+name: Build FEAGI Binaries and Publish SDK (Staging)
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'feagi/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - '.github/workflows/publish-with-binaries.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # Build FEAGI binary for each platform
+  build-linux-x86_64:
+    name: Build FEAGI (Linux x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feagi-python-sdk
+        uses: actions/checkout@v4
+        with:
+          path: feagi-python-sdk
+      
+      - name: Checkout FEAGI (private)
+        uses: actions/checkout@v4
+        with:
+          repository: Neuraville/FEAGI-2.0
+          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
+          path: FEAGI-2.0
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Build FEAGI
+        run: |
+          cd FEAGI-2.0/feagi
+          cargo build --release --target x86_64-unknown-linux-gnu
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: feagi-linux-x86_64
+          path: FEAGI-2.0/feagi/target/x86_64-unknown-linux-gnu/release/feagi
+          retention-days: 1
+
+  build-linux-aarch64:
+    name: Build FEAGI (Linux ARM64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feagi-python-sdk
+        uses: actions/checkout@v4
+        with:
+          path: feagi-python-sdk
+      
+      - name: Checkout FEAGI (private)
+        uses: actions/checkout@v4
+        with:
+          repository: Neuraville/FEAGI-2.0
+          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
+          path: FEAGI-2.0
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
+      
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      
+      - name: Build FEAGI
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: |
+          cd FEAGI-2.0/feagi
+          cargo build --release --target aarch64-unknown-linux-gnu
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: feagi-linux-aarch64
+          path: FEAGI-2.0/feagi/target/aarch64-unknown-linux-gnu/release/feagi
+          retention-days: 1
+
+  build-macos-x86_64:
+    name: Build FEAGI (macOS Intel)
+    runs-on: macos-13  # Intel runner
+    steps:
+      - name: Checkout feagi-python-sdk
+        uses: actions/checkout@v4
+        with:
+          path: feagi-python-sdk
+      
+      - name: Checkout FEAGI (private)
+        uses: actions/checkout@v4
+        with:
+          repository: Neuraville/FEAGI-2.0
+          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
+          path: FEAGI-2.0
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Build FEAGI
+        run: |
+          cd FEAGI-2.0/feagi
+          cargo build --release --target x86_64-apple-darwin
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: feagi-darwin-x86_64
+          path: FEAGI-2.0/feagi/target/x86_64-apple-darwin/release/feagi
+          retention-days: 1
+
+  build-macos-aarch64:
+    name: Build FEAGI (macOS Apple Silicon)
+    runs-on: macos-latest  # ARM64 runner
+    steps:
+      - name: Checkout feagi-python-sdk
+        uses: actions/checkout@v4
+        with:
+          path: feagi-python-sdk
+      
+      - name: Checkout FEAGI (private)
+        uses: actions/checkout@v4
+        with:
+          repository: Neuraville/FEAGI-2.0
+          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
+          path: FEAGI-2.0
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Build FEAGI
+        run: |
+          cd FEAGI-2.0/feagi
+          cargo build --release --target aarch64-apple-darwin
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: feagi-darwin-aarch64
+          path: FEAGI-2.0/feagi/target/aarch64-apple-darwin/release/feagi
+          retention-days: 1
+
+  build-windows-x86_64:
+    name: Build FEAGI (Windows x86_64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout feagi-python-sdk
+        uses: actions/checkout@v4
+        with:
+          path: feagi-python-sdk
+      
+      - name: Checkout FEAGI (private)
+        uses: actions/checkout@v4
+        with:
+          repository: Neuraville/FEAGI-2.0
+          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
+          path: FEAGI-2.0
+      
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Build FEAGI
+        run: |
+          cd FEAGI-2.0/feagi
+          cargo build --release --target x86_64-pc-windows-msvc
+      
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: feagi-windows-x86_64
+          path: FEAGI-2.0/feagi/target/x86_64-pc-windows-msvc/release/feagi.exe
+          retention-days: 1
+
+  # Package and publish Python SDK with all binaries
+  publish:
+    name: Package SDK and Publish to Test PyPI
+    needs: 
+      - build-linux-x86_64
+      - build-linux-aarch64
+      - build-macos-x86_64
+      - build-macos-aarch64
+      - build-windows-x86_64
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Create bin directory structure
+        run: |
+          mkdir -p feagi/bin/linux-x86_64
+          mkdir -p feagi/bin/linux-aarch64
+          mkdir -p feagi/bin/darwin-x86_64
+          mkdir -p feagi/bin/darwin-aarch64
+          mkdir -p feagi/bin/windows-x86_64
+      
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+      
+      - name: Organize binaries
+        run: |
+          echo "📦 Downloaded binaries:"
+          ls -lR binaries/
+          
+          echo ""
+          echo "📦 Copying binaries to feagi/bin/..."
+          
+          cp binaries/feagi-linux-x86_64/feagi feagi/bin/linux-x86_64/feagi
+          cp binaries/feagi-linux-aarch64/feagi feagi/bin/linux-aarch64/feagi
+          cp binaries/feagi-darwin-x86_64/feagi feagi/bin/darwin-x86_64/feagi
+          cp binaries/feagi-darwin-aarch64/feagi feagi/bin/darwin-aarch64/feagi
+          cp binaries/feagi-windows-x86_64/feagi.exe feagi/bin/windows-x86_64/feagi.exe
+          
+          echo ""
+          echo "📦 Setting executable permissions..."
+          chmod +x feagi/bin/linux-x86_64/feagi
+          chmod +x feagi/bin/linux-aarch64/feagi
+          chmod +x feagi/bin/darwin-x86_64/feagi
+          chmod +x feagi/bin/darwin-aarch64/feagi
+          
+          echo ""
+          echo "✅ All binaries ready:"
+          ls -lh feagi/bin/*/
+      
+      - name: Extract version
+        id: get_version
+        run: |
+          VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Building FEAGI SDK version: $VERSION"
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: |
+          echo "🔨 Building FEAGI SDK with bundled binaries..."
+          python -m build
+          echo ""
+          echo "✅ Build complete!"
+          echo ""
+          echo "📦 Package contents:"
+          ls -lh dist/
+          echo ""
+          echo "📊 Package sizes:"
+          du -h dist/*
+      
+      - name: Check package integrity
+        run: |
+          echo "🔍 Checking package integrity..."
+          python -m twine check dist/*
+          
+          echo ""
+          echo "🔍 Verifying binaries are included..."
+          python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "⚠️  No binaries found in wheel!"
+      
+      - name: Publish to Test PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          echo "📤 Publishing to test.pypi.org..."
+          python -m twine upload --repository testpypi dist/*
+          echo ""
+          echo "✅ Published successfully!"
+      
+      - name: Generate summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 🚀 FEAGI SDK Published with Bundled Binaries
+          
+          **Package:** feagi  
+          **Version:** ${{ steps.get_version.outputs.version }}  
+          **Repository:** test.pypi.org  
+          
+          ### Included Binaries
+          - ✅ Linux x86_64
+          - ✅ Linux ARM64
+          - ✅ macOS Intel (x86_64)
+          - ✅ macOS Apple Silicon (ARM64)
+          - ✅ Windows x86_64
+          
+          ### Installation
+          ```bash
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ feagi==${{ steps.get_version.outputs.version }}
+          ```
+          
+          ### Test It
+          ```python
+          from feagi.engine import FeagiEngine
+          
+          engine = FeagiEngine()  # Should auto-detect bundled binary
+          print(f"FEAGI found at: {engine.feagi_path}")
+          ```
+          
+          ### View Package
+          🔗 [https://test.pypi.org/project/feagi/${{ steps.get_version.outputs.version }}/](https://test.pypi.org/project/feagi/${{ steps.get_version.outputs.version }}/)
+          
+          ---
+          
+          **Note:** Binaries are platform-specific and bundled in the package. Users get automatic binary selection for their platform.
+          EOF
+          
+          echo ""
+          echo "✅ Workflow complete!"
+
+

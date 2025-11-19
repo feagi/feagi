@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi"
-version = "3.0.0"
+version = "2.0.0"
 description = "Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,14 +35,23 @@ dependencies = [
 video = [
     "opencv-python>=4.9.0",
 ]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "opencv-python>=4.9.0",
+    "requests>=2.31.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
     "isort>=5.12.0",
     "mypy>=1.0.0",
     "ruff>=0.0.270",
     "pre-commit>=3.0.0",
+    "opencv-python>=4.9.0",
 ]
 docs = [
     "mkdocs>=1.4.0",
@@ -52,6 +61,8 @@ docs = [
 ]
 full = [
     "opencv-python>=4.9.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
 ]
 
 [project.urls]
@@ -63,7 +74,16 @@ full = [
 feagi = "feagi.cli:main"
 
 [tool.setuptools]
-packages = ["feagi_connector"]
+packages = ["feagi"]
+
+[tool.setuptools.package-data]
+feagi = [
+    "bin/linux-x86_64/feagi",
+    "bin/linux-aarch64/feagi",
+    "bin/darwin-x86_64/feagi",
+    "bin/darwin-aarch64/feagi",
+    "bin/windows-x86_64/feagi.exe",
+]
 
 [tool.isort]
 profile = "black"
@@ -76,6 +96,11 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+addopts = "-v --tb=short"
+markers = [
+    "integration: Integration tests requiring running FEAGI instance",
+    "unit: Fast unit tests",
+]
 
 [tool.black]
 line-length = 88

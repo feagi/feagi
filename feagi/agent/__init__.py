@@ -25,6 +25,7 @@ Example:
 """
 
 from feagi.agent.base import BaseAgent
+from feagi.agent.video import VideoStreamAgent
 
-__all__ = ["BaseAgent"]
+__all__ = ["BaseAgent", "VideoStreamAgent"]
 

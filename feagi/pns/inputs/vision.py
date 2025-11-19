@@ -120,11 +120,14 @@ class Camera(BaseInput):
         try:
             import feagi_rust_py_libs as frpl
             
-            # Note: Rust expects (height, width)
-            self._properties = frpl.io_data.image_descriptors.ImageFrameProperties(
-                (self.resolution[1], self.resolution[0]),  # height, width
-                frpl.io_data.image_descriptors.ColorSpace.Linear,
-                frpl.io_data.image_descriptors.ColorChannelLayout.RGB
+            # Create ImageFrameProperties using the correct API
+            self._properties = frpl.connector_core.data.descriptors.ImageFrameProperties(
+                frpl.connector_core.data.descriptors.ImageXYResolution(
+                    self.resolution[0],  # width
+                    self.resolution[1]   # height
+                ),
+                frpl.connector_core.data.descriptors.ColorSpace.Linear,
+                frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
             )
         except ImportError as e:
             raise ImportError(
@@ -162,11 +165,12 @@ class Camera(BaseInput):
         try:
             import feagi_rust_py_libs as frpl
             
-            # Convert NumPy to Rust ImageFrame
-            frame = frpl.io_data.ImageFrame.from_array(
+            # Convert NumPy to Rust ImageFrame using correct API
+            # OpenCV/NumPy arrays are in (height, width, channels) format
+            frame = frpl.connector_core.data.ImageFrame.new_from_array(
                 self._current_frame,
-                frpl.io_data.image_descriptors.ColorSpace.Linear,
-                frpl.io_data.image_descriptors.MemoryOrderLayout.HeightsWidthsChannels
+                frpl.connector_core.data.descriptors.ColorSpace.Linear,
+                frpl.connector_core.data.descriptors.MemoryOrderLayout.HeightsWidthsChannels
             )
             
             # Build Rust method name
