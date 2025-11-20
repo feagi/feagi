@@ -1,9 +1,10 @@
 name: Build FEAGI Binaries and Publish SDK (Staging)
 
 on:
-  push:
+  pull_request:
     branches:
       - staging
+    types: [closed]
     paths:
       - 'feagi/**'
       - 'pyproject.toml'
@@ -20,9 +21,13 @@ jobs:
   build-linux-x86_64:
     name: Build FEAGI (Linux x86_64)
     runs-on: ubuntu-latest
+    # Only run if PR was successfully merged (not just closed)
+    if: github.event.pull_request.merged == true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: staging  # Checkout staging branch after merge
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -30,9 +35,28 @@ jobs:
           toolchain: stable
           override: true
       
+      - name: Debug directory structure
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents:"
+          ls -la
+          echo ""
+          echo "Looking for Cargo.toml:"
+          find . -name "Cargo.toml" -type f | head -10
+      
       - name: Build FEAGI
         run: |
-          cd feagi
+          # Try to find feagi directory
+          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            cd feagi
+          elif [ -f "Cargo.toml" ]; then
+            # Already at feagi root
+            echo "Already at feagi root"
+          else
+            echo "❌ Error: Could not find feagi/Cargo.toml"
+            find . -name "Cargo.toml" -type f
+            exit 1
+          fi
           cargo build --release --target x86_64-unknown-linux-gnu
       
       - name: Upload binary
@@ -45,7 +69,12 @@ jobs:
   build-linux-aarch64:
     name: Build FEAGI (Linux ARM64)
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: staging
       - name: Checkout code
         uses: actions/checkout@v4
       
@@ -78,7 +107,12 @@ jobs:
   build-macos-x86_64:
     name: Build FEAGI (macOS Intel)
     runs-on: macos-13  # Intel runner
+    if: github.event.pull_request.merged == true
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: staging
       - name: Checkout code
         uses: actions/checkout@v4
       
@@ -103,7 +137,12 @@ jobs:
   build-macos-aarch64:
     name: Build FEAGI (macOS Apple Silicon)
     runs-on: macos-latest  # ARM64 runner
+    if: github.event.pull_request.merged == true
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: staging
       - name: Checkout code
         uses: actions/checkout@v4
       
@@ -128,7 +167,12 @@ jobs:
   build-windows-x86_64:
     name: Build FEAGI (Windows x86_64)
     runs-on: windows-latest
+    if: github.event.pull_request.merged == true
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: staging
       - name: Checkout code
         uses: actions/checkout@v4
       
@@ -160,10 +204,14 @@ jobs:
       - build-macos-aarch64
       - build-windows-x86_64
     runs-on: ubuntu-latest
+    # Only run if PR was successfully merged
+    if: github.event.pull_request.merged == true
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: staging  # Checkout staging branch after merge
       
       - name: Set up Python
         uses: actions/setup-python@v5
