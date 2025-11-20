@@ -29,3 +29,10 @@ from feagi.agent.video import VideoStreamAgent
 
 __all__ = ["BaseAgent", "VideoStreamAgent"]
 
+# Optional Bluetooth support
+try:
+    from feagi.agent.bluetooth import BluetoothRobot
+    __all__.append("BluetoothRobot")
+except ImportError:
+    BluetoothRobot = None
+
