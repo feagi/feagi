@@ -35,35 +35,37 @@ jobs:
           toolchain: stable
           override: true
       
-      - name: Debug directory structure
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Contents:"
-          ls -la
-          echo ""
-          echo "Looking for Cargo.toml:"
-          find . -name "Cargo.toml" -type f | head -10
-      
       - name: Build FEAGI
+        id: build_feagi
         run: |
           # Try to find feagi directory
+          FEAGI_DIR=""
           if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            FEAGI_DIR="feagi"
             cd feagi
           elif [ -f "Cargo.toml" ]; then
-            # Already at feagi root
+            FEAGI_DIR="."
             echo "Already at feagi root"
           else
             echo "❌ Error: Could not find feagi/Cargo.toml"
-            find . -name "Cargo.toml" -type f
+            echo "Current directory: $(pwd)"
+            echo "Contents:"
+            ls -la
+            echo ""
+            echo "Looking for Cargo.toml:"
+            find . -name "Cargo.toml" -type f | head -10
             exit 1
           fi
+          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
+          echo "Building from: ${FEAGI_DIR}"
           cargo build --release --target x86_64-unknown-linux-gnu
+          echo "✅ Build complete"
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-linux-x86_64
-          path: feagi/target/x86_64-unknown-linux-gnu/release/feagi
+          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-unknown-linux-gnu/release/feagi
           retention-days: 1
 
   build-linux-aarch64:
@@ -75,8 +77,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: staging
-      - name: Checkout code
-        uses: actions/checkout@v4
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -91,17 +91,32 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
       
       - name: Build FEAGI
+        id: build_feagi
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          cd feagi
+          # Find feagi directory
+          FEAGI_DIR=""
+          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            FEAGI_DIR="feagi"
+            cd feagi
+          elif [ -f "Cargo.toml" ]; then
+            FEAGI_DIR="."
+            echo "Already at feagi root"
+          else
+            echo "❌ Error: Could not find feagi/Cargo.toml"
+            find . -name "Cargo.toml" -type f | head -5
+            exit 1
+          fi
+          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
           cargo build --release --target aarch64-unknown-linux-gnu
+          echo "✅ Build complete"
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-linux-aarch64
-          path: feagi/target/aarch64-unknown-linux-gnu/release/feagi
+          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/aarch64-unknown-linux-gnu/release/feagi
           retention-days: 1
 
   build-macos-x86_64:
@@ -113,8 +128,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: staging
-      - name: Checkout code
-        uses: actions/checkout@v4
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -123,15 +136,30 @@ jobs:
           override: true
       
       - name: Build FEAGI
+        id: build_feagi
         run: |
-          cd feagi
+          # Find feagi directory
+          FEAGI_DIR=""
+          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            FEAGI_DIR="feagi"
+            cd feagi
+          elif [ -f "Cargo.toml" ]; then
+            FEAGI_DIR="."
+            echo "Already at feagi root"
+          else
+            echo "❌ Error: Could not find feagi/Cargo.toml"
+            find . -name "Cargo.toml" -type f | head -5
+            exit 1
+          fi
+          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
           cargo build --release --target x86_64-apple-darwin
+          echo "✅ Build complete"
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-darwin-x86_64
-          path: feagi/target/x86_64-apple-darwin/release/feagi
+          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-apple-darwin/release/feagi
           retention-days: 1
 
   build-macos-aarch64:
@@ -143,8 +171,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: staging
-      - name: Checkout code
-        uses: actions/checkout@v4
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -153,15 +179,30 @@ jobs:
           override: true
       
       - name: Build FEAGI
+        id: build_feagi
         run: |
-          cd feagi
+          # Find feagi directory
+          FEAGI_DIR=""
+          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            FEAGI_DIR="feagi"
+            cd feagi
+          elif [ -f "Cargo.toml" ]; then
+            FEAGI_DIR="."
+            echo "Already at feagi root"
+          else
+            echo "❌ Error: Could not find feagi/Cargo.toml"
+            find . -name "Cargo.toml" -type f | head -5
+            exit 1
+          fi
+          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
           cargo build --release --target aarch64-apple-darwin
+          echo "✅ Build complete"
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-darwin-aarch64
-          path: feagi/target/aarch64-apple-darwin/release/feagi
+          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/aarch64-apple-darwin/release/feagi
           retention-days: 1
 
   build-windows-x86_64:
@@ -173,8 +214,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: staging
-      - name: Checkout code
-        uses: actions/checkout@v4
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -183,15 +222,31 @@ jobs:
           override: true
       
       - name: Build FEAGI
+        id: build_feagi
+        shell: bash
         run: |
-          cd feagi
+          # Find feagi directory
+          FEAGI_DIR=""
+          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
+            FEAGI_DIR="feagi"
+            cd feagi
+          elif [ -f "Cargo.toml" ]; then
+            FEAGI_DIR="."
+            echo "Already at feagi root"
+          else
+            echo "❌ Error: Could not find feagi/Cargo.toml"
+            find . -name "Cargo.toml" -type f | head -5
+            exit 1
+          fi
+          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
           cargo build --release --target x86_64-pc-windows-msvc
+          echo "✅ Build complete"
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-windows-x86_64
-          path: feagi/target/x86_64-pc-windows-msvc/release/feagi.exe
+          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-pc-windows-msvc/release/feagi.exe
           retention-days: 1
 
   # Package and publish Python SDK with all binaries
