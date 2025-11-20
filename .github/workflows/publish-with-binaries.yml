@@ -10,15 +10,6 @@ on:
       - 'pyproject.toml'
       - 'setup.py'
       - '.github/workflows/publish-with-binaries.yml'
-  pull_request:
-    branches:
-      - staging
-    types: [ closed ]
-    paths:
-      - 'feagi/**'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - '.github/workflows/publish-with-binaries.yml'
 
 permissions:
   contents: read
