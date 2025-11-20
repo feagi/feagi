@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: read
+  # Required to checkout private FEAGI-2.0 repository
+  actions: read
 
 jobs:
   # Build FEAGI binary for each platform
@@ -19,17 +21,8 @@ jobs:
     name: Build FEAGI (Linux x86_64)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout feagi-python-sdk
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: feagi-python-sdk
-      
-      - name: Checkout FEAGI (private)
-        uses: actions/checkout@v4
-        with:
-          repository: Neuraville/FEAGI-2.0
-          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
-          path: FEAGI-2.0
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -39,31 +32,22 @@ jobs:
       
       - name: Build FEAGI
         run: |
-          cd FEAGI-2.0/feagi
+          cd feagi
           cargo build --release --target x86_64-unknown-linux-gnu
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-linux-x86_64
-          path: FEAGI-2.0/feagi/target/x86_64-unknown-linux-gnu/release/feagi
+          path: feagi/target/x86_64-unknown-linux-gnu/release/feagi
           retention-days: 1
 
   build-linux-aarch64:
     name: Build FEAGI (Linux ARM64)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout feagi-python-sdk
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: feagi-python-sdk
-      
-      - name: Checkout FEAGI (private)
-        uses: actions/checkout@v4
-        with:
-          repository: Neuraville/FEAGI-2.0
-          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
-          path: FEAGI-2.0
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -81,31 +65,22 @@ jobs:
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
-          cd FEAGI-2.0/feagi
+          cd feagi
           cargo build --release --target aarch64-unknown-linux-gnu
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-linux-aarch64
-          path: FEAGI-2.0/feagi/target/aarch64-unknown-linux-gnu/release/feagi
+          path: feagi/target/aarch64-unknown-linux-gnu/release/feagi
           retention-days: 1
 
   build-macos-x86_64:
     name: Build FEAGI (macOS Intel)
     runs-on: macos-13  # Intel runner
     steps:
-      - name: Checkout feagi-python-sdk
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: feagi-python-sdk
-      
-      - name: Checkout FEAGI (private)
-        uses: actions/checkout@v4
-        with:
-          repository: Neuraville/FEAGI-2.0
-          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
-          path: FEAGI-2.0
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -115,31 +90,22 @@ jobs:
       
       - name: Build FEAGI
         run: |
-          cd FEAGI-2.0/feagi
+          cd feagi
           cargo build --release --target x86_64-apple-darwin
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-darwin-x86_64
-          path: FEAGI-2.0/feagi/target/x86_64-apple-darwin/release/feagi
+          path: feagi/target/x86_64-apple-darwin/release/feagi
           retention-days: 1
 
   build-macos-aarch64:
     name: Build FEAGI (macOS Apple Silicon)
     runs-on: macos-latest  # ARM64 runner
     steps:
-      - name: Checkout feagi-python-sdk
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: feagi-python-sdk
-      
-      - name: Checkout FEAGI (private)
-        uses: actions/checkout@v4
-        with:
-          repository: Neuraville/FEAGI-2.0
-          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
-          path: FEAGI-2.0
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -149,31 +115,22 @@ jobs:
       
       - name: Build FEAGI
         run: |
-          cd FEAGI-2.0/feagi
+          cd feagi
           cargo build --release --target aarch64-apple-darwin
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-darwin-aarch64
-          path: FEAGI-2.0/feagi/target/aarch64-apple-darwin/release/feagi
+          path: feagi/target/aarch64-apple-darwin/release/feagi
           retention-days: 1
 
   build-windows-x86_64:
     name: Build FEAGI (Windows x86_64)
     runs-on: windows-latest
     steps:
-      - name: Checkout feagi-python-sdk
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: feagi-python-sdk
-      
-      - name: Checkout FEAGI (private)
-        uses: actions/checkout@v4
-        with:
-          repository: Neuraville/FEAGI-2.0
-          token: ${{ secrets.FEAGI_ACCESS_TOKEN }}
-          path: FEAGI-2.0
       
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
@@ -183,14 +140,14 @@ jobs:
       
       - name: Build FEAGI
         run: |
-          cd FEAGI-2.0/feagi
+          cd feagi
           cargo build --release --target x86_64-pc-windows-msvc
       
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: feagi-windows-x86_64
-          path: FEAGI-2.0/feagi/target/x86_64-pc-windows-msvc/release/feagi.exe
+          path: feagi/target/x86_64-pc-windows-msvc/release/feagi.exe
           retention-days: 1
 
   # Package and publish Python SDK with all binaries
@@ -215,6 +172,7 @@ jobs:
       
       - name: Create bin directory structure
         run: |
+          cd feagi-python-sdk
           mkdir -p feagi/bin/linux-x86_64
           mkdir -p feagi/bin/linux-aarch64
           mkdir -p feagi/bin/darwin-x86_64
@@ -232,13 +190,14 @@ jobs:
           ls -lR binaries/
           
           echo ""
-          echo "📦 Copying binaries to feagi/bin/..."
+          echo "📦 Copying binaries to feagi-python-sdk/feagi/bin/..."
+          cd feagi-python-sdk
           
-          cp binaries/feagi-linux-x86_64/feagi feagi/bin/linux-x86_64/feagi
-          cp binaries/feagi-linux-aarch64/feagi feagi/bin/linux-aarch64/feagi
-          cp binaries/feagi-darwin-x86_64/feagi feagi/bin/darwin-x86_64/feagi
-          cp binaries/feagi-darwin-aarch64/feagi feagi/bin/darwin-aarch64/feagi
-          cp binaries/feagi-windows-x86_64/feagi.exe feagi/bin/windows-x86_64/feagi.exe
+          cp ../binaries/feagi-linux-x86_64/feagi feagi/bin/linux-x86_64/feagi
+          cp ../binaries/feagi-linux-aarch64/feagi feagi/bin/linux-aarch64/feagi
+          cp ../binaries/feagi-darwin-x86_64/feagi feagi/bin/darwin-x86_64/feagi
+          cp ../binaries/feagi-darwin-aarch64/feagi feagi/bin/darwin-aarch64/feagi
+          cp ../binaries/feagi-windows-x86_64/feagi.exe feagi/bin/windows-x86_64/feagi.exe
           
           echo ""
           echo "📦 Setting executable permissions..."
@@ -254,6 +213,7 @@ jobs:
       - name: Extract version
         id: get_version
         run: |
+          cd feagi-python-sdk
           VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d'"' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building FEAGI SDK version: $VERSION"
@@ -265,6 +225,7 @@ jobs:
       
       - name: Build package
         run: |
+          cd feagi-python-sdk
           echo "🔨 Building FEAGI SDK with bundled binaries..."
           python -m build
           echo ""
@@ -278,6 +239,7 @@ jobs:
       
       - name: Check package integrity
         run: |
+          cd feagi-python-sdk
           echo "🔍 Checking package integrity..."
           python -m twine check dist/*
           
@@ -290,6 +252,7 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
+          cd feagi-python-sdk
           echo "📤 Publishing to test.pypi.org..."
           python -m twine upload --repository testpypi dist/*
           echo ""
