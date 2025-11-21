@@ -128,7 +128,30 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
           echo "📤 Publishing to test.pypi.org..."
-          python -m twine upload --repository testpypi dist/*
+          echo "📦 Package files to upload:"
+          ls -lh dist/*
+          echo ""
+          
+          if [ -z "$TWINE_PASSWORD" ]; then
+            echo "❌ ERROR: TEST_PYPI_API_TOKEN secret is not set!"
+            echo "Please add the token in: Settings → Secrets and variables → Actions"
+            echo "Get a token from: https://test.pypi.org/manage/account/token/"
+            exit 1
+          fi
+          
+          echo "🔐 Authenticating with Test PyPI..."
+          python -m twine upload --repository testpypi --verbose dist/* || {
+            echo ""
+            echo "❌ Upload failed with error code: $?"
+            echo ""
+            echo "Common issues:"
+            echo "  1. Invalid or expired API token - regenerate at https://test.pypi.org/manage/account/token/"
+            echo "  2. Token scope - ensure token has 'Entire account' or 'feagi' project scope"
+            echo "  3. Version already exists - bump version in pyproject.toml"
+            echo "  4. Package name conflict - check https://test.pypi.org/project/feagi/"
+            exit 1
+          }
+          
           echo ""
           echo "✅ Published successfully!"
       
