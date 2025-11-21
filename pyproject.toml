@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi"
-version = "2.0.0"
+version = "2.0.1"
 description = "Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -80,7 +80,9 @@ full = [
 feagi = "feagi.cli:main"
 
 [tool.setuptools]
-packages = ["feagi"]
+# Auto-discover all packages and subpackages
+# This ensures feagi.agent, feagi.pns, feagi.cli, etc. are all included
+packages = { find = {} }
 
 [tool.setuptools.package-data]
 feagi = [

@@ -16,7 +16,7 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 # Import key classes for convenience
 # Note: FeagiAgentClient requires feagi_rust_py_libs to be installed
