@@ -10,6 +10,7 @@ on:
       - 'pyproject.toml'
       - 'setup.py'
       - '.github/workflows/publish-with-binaries.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,10 +21,11 @@ jobs:
   publish:
     name: Package SDK and Publish to Test PyPI
     runs-on: ubuntu-latest
-    # Only run if PR was successfully merged to staging
+    # Only run if PR was successfully merged to staging OR manually triggered
     if: |
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'staging'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging')
     
     steps:
       - name: Checkout staging branch
