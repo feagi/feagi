@@ -1,4 +1,4 @@
-name: Build FEAGI Binaries and Publish SDK (Staging)
+name: Publish FEAGI SDK to Test PyPI (Staging)
 
 on:
   pull_request:
@@ -13,310 +13,82 @@ on:
 
 permissions:
   contents: read
-  # Required to checkout private FEAGI-2.0 repository
-  actions: read
+  id-token: write  # Required for trusted publishing to PyPI
 
 jobs:
-  # Build FEAGI binary for each platform
-  build-linux-x86_64:
-    name: Build FEAGI (Linux x86_64)
-    runs-on: ubuntu-latest
-    # Only run if PR was successfully merged (not just closed)
-    if: github.event.pull_request.merged == true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: staging  # Checkout staging branch after merge
-      
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      
-      - name: Build FEAGI
-        id: build_feagi
-        run: |
-          # Try to find feagi directory
-          FEAGI_DIR=""
-          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
-            FEAGI_DIR="feagi"
-            cd feagi
-          elif [ -f "Cargo.toml" ]; then
-            FEAGI_DIR="."
-            echo "Already at feagi root"
-          else
-            echo "❌ Error: Could not find feagi/Cargo.toml"
-            echo "Current directory: $(pwd)"
-            echo "Contents:"
-            ls -la
-            echo ""
-            echo "Looking for Cargo.toml:"
-            find . -name "Cargo.toml" -type f | head -10
-            exit 1
-          fi
-          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
-          echo "Building from: ${FEAGI_DIR}"
-          cargo build --release --target x86_64-unknown-linux-gnu
-          echo "✅ Build complete"
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: feagi-linux-x86_64
-          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-unknown-linux-gnu/release/feagi
-          retention-days: 1
-
-  build-linux-aarch64:
-    name: Build FEAGI (Linux ARM64)
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: staging
-      
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: aarch64-unknown-linux-gnu
-          override: true
-      
-      - name: Install cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-      
-      - name: Build FEAGI
-        id: build_feagi
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: |
-          # Find feagi directory
-          FEAGI_DIR=""
-          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
-            FEAGI_DIR="feagi"
-            cd feagi
-          elif [ -f "Cargo.toml" ]; then
-            FEAGI_DIR="."
-            echo "Already at feagi root"
-          else
-            echo "❌ Error: Could not find feagi/Cargo.toml"
-            find . -name "Cargo.toml" -type f | head -5
-            exit 1
-          fi
-          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
-          cargo build --release --target aarch64-unknown-linux-gnu
-          echo "✅ Build complete"
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: feagi-linux-aarch64
-          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/aarch64-unknown-linux-gnu/release/feagi
-          retention-days: 1
-
-  build-macos-x86_64:
-    name: Build FEAGI (macOS Intel)
-    runs-on: macos-13  # Intel runner
-    if: github.event.pull_request.merged == true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: staging
-      
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      
-      - name: Build FEAGI
-        id: build_feagi
-        run: |
-          # Find feagi directory
-          FEAGI_DIR=""
-          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
-            FEAGI_DIR="feagi"
-            cd feagi
-          elif [ -f "Cargo.toml" ]; then
-            FEAGI_DIR="."
-            echo "Already at feagi root"
-          else
-            echo "❌ Error: Could not find feagi/Cargo.toml"
-            find . -name "Cargo.toml" -type f | head -5
-            exit 1
-          fi
-          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
-          cargo build --release --target x86_64-apple-darwin
-          echo "✅ Build complete"
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: feagi-darwin-x86_64
-          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-apple-darwin/release/feagi
-          retention-days: 1
-
-  build-macos-aarch64:
-    name: Build FEAGI (macOS Apple Silicon)
-    runs-on: macos-latest  # ARM64 runner
-    if: github.event.pull_request.merged == true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: staging
-      
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      
-      - name: Build FEAGI
-        id: build_feagi
-        run: |
-          # Find feagi directory
-          FEAGI_DIR=""
-          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
-            FEAGI_DIR="feagi"
-            cd feagi
-          elif [ -f "Cargo.toml" ]; then
-            FEAGI_DIR="."
-            echo "Already at feagi root"
-          else
-            echo "❌ Error: Could not find feagi/Cargo.toml"
-            find . -name "Cargo.toml" -type f | head -5
-            exit 1
-          fi
-          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
-          cargo build --release --target aarch64-apple-darwin
-          echo "✅ Build complete"
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: feagi-darwin-aarch64
-          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/aarch64-apple-darwin/release/feagi
-          retention-days: 1
-
-  build-windows-x86_64:
-    name: Build FEAGI (Windows x86_64)
-    runs-on: windows-latest
-    if: github.event.pull_request.merged == true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: staging
-      
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      
-      - name: Build FEAGI
-        id: build_feagi
-        shell: bash
-        run: |
-          # Find feagi directory
-          FEAGI_DIR=""
-          if [ -d "feagi" ] && [ -f "feagi/Cargo.toml" ]; then
-            FEAGI_DIR="feagi"
-            cd feagi
-          elif [ -f "Cargo.toml" ]; then
-            FEAGI_DIR="."
-            echo "Already at feagi root"
-          else
-            echo "❌ Error: Could not find feagi/Cargo.toml"
-            find . -name "Cargo.toml" -type f | head -5
-            exit 1
-          fi
-          echo "FEAGI_DIR=${FEAGI_DIR}" >> $GITHUB_OUTPUT
-          cargo build --release --target x86_64-pc-windows-msvc
-          echo "✅ Build complete"
-      
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: feagi-windows-x86_64
-          path: ${{ steps.build_feagi.outputs.FEAGI_DIR }}/target/x86_64-pc-windows-msvc/release/feagi.exe
-          retention-days: 1
-
-  # Package and publish Python SDK with all binaries
+  # Package and publish Python SDK with pre-built binaries
   publish:
     name: Package SDK and Publish to Test PyPI
-    needs: 
-      - build-linux-x86_64
-      - build-linux-aarch64
-      - build-macos-x86_64
-      - build-macos-aarch64
-      - build-windows-x86_64
     runs-on: ubuntu-latest
-    # Only run if PR was successfully merged
-    if: github.event.pull_request.merged == true
+    # Only run if PR was successfully merged to staging
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'staging'
     
     steps:
-      - name: Checkout code
+      - name: Checkout staging branch
         uses: actions/checkout@v4
         with:
-          ref: staging  # Checkout staging branch after merge
+          ref: refs/heads/staging
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       
-      - name: Create bin directory structure
+      - name: Verify binaries exist
         run: |
-          cd feagi-python-sdk
-          mkdir -p feagi/bin/linux-x86_64
-          mkdir -p feagi/bin/linux-aarch64
-          mkdir -p feagi/bin/darwin-x86_64
-          mkdir -p feagi/bin/darwin-aarch64
-          mkdir -p feagi/bin/windows-x86_64
-      
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries
-      
-      - name: Organize binaries
-        run: |
-          echo "📦 Downloaded binaries:"
-          ls -lR binaries/
+          echo "🔍 Verifying all required binaries are present..."
           
-          echo ""
-          echo "📦 Copying binaries to feagi-python-sdk/feagi/bin/..."
-          cd feagi-python-sdk
+          MISSING_BINARIES=()
           
-          cp ../binaries/feagi-linux-x86_64/feagi feagi/bin/linux-x86_64/feagi
-          cp ../binaries/feagi-linux-aarch64/feagi feagi/bin/linux-aarch64/feagi
-          cp ../binaries/feagi-darwin-x86_64/feagi feagi/bin/darwin-x86_64/feagi
-          cp ../binaries/feagi-darwin-aarch64/feagi feagi/bin/darwin-aarch64/feagi
-          cp ../binaries/feagi-windows-x86_64/feagi.exe feagi/bin/windows-x86_64/feagi.exe
+          # Check Linux x86_64
+          if [ ! -f "feagi/bin/linux-x86_64/feagi" ]; then
+            MISSING_BINARIES+=("linux-x86_64/feagi")
+          fi
           
-          echo ""
-          echo "📦 Setting executable permissions..."
-          chmod +x feagi/bin/linux-x86_64/feagi
-          chmod +x feagi/bin/linux-aarch64/feagi
-          chmod +x feagi/bin/darwin-x86_64/feagi
-          chmod +x feagi/bin/darwin-aarch64/feagi
+          # Check Linux ARM64
+          if [ ! -f "feagi/bin/linux-aarch64/feagi" ]; then
+            MISSING_BINARIES+=("linux-aarch64/feagi")
+          fi
           
-          echo ""
-          echo "✅ All binaries ready:"
+          # Check macOS Intel
+          if [ ! -f "feagi/bin/darwin-x86_64/feagi" ]; then
+            MISSING_BINARIES+=("darwin-x86_64/feagi")
+          fi
+          
+          # Check macOS Apple Silicon
+          if [ ! -f "feagi/bin/darwin-aarch64/feagi" ]; then
+            MISSING_BINARIES+=("darwin-aarch64/feagi")
+          fi
+          
+          # Check Windows
+          if [ ! -f "feagi/bin/windows-x86_64/feagi.exe" ]; then
+            MISSING_BINARIES+=("windows-x86_64/feagi.exe")
+          fi
+          
+          if [ ${#MISSING_BINARIES[@]} -gt 0 ]; then
+            echo "❌ Missing binaries:"
+            for bin in "${MISSING_BINARIES[@]}"; do
+              echo "  - feagi/bin/${bin}"
+            done
+            echo ""
+            echo "📁 Current bin directory structure:"
+            find feagi/bin -type f || echo "  (feagi/bin directory not found)"
+            exit 1
+          fi
+          
+          echo "✅ All binaries verified:"
           ls -lh feagi/bin/*/
+          
+          echo ""
+          echo "📊 Binary sizes:"
+          du -h feagi/bin/*/*
       
       - name: Extract version
         id: get_version
         run: |
-          cd feagi-python-sdk
           VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d'"' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building FEAGI SDK version: $VERSION"
@@ -328,7 +100,6 @@ jobs:
       
       - name: Build package
         run: |
-          cd feagi-python-sdk
           echo "🔨 Building FEAGI SDK with bundled binaries..."
           python -m build
           echo ""
@@ -342,7 +113,6 @@ jobs:
       
       - name: Check package integrity
         run: |
-          cd feagi-python-sdk
           echo "🔍 Checking package integrity..."
           python -m twine check dist/*
           
@@ -355,7 +125,6 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
         run: |
-          cd feagi-python-sdk
           echo "📤 Publishing to test.pypi.org..."
           python -m twine upload --repository testpypi dist/*
           echo ""
@@ -363,7 +132,7 @@ jobs:
       
       - name: Generate summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          cat >> $GITHUB_STEP_SUMMARY << EOF
           ## 🚀 FEAGI SDK Published with Bundled Binaries
           
           **Package:** feagi  
@@ -378,24 +147,24 @@ jobs:
           - ✅ Windows x86_64
           
           ### Installation
-          ```bash
+          \`\`\`bash
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ feagi==${{ steps.get_version.outputs.version }}
-          ```
+          \`\`\`
           
           ### Test It
-          ```python
+          \`\`\`python
           from feagi.engine import FeagiEngine
           
           engine = FeagiEngine()  # Should auto-detect bundled binary
           print(f"FEAGI found at: {engine.feagi_path}")
-          ```
+          \`\`\`
           
           ### View Package
           🔗 [https://test.pypi.org/project/feagi/${{ steps.get_version.outputs.version }}/](https://test.pypi.org/project/feagi/${{ steps.get_version.outputs.version }}/)
           
           ---
           
-          **Note:** Binaries are platform-specific and bundled in the package. Users get automatic binary selection for their platform.
+          **Note:** Binaries are pre-built and committed to the repository. The workflow packages and publishes them to TestPyPI.
           EOF
           
           echo ""
