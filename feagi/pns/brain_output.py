@@ -7,9 +7,12 @@ Uses Rust IOCache for high-performance decoding.
 
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
 import logging
+import time
+from datetime import datetime
 
 if TYPE_CHECKING:
     from feagi.pns.outputs.base import BaseOutput
+    from feagi.pns.observability.monitor import Monitor
 
 logger = logging.getLogger("feagi.pns.brain_output")
 
@@ -62,6 +65,9 @@ class BrainOutput:
         self._feagi_host = "localhost"
         self._feagi_port = 5564
         self._transport_type = "zmq"
+        
+        # Observability monitors
+        self._monitors: List['Monitor'] = []
     
     def _init_cache(self):
         """Initialize Rust IOCache (lazy)"""
@@ -151,6 +157,43 @@ class BrainOutput:
         
         logger.debug(f"✅ Registered output: {output_instance.__class__.__name__} (group={group_id})")
     
+    def attach_monitor(self, monitor: 'Monitor'):
+        """
+        Attach an observability monitor.
+        
+        Args:
+            monitor: Monitor instance to attach
+        """
+        self._monitors.append(monitor)
+        logger.debug(f"Attached monitor: {monitor.__class__.__name__}")
+    
+    def detach_monitor(self, monitor: 'Monitor'):
+        """
+        Detach an observability monitor.
+        
+        Args:
+            monitor: Monitor instance to detach
+        """
+        if monitor in self._monitors:
+            self._monitors.remove(monitor)
+            logger.debug(f"Detached monitor: {monitor.__class__.__name__}")
+    
+    def _notify_monitors_receive_start(self, data: Dict[str, Any]):
+        """Notify all monitors of receive start."""
+        for monitor in self._monitors:
+            try:
+                monitor.on_receive_start(data)
+            except Exception as e:
+                logger.error(f"Error in monitor {monitor.__class__.__name__}: {e}")
+    
+    def _notify_monitors_receive_complete(self, data: Dict[str, Any]):
+        """Notify all monitors of receive complete."""
+        for monitor in self._monitors:
+            try:
+                monitor.on_receive_complete(data)
+            except Exception as e:
+                logger.error(f"Error in monitor {monitor.__class__.__name__}: {e}")
+    
     def receive(self):
         """
         Receive motor commands from FEAGI.
@@ -168,36 +211,69 @@ class BrainOutput:
                 "Not connected to FEAGI. Call brain_output.connect() first."
             )
         
-        # Receive from transport
-        if self._transport:
-            try:
-                motor_bytes = self._transport.receive()
-            except Exception as e:
-                logger.error(f"Error receiving data: {e}")
-                raise
-        else:
-            # TODO: For now, no actual receiving
+        # Start timing
+        start_time = time.perf_counter()
+        
+        # Notify monitors of receive start
+        self._notify_monitors_receive_start({
+            'timestamp': datetime.now(),
+            'output_count': len(self._outputs)
+        })
+        
+        try:
+            # Receive from transport
             motor_bytes = b""
-        
-        # Decode (TODO: implement motor decoding in Rust)
-        if motor_bytes:
-            try:
-                # TODO: Decode motor_bytes to cache
-                # motor_data = self._cache.motor_decode_from_bytes(motor_bytes)
-                pass
-            except Exception as e:
-                logger.error(f"Error decoding motor data: {e}")
-                raise
-        
-        # Read all outputs from cache
-        for output_instance in self._outputs:
-            try:
-                output_instance._read_from_cache(self._cache)
-            except Exception as e:
-                logger.error(f"Error reading {output_instance.__class__.__name__} from cache: {e}")
-                raise
-        
-        logger.debug(f"📥 Updated {len(self._outputs)} outputs")
+            command_count = 0
+            
+            if self._transport:
+                try:
+                    motor_bytes = self._transport.receive()
+                except Exception as e:
+                    logger.error(f"Error receiving data: {e}")
+                    raise
+            else:
+                # TODO: For now, no actual receiving
+                motor_bytes = b""
+            
+            # Decode (TODO: implement motor decoding in Rust)
+            if motor_bytes:
+                try:
+                    # TODO: Decode motor_bytes to cache
+                    # motor_data = self._cache.motor_decode_from_bytes(motor_bytes)
+                    command_count = 1  # Placeholder
+                    pass
+                except Exception as e:
+                    logger.error(f"Error decoding motor data: {e}")
+                    raise
+            
+            # Read all outputs from cache
+            for output_instance in self._outputs:
+                try:
+                    output_instance._read_from_cache(self._cache)
+                except Exception as e:
+                    logger.error(f"Error reading {output_instance.__class__.__name__} from cache: {e}")
+                    raise
+            
+            logger.debug(f"📥 Updated {len(self._outputs)} outputs")
+            
+            # Calculate metrics
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+            
+            # Notify monitors of receive complete
+            self._notify_monitors_receive_complete({
+                'timestamp': datetime.now(),
+                'command_count': command_count,
+                'duration_ms': duration_ms
+            })
+            
+        except Exception as e:
+            # Notify monitors of error
+            for monitor in self._monitors:
+                try:
+                    monitor.on_error(e, {'operation': 'receive', 'stage': 'processing'})
+                except Exception:
+                    pass
+            raise
     
     def get_output_count(self) -> int:
         """Get number of registered outputs"""

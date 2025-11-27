@@ -21,3 +21,9 @@ try:
 except ImportError:
     WebSocketTransport = None
 
+try:
+    from .websocket_client import WebSocketClientTransport
+    __all__.append("WebSocketClientTransport")
+except ImportError:
+    WebSocketClientTransport = None
+

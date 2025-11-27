@@ -264,18 +264,16 @@ keepalive_interval = 30.0  # Keep-alive interval in seconds
 auto_tune_threshold = false  # Automatically adjust threshold based on performance (experimental)
 
 [connectome]
-# Connectome sizing and memory allocation
-# These values determine the minimum reserved space for neurons and synapses
-# regardless of genome requirements
-min_neuron_space = 100000      # Minimum neuron slots to reserve (default safety margin)
-min_synapse_space = 500000     # Minimum synapse slots to reserve (default safety margin)
-min_memory_neuron_space = 50000 # Minimum memory neuron slots to reserve (separate SoA)
-
-# Dynamic sizing policy:
-# - Read genome stats to determine actual neuron/synapse requirements
-# - Reserve 50% more than genome requirements OR the minimum values above (whichever is larger)
-# - This prevents memory waste while ensuring adequate space for growth
-buffer_multiplier = 1.5        # Reserve 50% more than genome requirements (1.5x = +50%)
+# ============================================================================
+# NPU CAPACITY CONFIGURATION (SINGLE SOURCE OF TRUTH)
+# ============================================================================
+# These values define the MAXIMUM capacity allocated at NPU initialization.
+# There is NO dynamic growth - these ARE the hard limits.
+# If physical system memory is insufficient, FEAGI will exit with clear error.
+# ============================================================================
+neuron_space = 100000      # Neuron capacity (allocated at startup, fixed limit)
+synapse_space = 500000     # Synapse capacity (allocated at startup, fixed limit)
+memory_neuron_space = 50000 # Memory neuron capacity (separate SoA, allocated at startup, fixed limit)
 
 # Memory system configuration
 memory_processing_batch_size = 100    # Process N memory areas per batch operation

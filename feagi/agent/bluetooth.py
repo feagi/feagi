@@ -8,6 +8,7 @@ Handles all transport complexity - developers only implement robot protocol.
 import asyncio
 import logging
 import os
+import socket
 from abc import abstractmethod
 from typing import Dict, Any, Optional
 from .base import BaseAgent
@@ -57,7 +58,8 @@ class BluetoothRobot(BaseAgent):
         agent_id: str,
         feagi_host: str = "localhost",
         feagi_port: int = 3000,
-        platform: Optional[str] = None
+        platform: Optional[str] = None,
+        capabilities: Optional[Dict[str, Any]] = None
     ):
         """
         Initialize Bluetooth robot agent.
@@ -67,8 +69,9 @@ class BluetoothRobot(BaseAgent):
             feagi_host: FEAGI server host (default: localhost)
             feagi_port: FEAGI server port (default: 3000)
             platform: Override platform detection ("desktop" or "cloud")
+            capabilities: Agent capabilities (sensors, motors, etc.)
         """
-        super().__init__(agent_id, feagi_host)
+        super().__init__(agent_id, feagi_host, capabilities)
         self.feagi_port = feagi_port
         self.platform = platform or self._detect_platform()
         self.transport = None
@@ -85,21 +88,59 @@ class BluetoothRobot(BaseAgent):
         """
         Auto-detect if running on desktop or cloud.
         
+        Detection strategy (in order):
+        1. FEAGI_PLATFORM env var (explicit override)
+        2. FEAGI_BLE_RELAY_ENABLED=true → cloud (platform manages BLE)
+        3. Check if BLE relay port is listening → cloud
+        4. Default → desktop (Python manages BLE directly)
+        
         Returns:
-            "desktop" or "cloud"
+            "desktop" - Python owns BLE connection (direct bleak)
+            "cloud" - Platform owns BLE (WebSocket relay)
         """
-        # Check environment variable
+        # 1. Check explicit platform override
         platform_env = os.getenv("FEAGI_PLATFORM", "").lower()
         if platform_env in ("desktop", "cloud"):
+            logger.info(f"Platform explicitly set via FEAGI_PLATFORM: {platform_env}")
             return platform_env
         
-        # Check if running in feagi-desktop (has TAURI env vars)
-        if os.getenv("TAURI_PLATFORM") or os.getenv("FEAGI_DESKTOP"):
-            return "desktop"
+        # 2. Check if BLE relay is enabled by platform (Tauri, Electron, etc.)
+        if os.getenv("FEAGI_BLE_RELAY_ENABLED", "").lower() in ("true", "1", "yes"):
+            logger.info("BLE relay enabled by platform - using cloud mode")
+            return "cloud"
         
-        # Check if WebSocket port is listening (cloud indicator)
-        # Default to desktop for local development
+        # 3. Check if BLE relay port is listening
+        if os.getenv("FEAGI_BLE_RELAY_PORT"):
+            try:
+                relay_port = int(os.getenv("FEAGI_BLE_RELAY_PORT"))
+                if self._is_port_listening(relay_port):
+                    logger.info(f"BLE relay detected on port {relay_port} - using cloud mode")
+                    return "cloud"
+            except ValueError:
+                logger.warning(f"Invalid FEAGI_BLE_RELAY_PORT: {os.getenv('FEAGI_BLE_RELAY_PORT')}")
+        
+        # 4. Default to desktop (Python manages BLE directly)
+        logger.info("No BLE relay detected - using desktop mode (Python direct BLE)")
         return "desktop"
+    
+    def _is_port_listening(self, port: int) -> bool:
+        """
+        Check if a port is listening (relay server is running).
+        
+        Args:
+            port: Port number to check
+            
+        Returns:
+            True if port is listening, False otherwise
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.1)
+                result = s.connect_ex(('127.0.0.1', port))
+                return result == 0
+        except Exception as e:
+            logger.debug(f"Port check failed for {port}: {e}")
+            return False
     
     def initialize_hardware(self):
         """
@@ -122,16 +163,53 @@ class BluetoothRobot(BaseAgent):
         logger.info("Desktop Bluetooth transport initialized")
     
     def _init_cloud_transport(self):
-        """Initialize WebSocket relay for cloud/NRS"""
-        from feagi.transports import WebSocketTransport
+        """
+        Initialize WebSocket connection to platform BLE relay.
+        
+        Configuration comes ONLY from environment variables (set by platform).
+        Controllers do NOT access FEAGI's config file.
+        
+        Required environment variables:
+        - FEAGI_BLE_RELAY_PORT: Relay WebSocket port (set by Tauri/platform)
+        - FEAGI_BLE_RELAY_HOST: Relay host (optional, defaults to 127.0.0.1)
+        
+        NO FALLBACKS - explicit configuration required.
+        
+        Note: This uses WebSocketClientTransport (connects TO relay as client),
+        not WebSocketTransport (starts server FOR browsers).
+        """
+        from feagi.transports import WebSocketClientTransport
+        
+        # Get relay config from environment (set by Tauri/platform)
+        relay_host = os.getenv("FEAGI_BLE_RELAY_HOST", "127.0.0.1")
+        relay_port_str = os.getenv("FEAGI_BLE_RELAY_PORT")
+        
+        if not relay_port_str:
+            raise RuntimeError(
+                "BLE relay mode selected but FEAGI_BLE_RELAY_PORT not set.\n"
+                "Platform (Tauri/Electron) must set this environment variable when launching controller.\n"
+                "Example: FEAGI_BLE_RELAY_PORT=49152"
+            )
+        
+        try:
+            relay_port = int(relay_port_str)
+        except ValueError as e:
+            raise RuntimeError(
+                f"Invalid FEAGI_BLE_RELAY_PORT: must be integer, got '{relay_port_str}'"
+            ) from e
         
         ws_config = {
-            "host": "0.0.0.0",
-            "port": 9052,
+            "host": relay_host,
+            "port": relay_port,
             "embodiment_id": self.agent_id
         }
-        self.transport = WebSocketTransport(ws_config)
-        logger.info("Cloud WebSocket transport initialized")
+        
+        logger.info(
+            f"BLE relay client transport initialized: "
+            f"ws://{ws_config['host']}:{ws_config['port']}"
+        )
+        
+        self.transport = WebSocketClientTransport(ws_config)
     
     async def run(self):
         """
@@ -161,33 +239,36 @@ class BluetoothRobot(BaseAgent):
             # Main loop
             while self.running:
                 try:
-                    # Receive raw data from robot
-                    raw_data = await asyncio.wait_for(
-                        self.transport.receive(),
-                        timeout=1.0
-                    )
+                    # Receive raw data from robot (with timeout)
+                    try:
+                        raw_data = await asyncio.wait_for(
+                            self.transport.receive(),
+                            timeout=0.1
+                        )
+                    except asyncio.TimeoutError:
+                        raw_data = None
                     
                     # Parse robot-specific protocol (subclass implements)
-                    sensor_data = self.parse_sensors(raw_data)
+                    if raw_data:
+                        sensor_data = self.parse_sensors(raw_data)
+                        if sensor_data:
+                            # Send to FEAGI (synchronous!)
+                            self.client.send_sensory_data(sensor_data)
                     
-                    if sensor_data:
-                        # Send to FEAGI
-                        await self.client.send_sensory_data(sensor_data)
-                    
-                    # Get motor commands from FEAGI
-                    motor_data = await self.client.receive_motor_data()
+                    # Get motor commands from FEAGI (synchronous!)
+                    motor_data = self.client.receive_motor_data()
                     
                     if motor_data:
+                        logger.info(f"📥 Received motor data: {motor_data}")
                         # Format for robot (subclass implements)
                         robot_command = self.format_motors(motor_data)
+                        logger.info(f"📤 Formatted command: {robot_command}")
                         
                         if robot_command:
                             # Send to robot
                             await self.transport.send(robot_command)
+                            logger.info(f"✅ Sent {len(robot_command)} bytes to robot")
                 
-                except asyncio.TimeoutError:
-                    # No data from robot - that's okay, continue
-                    continue
                 except Exception as e:
                     logger.error(f"Error in main loop: {e}")
                     # Continue running unless critical error
@@ -214,7 +295,7 @@ class BluetoothRobot(BaseAgent):
             await self.transport.disconnect()
         
         if self.client:
-            await self.client.disconnect()
+            self.client.disconnect()  # Synchronous, not async!
         
         logger.info("Robot stopped")
     

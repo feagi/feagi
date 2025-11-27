@@ -2,7 +2,7 @@
 
 **Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages**
 
-Version 3.0.0 - Clean architecture, no legacy code.
+Version 2.0.0 - Framework for Evolutionary Artificial General Intelligence
 
 ## Overview
 

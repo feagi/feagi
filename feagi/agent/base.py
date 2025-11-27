@@ -37,16 +37,18 @@ class BaseAgent(ABC):
                 return motor_commands
     """
     
-    def __init__(self, agent_id: str, feagi_host: str = "localhost"):
+    def __init__(self, agent_id: str, feagi_host: str = "localhost", capabilities: Optional[Dict[str, Any]] = None):
         """
         Initialize base agent.
         
         Args:
             agent_id: Unique identifier for this agent
             feagi_host: FEAGI server hostname or IP
+            capabilities: Agent capabilities (sensors, motors, etc.)
         """
         self.agent_id = agent_id
         self.feagi_host = feagi_host
+        self.capabilities = capabilities or {}
         self.client = None
         self.running = False
     
@@ -97,8 +99,26 @@ class BaseAgent(ABC):
         from feagi.pns import FeagiAgentClient, AgentType
         
         self.client = FeagiAgentClient(self.agent_id, AgentType.BOTH)
-        self.client.configure(feagi_host=self.feagi_host)
-        await self.client.connect()
+        
+        # Convert capabilities dict to client config format
+        motor_cap = None
+        if self.capabilities.get("motor"):
+            motor_count = self.capabilities["motor"].get("count", 2)
+            motor_cap = ("motor", motor_count, [f"m{i}" for i in range(motor_count)])
+        
+        # Add custom capabilities for sensors
+        custom_caps = {}
+        if self.capabilities.get("proximity"):
+            custom_caps["proximity"] = {"count": self.capabilities["proximity"].get("count", 1)}
+        if self.capabilities.get("infrared"):
+            custom_caps["infrared"] = {"count": self.capabilities["infrared"].get("count", 2)}
+        
+        self.client.configure(
+            feagi_host=self.feagi_host,
+            motor_capability=motor_cap,
+            custom_capabilities=custom_caps if custom_caps else None
+        )
+        self.client.connect()  # Synchronous, not async!
     
     async def run(self):
         """
@@ -141,7 +161,7 @@ class BaseAgent(ABC):
         """
         self.running = False
         if self.client:
-            await self.client.disconnect()
+            self.client.disconnect()  # Synchronous, not async!
     
     async def read_sensors(self) -> Any:
         """
