@@ -5,7 +5,7 @@ Helper functions for easy observability setup.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 from contextlib import contextmanager
 
 from feagi.pns.observability.monitor import InputMonitor, OutputMonitor

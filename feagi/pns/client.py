@@ -39,6 +39,8 @@ import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+from .xyzp_decoders import decode_motor_xyzp
+
 # Try to import Rust SDK (optional dependency)
 _rust_sdk_available = False
 _rust_import_error = None
@@ -59,7 +61,16 @@ if _rust_sdk_available:
     PyAgentClient = rust_sdk.PyAgentClient
     PyAgentConfig = rust_sdk.PyAgentConfig
     RustAgentType = rust_sdk.AgentType
+    
+    # Initialize Rust logging (safe to call multiple times)
+    try:
+        rust_sdk.init_rust_logging()
+        print("[PYTHON-SDK] ✅ Rust logging initialized", flush=True)
+    except Exception as e:
+        print(f"[PYTHON-SDK] ❌ Failed to init Rust logging: {e}", flush=True)
+        logging.getLogger("feagi.pns.client").warning(f"Failed to init Rust logging: {e}")
 else:
+    print("[PYTHON-SDK] ⚠️ Rust SDK NOT available, using Python fallback", flush=True)
     PyAgentClient = None
     PyAgentConfig = None
     RustAgentType = None
@@ -509,11 +520,39 @@ class FeagiAgentClient:
         
         try:
             motor_json = self._client.receive_motor_data()
-            if motor_json is not None:
-                import json
-                return json.loads(motor_json)
-            return None
+            if motor_json is None:
+                return None
+            
+            # Parse raw XYZP SoA JSON from Rust SDK
+            import json
+            xyzp_data = json.loads(motor_json)
+            
+            # TEMP DEBUG: Log to file
+            with open("/tmp/feagi_motor_debug.log", "a") as f:
+                import time
+                f.write(f"\n[{time.time():.3f}] RAW XYZP: {motor_json[:200]}\n")
+                f.write(f"[{time.time():.3f}] PARSED: {xyzp_data}\n")
+            
+            # Decode XYZP SoA to motor index → power mapping
+            # Only decode cortical areas this agent subscribed to
+            cortical_ids = self._motor_cortical_ids if hasattr(self, '_motor_cortical_ids') else None
+            motors = decode_motor_xyzp(xyzp_data, cortical_ids)
+            
+            # TEMP DEBUG: Log decoded result
+            with open("/tmp/feagi_motor_debug.log", "a") as f:
+                f.write(f"[{time.time():.3f}] DECODED: {motors}\n")
+                f.write(f"[{time.time():.3f}] RETURNING: {{'motor': {motors}}}\n")
+                f.flush()
+            
+            # Return in simple format for controllers: {"motor": {0: power, 1: power, ...}}
+            return {"motor": motors} if motors else None
+            
         except Exception as e:
+            # TEMP DEBUG: Log error
+            with open("/tmp/feagi_motor_debug.log", "a") as f:
+                import traceback
+                f.write(f"\n[ERROR] {e}\n{traceback.format_exc()}\n")
+                f.flush()
             logger.error(f"Failed to receive motor data: {e}")
             raise
     

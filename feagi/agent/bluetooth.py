@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import socket
+import sys
 from abc import abstractmethod
 from typing import Dict, Any, Optional
 from .base import BaseAgent
@@ -225,16 +226,21 @@ class BluetoothRobot(BaseAgent):
         
         try:
             # Connect to robot transport
-            logger.info("Connecting to robot...")
+            print("\n🔌 Connecting to BLE relay...")
+            sys.stdout.flush()
             await self.transport.connect()
-            logger.info("✓ Robot connected")
+            print("✅ BLE relay connected")
+            sys.stdout.flush()
             
             # Connect to FEAGI
-            logger.info(f"Connecting to FEAGI at {self.feagi_host}:{self.feagi_port}...")
+            print(f"🧠 Connecting to FEAGI at {self.feagi_host}:{self.feagi_port}...")
+            sys.stdout.flush()
             await self.connect()
-            logger.info("✓ FEAGI connected")
+            print("✅ FEAGI connected - Agent registered")
+            sys.stdout.flush()
             
-            logger.info(f"{self.__class__.__name__} ready! Starting main loop...")
+            print(f"\n🚀 {self.__class__.__name__} ready! Starting main loop...\n")
+            sys.stdout.flush()
             
             # Main loop
             while self.running:

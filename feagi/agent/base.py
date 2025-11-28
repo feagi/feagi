@@ -98,13 +98,34 @@ class BaseAgent(ABC):
         """
         from feagi.pns import FeagiAgentClient, AgentType
         
-        self.client = FeagiAgentClient(self.agent_id, AgentType.BOTH)
+        # Determine agent type based on capabilities
+        has_motor = self.capabilities.get("motor") is not None
+        has_vision = self.capabilities.get("vision") is not None
+        
+        if has_motor and has_vision:
+            agent_type = AgentType.BOTH
+        elif has_motor:
+            agent_type = AgentType.MOTOR
+        elif has_vision:
+            agent_type = AgentType.SENSORY
+        else:
+            raise ValueError("Agent must have at least motor or vision capabilities")
+        
+        self.client = FeagiAgentClient(self.agent_id, agent_type)
         
         # Convert capabilities dict to client config format
         motor_cap = None
         if self.capabilities.get("motor"):
             motor_count = self.capabilities["motor"].get("count", 2)
-            motor_cap = ("motor", motor_count, [f"m{i}" for i in range(motor_count)])
+            # Send the FULL base64-encoded cortical IDs to FEAGI
+            # FEAGI will decode them and handle the conversion to 8-byte strings
+            cortical_ids_b64 = self.capabilities["motor"].get("cortical_ids", [])
+            if not cortical_ids_b64:
+                # Fallback to generic names
+                cortical_ids_b64 = [f"m{i}" for i in range(motor_count)]
+            
+            motor_cap = ("motor", motor_count, cortical_ids_b64)
+            print(f"🎮 [SDK DEBUG] Motor capability: count={motor_count}, cortical_ids={cortical_ids_b64}")
         
         # Add custom capabilities for sensors
         custom_caps = {}
@@ -115,6 +136,7 @@ class BaseAgent(ABC):
         
         self.client.configure(
             feagi_host=self.feagi_host,
+            motor_port=5564,  # TODO: Get from FEAGI config (currently using transport.zmq_motor_port)
             motor_capability=motor_cap,
             custom_capabilities=custom_caps if custom_caps else None
         )
