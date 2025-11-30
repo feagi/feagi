@@ -25,6 +25,7 @@ Quick Start:
 from feagi.pns.observability.monitor import Monitor, InputMonitor, OutputMonitor
 from feagi.pns.observability.metrics import MetricsCollector, Statistics
 from feagi.pns.observability.logger import DataLogger
+from feagi.pns.observability.controller_logger import ControllerLogger, create_controller_logger
 from feagi.pns.observability.inspector import DataInspector, ValidationReport
 from feagi.pns.observability.profiler import Profiler, Profile
 from feagi.pns.observability.formatters import (
@@ -41,6 +42,7 @@ __all__ = [
     "OutputMonitor",
     "MetricsCollector",
     "DataLogger",
+    "ControllerLogger",
     "DataInspector",
     "Profiler",
     # Data classes
@@ -54,5 +56,6 @@ __all__ = [
     # Utilities
     "enable_monitoring",
     "monitor_session",
+    "create_controller_logger",
 ]
 

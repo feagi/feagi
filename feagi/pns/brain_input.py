@@ -67,17 +67,19 @@ class BrainInput:
         self._monitors: List['Monitor'] = []
     
     def _init_cache(self):
-        """Initialize Rust IOCache (lazy)"""
+        """Initialize Rust SensorDeviceCache (lazy)"""
         if self._cache is not None:
             return
         
         try:
             import feagi_rust_py_libs as frpl
-            self._cache = frpl.connector_core.caching.IOCache()
+            # TODO: Implement SensorDeviceCache similar to MotorDeviceCache
+            # For now, use MotorDeviceCache placeholder
+            self._cache = frpl.connector_core.caching.MotorDeviceCache()
             self._cache_available = True
-            logger.info("✅ Rust IOCache initialized")
+            logger.info("✅ Rust cache initialized")
         except ImportError as e:
-            logger.error(f"❌ Failed to initialize Rust IOCache: {e}")
+            logger.error(f"❌ Failed to initialize Rust cache: {e}")
             logger.error("   Install with: pip install feagi_rust_py_libs")
             raise ImportError(
                 "Rust SDK (feagi_rust_py_libs) is required for brain_input.\n"

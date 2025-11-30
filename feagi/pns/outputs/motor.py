@@ -88,59 +88,45 @@ class ServoMotor(BaseOutput):
         return self._current_angle
     
     def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust IOCache"""
-        # Build method name (servo is called "positional_servo" in Rust)
-        method_name = f"motor_positional_servo_{self.encoding}_linear_try_register"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            raise AttributeError(f"Rust IOCache missing method: {method_name}")
-        
-        register_method = getattr(cache, method_name)
-        
-        # Register
-        register_method(
-            group=group_id,
-            number_of_channels=1,
-            z_neuron_depth=10  # Default depth
-        )
-    
-    def _read_from_cache(self, cache):
-        """Read current angle from Rust IOCache"""
-        # Build method name (servo is called "positional_servo" in Rust)
-        method_name = f"motor_positional_servo_{self.encoding}_linear_try_read_postprocessed_cached_value"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            return  # Method not available yet
-        
-        read_method = getattr(cache, method_name)
-        
-        # Read
+        """Register with Rust MotorDeviceCache"""
         try:
             import feagi_rust_py_libs as frpl
             
-            # Read percentage value
-            percentage = read_method(
-                group=self.group_id,
-                channel=self.channel
+            print(f"🔧 Registering ServoMotor: group={group_id}, encoding={self.encoding}", flush=True)
+            
+            # Register motor device
+            cache.register(
+                motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
+                group=group_id,
+                channels=1,
+                z_resolution=100,  # Default neuron depth
+                frame_change_handling=0 if self.encoding == "absolute" else 1,  # 0=Absolute, 1=Incremental
+                percentage_positioning=0  # 0=Linear
             )
+            print(f"✅ ServoMotor device registered successfully", flush=True)
             
-            # Convert SignedPercentage to float
-            if hasattr(percentage, 'value'):
-                value = percentage.value()
-            else:
-                value = float(percentage)
+            # Register callback to receive motor commands from FEAGI
+            signal_id = cache.register_callback(
+                motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
+                group=group_id,
+                channel=self.channel,
+                callback=self._on_motor_command
+            )
+            print(f"✅ ServoMotor callback registered: signal_id={signal_id}, group={group_id}, channel={self.channel}", flush=True)
             
-            # Map from signed percentage (-1.0 to 1.0) to angle range
-            # Normalize to 0.0 to 1.0
-            normalized = (value + 1.0) / 2.0
-            
-            # Map to angle range
-            self._current_angle = self.min_angle + (normalized * (self.max_angle - self.min_angle))
-        except Exception:
-            # If reading fails, keep current value
-            pass
+            self.group_id = group_id
+        except Exception as e:
+            raise RuntimeError(f"Failed to register ServoMotor: {e}") from e
+    
+    def _on_motor_command(self, value: float):
+        """Callback invoked when FEAGI sends a motor command"""
+        # TEMPORARY: Value is Percentage (0.0 to 1.0) not SignedPercentage (-1.0 to 1.0)
+        # Map to angle range directly
+        self._current_angle = self.min_angle + (value * (self.max_angle - self.min_angle))
+    
+    def _read_from_cache(self, cache):
+        """No longer needed - callbacks handle updates"""
+        pass
 
 
 class RotaryMotor(BaseOutput):
@@ -210,56 +196,42 @@ class RotaryMotor(BaseOutput):
         return self._current_speed
     
     def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust IOCache"""
-        # Build method name
-        method_name = f"motor_rotary_motor_{self.encoding}_linear_try_register"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            raise AttributeError(f"Rust IOCache missing method: {method_name}")
-        
-        register_method = getattr(cache, method_name)
-        
-        # Register
-        register_method(
-            group=group_id,
-            number_of_channels=1,
-            z_neuron_depth=10  # Default depth
-        )
-    
-    def _read_from_cache(self, cache):
-        """Read current speed from Rust IOCache"""
-        # Build method name
-        method_name = f"motor_rotary_motor_{self.encoding}_linear_try_read_postprocessed_cached_value"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            return  # Method not available yet
-        
-        read_method = getattr(cache, method_name)
-        
-        # Read
+        """Register with Rust MotorDeviceCache"""
         try:
             import feagi_rust_py_libs as frpl
             
-            # Read percentage value
-            percentage = read_method(
-                group=self.group_id,
-                channel=self.channel
+            # Register motor device
+            cache.register(
+                motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
+                group=group_id,
+                channels=1,
+                z_resolution=100,  # Default neuron depth
+                frame_change_handling=0 if self.encoding == "absolute" else 1,  # 0=Absolute, 1=Incremental
+                percentage_positioning=0  # 0=Linear
             )
             
-            # Convert SignedPercentage to float
-            if hasattr(percentage, 'value'):
-                value = percentage.value()
-            else:
-                value = float(percentage)
+            # Register callback to receive motor commands from FEAGI
+            signal_id = cache.register_callback(
+                motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
+                group=group_id,
+                channel=self.channel,
+                callback=self._on_motor_command
+            )
+            print(f"✅ RotaryMotor callback registered: signal_id={signal_id}, group={group_id}, channel={self.channel}", flush=True)
             
-            # Map to speed range
-            if self.bidirectional:
-                self._current_speed = value  # Already -1.0 to 1.0
-            else:
-                self._current_speed = (value + 1.0) / 2.0  # Map to 0.0 to 1.0
-        except Exception:
-            # If reading fails, keep current value
-            pass
+            self.group_id = group_id
+        except Exception as e:
+            raise RuntimeError(f"Failed to register RotaryMotor: {e}") from e
+    
+    def _on_motor_command(self, value: float):
+        """Callback invoked when FEAGI sends a motor command"""
+        # Value is signed percentage (-1.0 to 1.0)
+        if self.bidirectional:
+            self._current_speed = value  # Already -1.0 to 1.0
+        else:
+            self._current_speed = (value + 1.0) / 2.0  # Map to 0.0 to 1.0
+    
+    def _read_from_cache(self, cache):
+        """No longer needed - callbacks handle updates"""
+        pass
 
