@@ -13,13 +13,13 @@ MotorEncoding = Literal["absolute", "incremental"]
 
 class ServoMotor(BaseOutput):
     """
-    Servo motor output.
+    Servo motor output (positional servo).
     
-    Maps to Rust `motor_servo_*` methods.
+    Maps to Rust `motor_positional_servo_*` methods.
     
     Args:
         range: (min_angle, max_angle) in degrees
-        encoding: Encoding mode
+        encoding: Encoding mode ("absolute" or "incremental")
     
     Example:
         from feagi.pns.outputs import ServoMotor
@@ -37,6 +37,10 @@ class ServoMotor(BaseOutput):
             brain_output.receive()
             angle = servo.get_angle()
             set_servo_hardware(angle)  # Your hardware API
+    
+    Note:
+        The servo reads values as SignedPercentage (-1.0 to 1.0) from FEAGI
+        and automatically maps them to your specified angle range.
     """
     
     def __init__(
@@ -85,18 +89,58 @@ class ServoMotor(BaseOutput):
     
     def _register_with_cache(self, cache, group_id: int):
         """Register with Rust IOCache"""
-        # TODO: Update method name when servo motor support is added to Rust
-        # For now, use generic motor registration
-        # method_name = f"motor_servo_{self.encoding}_try_register"
-        pass
+        # Build method name (servo is called "positional_servo" in Rust)
+        method_name = f"motor_positional_servo_{self.encoding}_linear_try_register"
+        
+        # Get method
+        if not hasattr(cache, method_name):
+            raise AttributeError(f"Rust IOCache missing method: {method_name}")
+        
+        register_method = getattr(cache, method_name)
+        
+        # Register
+        register_method(
+            group=group_id,
+            number_of_channels=1,
+            z_neuron_depth=10  # Default depth
+        )
     
     def _read_from_cache(self, cache):
         """Read current angle from Rust IOCache"""
-        # TODO: Implement when servo motor support is added
-        # method_name = f"motor_servo_{self.encoding}_try_read_postprocessed_cached_value"
-        # percentage = read_method(group=self.group_id, channel=self.channel)
-        # self._current_angle = self.min_angle + (percentage * (self.max_angle - self.min_angle))
-        pass
+        # Build method name (servo is called "positional_servo" in Rust)
+        method_name = f"motor_positional_servo_{self.encoding}_linear_try_read_postprocessed_cached_value"
+        
+        # Get method
+        if not hasattr(cache, method_name):
+            return  # Method not available yet
+        
+        read_method = getattr(cache, method_name)
+        
+        # Read
+        try:
+            import feagi_rust_py_libs as frpl
+            
+            # Read percentage value
+            percentage = read_method(
+                group=self.group_id,
+                channel=self.channel
+            )
+            
+            # Convert SignedPercentage to float
+            if hasattr(percentage, 'value'):
+                value = percentage.value()
+            else:
+                value = float(percentage)
+            
+            # Map from signed percentage (-1.0 to 1.0) to angle range
+            # Normalize to 0.0 to 1.0
+            normalized = (value + 1.0) / 2.0
+            
+            # Map to angle range
+            self._current_angle = self.min_angle + (normalized * (self.max_angle - self.min_angle))
+        except Exception:
+            # If reading fails, keep current value
+            pass
 
 
 class RotaryMotor(BaseOutput):

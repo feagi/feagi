@@ -106,11 +106,27 @@ class WebSocketClientTransport(BaseTransport):
         Raises:
             ConnectionError: If not connected
         """
-        if not self.connected or not self.websocket:
+        # TEMP DEBUG
+        with open("/tmp/websocket_transport_debug.log", "a") as f:
+            import time
+            f.write(f"\n[{time.time():.3f}] WebSocket send() CALLED with {len(data)} bytes: {data!r}\n")
+            f.write(f"[{time.time():.3f}] Connected flag: {self.connected}, WebSocket exists: {self.websocket is not None}\n")
+            f.flush()
+        
+        # Only check websocket object, not the flag (flag may be wrong after receive errors)
+        if not self.websocket:
+            with open("/tmp/websocket_transport_debug.log", "a") as f:
+                f.write(f"[{time.time():.3f}] ❌ NO WEBSOCKET OBJECT - raising error\n")
+                f.flush()
             raise ConnectionError("Not connected to BLE relay")
         
         try:
             await self.websocket.send(data)
+            # Mark as connected on successful send (recovers from receive errors)
+            self.connected = True
+            with open("/tmp/websocket_transport_debug.log", "a") as f:
+                f.write(f"[{time.time():.3f}] ✅ WebSocket.send() completed\n")
+                f.flush()
             logger.debug(f"📤 Sent {len(data)} bytes to relay")
         except Exception as e:
             self.connected = False
@@ -126,7 +142,8 @@ class WebSocketClientTransport(BaseTransport):
         Raises:
             ConnectionError: If not connected or connection lost
         """
-        if not self.connected or not self.websocket:
+        # Only check websocket object (flag may be wrong)
+        if not self.websocket:
             raise ConnectionError("Not connected to BLE relay")
         
         try:

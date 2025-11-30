@@ -2,10 +2,16 @@
 Simple Robot Example using FEAGI SDK 3.0
 
 Demonstrates the new inputs/outputs API for a simple robot with:
-- Camera
-- Infrared sensor
-- Servo motor
-- Rotary motors (left/right wheels)
+- Camera (640x480 visual input)
+- Infrared sensor (distance sensing 0-400cm)
+- Servo motor (positional control 0-180°)
+- Rotary motors (bidirectional wheel control)
+
+This example shows how to:
+1. Register sensors and motors
+2. Configure and connect to FEAGI
+3. Send sensor data in a loop
+4. Receive motor commands from FEAGI
 """
 
 from feagi.pns.inputs import Camera, Infrared
