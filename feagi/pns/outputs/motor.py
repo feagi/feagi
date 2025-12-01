@@ -87,32 +87,24 @@ class ServoMotor(BaseOutput):
         """
         return self._current_angle
     
-    def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust MotorDeviceCache"""
+    def _register_with_cache(self, cache, group_id: int, channel_index: int = None, decoder_registered: bool = False):
+        """Register callback with Rust MotorDeviceCache (decoder must be registered first)"""
         try:
             import feagi_rust_py_libs as frpl
             
-            print(f"🔧 Registering ServoMotor: group={group_id}, encoding={self.encoding}", flush=True)
+            # Use provided channel_index if given, otherwise use self.channel
+            if channel_index is not None:
+                self.channel = channel_index
             
-            # Register motor device
-            cache.register(
-                motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
-                group=group_id,
-                channels=1,
-                z_resolution=100,  # Default neuron depth
-                frame_change_handling=0 if self.encoding == "absolute" else 1,  # 0=Absolute, 1=Incremental
-                percentage_positioning=0  # 0=Linear
-            )
-            print(f"✅ ServoMotor device registered successfully", flush=True)
-            
-            # Register callback to receive motor commands from FEAGI
-            signal_id = cache.register_callback(
-                motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
-                group=group_id,
-                channel=self.channel,
-                callback=self._on_motor_command
-            )
-            print(f"✅ ServoMotor callback registered: signal_id={signal_id}, group={group_id}, channel={self.channel}", flush=True)
+            # Only register callback if decoder has been registered
+            if decoder_registered:
+                # Register callback to receive motor commands from FEAGI
+                signal_id = cache.register_callback(
+                    motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
+                    group=0,  # All motors share group=0
+                    channel=self.channel,
+                    callback=self._on_motor_command
+                )
             
             self.group_id = group_id
         except Exception as e:
@@ -120,9 +112,11 @@ class ServoMotor(BaseOutput):
     
     def _on_motor_command(self, value: float):
         """Callback invoked when FEAGI sends a motor command"""
-        # TEMPORARY: Value is Percentage (0.0 to 1.0) not SignedPercentage (-1.0 to 1.0)
-        # Map to angle range directly
-        self._current_angle = self.min_angle + (value * (self.max_angle - self.min_angle))
+        # Value is SignedPercentage (-1.0 to 1.0) from FEAGI
+        # Map to angle range: -1.0 -> min_angle, 0.0 -> center, 1.0 -> max_angle
+        center = (self.min_angle + self.max_angle) / 2.0
+        half_range = (self.max_angle - self.min_angle) / 2.0
+        self._current_angle = center + (value * half_range)
     
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""
@@ -195,29 +189,24 @@ class RotaryMotor(BaseOutput):
         """
         return self._current_speed
     
-    def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust MotorDeviceCache"""
+    def _register_with_cache(self, cache, group_id: int, channel_index: int = None, decoder_registered: bool = False):
+        """Register callback with Rust MotorDeviceCache (decoder must be registered first)"""
         try:
             import feagi_rust_py_libs as frpl
             
-            # Register motor device
-            cache.register(
-                motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
-                group=group_id,
-                channels=1,
-                z_resolution=100,  # Default neuron depth
-                frame_change_handling=0 if self.encoding == "absolute" else 1,  # 0=Absolute, 1=Incremental
-                percentage_positioning=0  # 0=Linear
-            )
+            # Use provided channel_index if given, otherwise use self.channel
+            if channel_index is not None:
+                self.channel = channel_index
             
-            # Register callback to receive motor commands from FEAGI
-            signal_id = cache.register_callback(
-                motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
-                group=group_id,
-                channel=self.channel,
-                callback=self._on_motor_command
-            )
-            print(f"✅ RotaryMotor callback registered: signal_id={signal_id}, group={group_id}, channel={self.channel}", flush=True)
+            # Only register callback if decoder has been registered
+            if decoder_registered:
+                # Register callback to receive motor commands from FEAGI
+                signal_id = cache.register_callback(
+                    motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
+                    group=0,  # All motors share group=0
+                    channel=self.channel,
+                    callback=self._on_motor_command
+                )
             
             self.group_id = group_id
         except Exception as e:
