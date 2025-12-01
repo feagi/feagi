@@ -46,12 +46,14 @@ class ServoMotor(BaseOutput):
     def __init__(
         self,
         range: Tuple[float, float] = (0, 180),
-        encoding: MotorEncoding = "absolute"
+        encoding: MotorEncoding = "absolute",
+        gain: float = 1.0
     ):
         super().__init__()
         self.min_angle, self.max_angle = range
         self.encoding = encoding
         self.channel = 0
+        self.gain = gain  # Amplification factor for motor commands
         
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
@@ -60,7 +62,8 @@ class ServoMotor(BaseOutput):
     def register(
         cls,
         range: Tuple[float, float] = (0, 180),
-        encoding: MotorEncoding = "absolute"
+        encoding: MotorEncoding = "absolute",
+        gain: float = 1.0
     ) -> 'ServoMotor':
         """
         Register a new servo motor output.
@@ -68,13 +71,15 @@ class ServoMotor(BaseOutput):
         Args:
             range: (min_angle, max_angle) in degrees
             encoding: "absolute" or "incremental"
+            gain: Amplification factor for motor commands (default: 1.0)
+                  Use >1.0 to amplify weak signals, <1.0 to dampen strong signals
         
         Returns:
             ServoMotor instance
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding)
+        servo = cls(range, encoding, gain)
         brain_output.register_output(servo)
         return servo
     
@@ -113,10 +118,26 @@ class ServoMotor(BaseOutput):
     def _on_motor_command(self, value: float):
         """Callback invoked when FEAGI sends a motor command"""
         # Value is SignedPercentage (-1.0 to 1.0) from FEAGI
+        # Store raw value for debugging
+        raw_value = value
+        
+        # Apply gain to amplify/dampen the signal
+        value = value * self.gain
+        # Clamp to [-1.0, 1.0] after gain application
+        value = max(-1.0, min(1.0, value))
+        
         # Map to angle range: -1.0 -> min_angle, 0.0 -> center, 1.0 -> max_angle
         center = (self.min_angle + self.max_angle) / 2.0
         half_range = (self.max_angle - self.min_angle) / 2.0
         self._current_angle = center + (value * half_range)
+        
+        # Debug logging (only for first motor, every 10th update to avoid spam)
+        if self.channel == 0 and abs(raw_value) > 0.001:
+            if not hasattr(self, '_debug_counter'):
+                self._debug_counter = 0
+            self._debug_counter += 1
+            if self._debug_counter % 10 == 0:
+                print(f"🎯 Motor[0]: raw={raw_value:.4f}, gain={self.gain}, scaled={value:.4f}, angle={self._current_angle:.4f} rad (range=[{self.min_angle:.4f}, {self.max_angle:.4f}] rad)", flush=True)
     
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""

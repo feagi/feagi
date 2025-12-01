@@ -402,13 +402,10 @@ class BrainOutput:
                     parts = self._transport.recv_multipart(flags=zmq.NOBLOCK)
                     if len(parts) >= 2:
                         # Part 0: agent_id (topic), Part 1: motor data
-                        agent_id_received = parts[0].decode('utf-8', errors='ignore')
                         motor_bytes = parts[1]
-                        print(f"📥 RECEIVED multipart: agent_id='{agent_id_received}', data={len(motor_bytes)} bytes (first byte: 0x{motor_bytes[0]:02x})", flush=True)
                     elif len(parts) == 1:
                         # Fallback: single part message (old format?)
                         motor_bytes = parts[0]
-                        print(f"📥 RECEIVED single part: {len(motor_bytes)} bytes (first byte: 0x{motor_bytes[0]:02x})", flush=True)
                     else:
                         # Empty message, skip
                         motor_bytes = b""
@@ -422,28 +419,15 @@ class BrainOutput:
             # Decode and process motor bytes
             if motor_bytes:
                 # CRITICAL: Check if this is motor data (version 2) or something else
-                if len(motor_bytes) > 0 and motor_bytes[0] != 0x02:
-                    # Skip non-motor messages (e.g., agent_id, heartbeat, etc.)
-                    print(f"⏭️  SKIP: First byte is 0x{motor_bytes[0]:02x} (not 0x02)", flush=True)
-                else:
+                if len(motor_bytes) > 0 and motor_bytes[0] == 0x02:
                     # Process valid motor data (with error handling to prevent blocking)
                     try:
-                        print(f"📥 Processing {len(motor_bytes)} bytes of motor data", flush=True)
                         self._cache.process_neurons(list(motor_bytes))
-                        print(f"✅ process_neurons completed", flush=True)
                         command_count = 1
                     except Exception as e:
                         # Log error but don't crash - prevents blocking
-                        print(f"❌ Error processing neurons: {e}", flush=True)
                         logger.debug(f"Error processing neurons: {e}")
                         pass
-            else:
-                # Log occasionally when no data is received (every 100 calls to avoid spam)
-                if not hasattr(self, '_receive_call_count'):
-                    self._receive_call_count = 0
-                self._receive_call_count += 1
-                if self._receive_call_count % 100 == 0:
-                    print(f"💤 No data received (call #{self._receive_call_count})", flush=True)
             
             # Note: _read_from_cache() is no longer needed as callbacks handle updates
             # The motor values are already updated via callbacks during process_neurons()
