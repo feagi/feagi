@@ -155,8 +155,9 @@ class InputMonitor(Monitor):
         
         self._packet_count += 1
         
-        if self.log_packets:
-            self._logger.info(
+        # Log periodically (every 100 packets) to reduce overhead
+        if self.log_packets and self._packet_count % 100 == 0:
+            self._logger.debug(
                 f"Sent packet #{self._packet_count}: "
                 f"{data['neuron_count']} neurons, "
                 f"{data['packet_size_bytes']} bytes, "

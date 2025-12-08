@@ -452,27 +452,17 @@ class BrainInput:
         t_send_total_start = time.perf_counter()
         try:
             # Update all inputs to cache
-            t_write_cache_start = time.perf_counter()
-            logger.debug(f"📤 [BRAIN-INPUT] Writing {len(self._inputs)} input(s) to cache...")
             for input_instance in self._inputs:
                 try:
-                    input_name = input_instance.__class__.__name__
-                    group_id = getattr(input_instance, 'group_id', 'N/A')
-                    cortical_area = getattr(input_instance, '_cortical_area', 'N/A')
-                    logger.debug(f"📤 [BRAIN-INPUT] Writing {input_name} (group_id={group_id}, cortical_area={cortical_area}) to cache")
                     input_instance._write_to_cache(self._cache)
-                    logger.debug(f"📤 [BRAIN-INPUT] ✅ Successfully wrote {input_name} to cache")
                 except Exception as e:
                     logger.error(f"❌ [BRAIN-INPUT] Error writing {input_instance.__class__.__name__} to cache: {e}", exc_info=True)
                     raise
-            t_write_cache = (time.perf_counter() - t_write_cache_start) * 1000
             
             # Encode cached data to bytes
             # CRITICAL: These methods are missing from rust-py-libs ConnectorAgent
             # Required methods: sensors_encode_cached_data_to_bytes() and sensor_get_byte_container()
             try:
-                t_encode_start = time.perf_counter()
-                logger.debug("📤 [BRAIN-INPUT] Encoding cached sensor data to bytes...")
                 if not hasattr(self._cache, 'sensors_encode_cached_data_to_bytes'):
                     raise AttributeError(
                         "ConnectorAgent missing required method: sensors_encode_cached_data_to_bytes()\n"
@@ -480,19 +470,7 @@ class BrainInput:
                         "See MISSING_RUST_PY_LIBS_API.md for details."
                     )
                 
-                # Check cache state before encoding (if possible)
-                try:
-                    if hasattr(self._cache, 'sensor_get_byte_container'):
-                        # Try to peek at cache before encoding
-                        pre_encode_container = self._cache.sensor_get_byte_container()
-                        pre_encode_structures = pre_encode_container.number_contained_structures
-                        logger.debug(f"📤 [BRAIN-INPUT] 🔍 Cache state before encoding: {pre_encode_structures} structure(s)")
-                except Exception:
-                    pass  # Ignore if we can't inspect
-                
                 self._cache.sensors_encode_cached_data_to_bytes()
-                t_encode = (time.perf_counter() - t_encode_start) * 1000
-                logger.debug("📤 [BRAIN-INPUT] ✅ Sensor data encoded to bytes")
             except AttributeError:
                 raise
             except Exception as e:
@@ -509,167 +487,11 @@ class BrainInput:
                     )
                 byte_container = self._cache.sensor_get_byte_container()
                 
-                # Inspect the byte container to see what cortical IDs are being sent
-                cortical_ids_in_data = []
-                try:
-                    num_structures = byte_container.number_contained_structures
-                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 Byte container has {num_structures} structure(s)")
-                    
-                    # Try to extract cortical IDs from the container if possible
-                    if num_structures > 0:
-                        try:
-                            # Extract the structure to inspect cortical IDs
-                            # PyO3 methods with Python parameter need explicit Python context
-                            # Since we're in Python, PyO3 should provide it automatically via method binding
-                            # But if it doesn't work, we'll log what we can from inputs
-                            try:
-                                # Try to extract - PyO3 should handle Python context automatically
-                                structure = byte_container.try_create_new_struct_from_index(0)
-                                
-                                # Check structure properties first
-                                if hasattr(structure, 'len'):
-                                    struct_len = structure.len()
-                                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 Structure has {struct_len} cortical area(s) total")
-                                if hasattr(structure, 'is_empty'):
-                                    is_empty = structure.is_empty()
-                                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 Structure is_empty: {is_empty}")
-                                
-                                # Use iterator to get cortical IDs and neuron arrays directly
-                                # This is more reliable than using keys() + copy_neurons_of()
-                                try:
-                                    # Try using __iter__() which yields (cortical_id, neuron_arrays) pairs
-                                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 Attempting to iterate structure to extract cortical IDs and neuron counts...")
-                                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 Structure type: {type(structure)}")
-                                    iteration_count = 0
-                                    total_neurons_from_iter = 0
-                                    
-                                    # Try to iterate - this should yield (cortical_id, neuron_arrays) tuples
-                                    try:
-                                        structure_iter = iter(structure)
-                                        logger.debug(f"📤 [BRAIN-INPUT] 🔍 Successfully created iterator, type: {type(structure_iter)}")
-                                    except Exception as iter_create_err:
-                                        logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Could not create iterator: {iter_create_err}")
-                                        raise
-                                    
-                                    for item in structure_iter:
-                                        iteration_count += 1
-                                        try:
-                                            # Unpack the tuple (cortical_id, neuron_arrays)
-                                            if isinstance(item, tuple) and len(item) == 2:
-                                                cortical_id_obj, neuron_arrays_obj = item
-                                            else:
-                                                logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Unexpected item type in iterator (item {iteration_count}): {type(item)}, value: {item}")
-                                                continue
-                                            
-                                            # Get cortical ID as base64 string
-                                            if hasattr(cortical_id_obj, 'as_base_64'):
-                                                cortical_id_base64 = cortical_id_obj.as_base_64()
-                                            elif hasattr(cortical_id_obj, '__str__'):
-                                                cortical_id_base64 = str(cortical_id_obj)
-                                            else:
-                                                cortical_id_base64 = repr(cortical_id_obj)
-                                            
-                                            # Get neuron count from the neuron arrays object directly
-                                            try:
-                                                if neuron_arrays_obj is not None:
-                                                    # PyO3 automatically unwraps PyResult, so len() returns int directly
-                                                    try:
-                                                        neuron_count = neuron_arrays_obj.len()
-                                                        if isinstance(neuron_count, int):
-                                                            total_neurons_from_iter += neuron_count
-                                                        # Log details for debugging
-                                                        if neuron_count == 0:
-                                                            is_empty_result = neuron_arrays_obj.is_empty()
-                                                            logger.debug(f"📤 [BRAIN-INPUT] 🔍 Cortical ID {cortical_id_base64}: neuron_count={neuron_count}, is_empty={is_empty_result}")
-                                                        else:
-                                                            logger.debug(f"📤 [BRAIN-INPUT] 🔍 Cortical ID {cortical_id_base64}: neuron_count={neuron_count}")
-                                                    except Exception as len_err:
-                                                        logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Error calling len() on neuron arrays for {cortical_id_base64}: {len_err}, type: {type(neuron_arrays_obj)}")
-                                                        neuron_count = 'error'
-                                                else:
-                                                    neuron_count = 0
-                                                    logger.warning(f"📤 [BRAIN-INPUT] ⚠️ neuron_arrays_obj is None for {cortical_id_base64}")
-                                            except Exception as len_err:
-                                                logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Error getting neuron count for {cortical_id_base64}: {len_err}")
-                                                neuron_count = 'unknown'
-                                            
-                                            cortical_ids_in_data.append((cortical_id_base64, neuron_count))
-                                        except Exception as unpack_err:
-                                            logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Error unpacking iterator item {iteration_count}: {unpack_err}, item type: {type(item)}")
-                                    
-                                    logger.debug(f"📤 [BRAIN-INPUT] 📋 Iterated {iteration_count} cortical area(s), total neurons from iteration: {total_neurons_from_iter}, found {len(cortical_ids_in_data)} in data list")
-                                    
-                                    # NOTE: The structure extracted from byte container is a template, not the actual encoded data.
-                                    # The neurons ARE in the serialized bytes (156 bytes = ~39 neurons), but we can't inspect
-                                    # them from the structure object because try_create_new_struct_from_index creates a new
-                                    # empty structure based on the type descriptor, not the actual encoded neuron data.
-                                    # The actual neuron data is in the serialized bytes that will be sent to FEAGI.
-                                    if total_neurons_from_iter == 0:
-                                        logger.info(f"📤 [BRAIN-INPUT] ℹ️ NOTE: Structure shows 0 neurons, but this is expected - neurons are in serialized bytes, not in structure template")
-                                except Exception as iter_err:
-                                    logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Could not iterate structure: {iter_err}, type: {type(iter_err)}")
-                                    import traceback
-                                    logger.debug(f"📤 [BRAIN-INPUT] Traceback: {traceback.format_exc()}")
-                                    # Fallback: try keys() method
-                                    if hasattr(structure, 'keys'):
-                                        try:
-                                            cortical_id_keys = structure.keys()
-                                            for cortical_id_obj in cortical_id_keys:
-                                                # Get cortical ID as base64 string
-                                                if hasattr(cortical_id_obj, 'as_base_64'):
-                                                    cortical_id_base64 = cortical_id_obj.as_base_64()
-                                                elif hasattr(cortical_id_obj, '__str__'):
-                                                    cortical_id_base64 = str(cortical_id_obj)
-                                                else:
-                                                    cortical_id_base64 = repr(cortical_id_obj)
-                                                
-                                                # Try to get neuron count
-                                                try:
-                                                    neuron_arrays = structure.copy_neurons_of(cortical_id_obj)
-                                                    if neuron_arrays:
-                                                        neuron_count = neuron_arrays.len()
-                                                    else:
-                                                        neuron_count = 0
-                                                except Exception:
-                                                    neuron_count = 'unknown'
-                                                
-                                                cortical_ids_in_data.append((cortical_id_base64, neuron_count))
-                                        except Exception as keys_err:
-                                            logger.debug(f"📤 [BRAIN-INPUT] Could not get keys from structure: {keys_err}")
-                            except TypeError as te:
-                                # Method requires Python parameter - log what we can from inputs instead
-                                logger.debug(f"📤 [BRAIN-INPUT] Cannot extract structure (Python context issue): {te}")
-                        except Exception as inspect_err:
-                            logger.debug(f"📤 [BRAIN-INPUT] Could not inspect structure details: {inspect_err}")
-                except Exception as inspect_err:
-                    logger.debug(f"📤 [BRAIN-INPUT] Could not inspect byte container: {inspect_err}")
-                
-                # Get bytes from container
-                # Note: PyO3 methods with Python parameter are automatically bound - we don't pass it explicitly
+                # Get serialized bytes from container
                 py_bytes = byte_container.copy_out_as_byte_vector()
                 serialized = bytes(py_bytes)
-                logger.info(f"📤 [BRAIN-INPUT] ✅ Retrieved serialized data: {len(serialized)} bytes")
                 
-                # Log cortical IDs and neuron counts
-                if cortical_ids_in_data:
-                    total_neurons_logged = sum(n for _, n in cortical_ids_in_data if isinstance(n, int))
-                    logger.debug(f"📤 [BRAIN-INPUT] 📋 Cortical IDs in encoded data (total neurons from extraction: {total_neurons_logged}):")
-                    for cortical_id, neuron_count in cortical_ids_in_data:
-                        logger.debug(f"📤 [BRAIN-INPUT] 📋   - Cortical ID: {cortical_id}, Neurons: {neuron_count}")
-                    
-                    if total_neurons_logged == 0 and len(serialized) > 0:
-                        logger.warning(f"📤 [BRAIN-INPUT] ⚠️ WARNING: Extracted 0 neurons but packet has {len(serialized)} bytes - neurons may not be associated with cortical IDs correctly")
-                else:
-                    # Log cortical areas that were registered (from inputs) as fallback
-                    registered_cortical_areas = [getattr(inp, '_cortical_area', None) for inp in self._inputs if hasattr(inp, '_cortical_area')]
-                    if registered_cortical_areas:
-                        logger.info(f"📤 [BRAIN-INPUT] 📋 Registered cortical areas in inputs: {registered_cortical_areas}")
-                    else:
-                        logger.warning(f"📤 [BRAIN-INPUT] ⚠️ No cortical_area attribute found in inputs - cortical ID will be generated from group_id/position")
-                    
-                    # Log group IDs being used
-                    group_ids = [getattr(inp, 'group_id', None) for inp in self._inputs]
-                    logger.info(f"📤 [BRAIN-INPUT] 📋 Group IDs in inputs: {group_ids}")
+                # Logging removed for hot path
             except AttributeError:
                 raise
             except Exception as e:
@@ -685,33 +507,10 @@ class BrainInput:
             if self._transport:
                 try:
                     import zmq
-                    t_zmq_start = time.perf_counter()
-                    endpoint = f"tcp://{self._feagi_host}:{self._feagi_port}"
-                    logger.debug(f"📤 [BRAIN-INPUT] Sending {len(serialized)} bytes to FEAGI via {self._transport_type}...")
-                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 [ZMQ] Endpoint: {endpoint}, Socket TYPE: {self._transport.get(zmq.TYPE)} (PUSH=8)")
-                    
-                    # Check socket state before sending
-                    socket_events = self._transport.get(zmq.EVENTS)
-                    logger.debug(f"📤 [BRAIN-INPUT] 🔍 [ZMQ] Socket EVENTS before send: {socket_events} (POLLOUT={zmq.POLLOUT})")
-                    
                     # Send with NOBLOCK to detect immediate failures
                     try:
                         self._transport.send(serialized, zmq.NOBLOCK)
-                        t_zmq = (time.perf_counter() - t_zmq_start) * 1000
-                        t_send_total = (time.perf_counter() - t_send_total_start) * 1000
-                        logger.info(
-                            f"⏱️ [PERF-BRAIN-INPUT] Send complete: "
-                            f"total={t_send_total:.2f}ms | "
-                            f"write_cache={t_write_cache:.2f}ms | "
-                            f"encode={t_encode:.2f}ms | "
-                            f"zmq_send={t_zmq:.2f}ms | "
-                            f"bytes={len(serialized)}"
-                        )
-                        logger.info(f"📤 [BRAIN-INPUT] ✅ Successfully sent {len(serialized)} bytes to FEAGI via ZMQ (NOBLOCK)")
-                        
-                        # Verify send completed
-                        socket_events_after = self._transport.get(zmq.EVENTS)
-                        logger.debug(f"📤 [BRAIN-INPUT] 🔍 [ZMQ] Socket EVENTS after send: {socket_events_after}")
+                        # Logging removed for hot path
                     except zmq.Again:
                         # Socket buffer full - this shouldn't happen with PUSH/PULL but log it
                         logger.warning(f"📤 [BRAIN-INPUT] ⚠️ [ZMQ] Socket buffer full (EAGAIN), retrying with blocking send...")

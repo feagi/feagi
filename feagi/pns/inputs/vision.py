@@ -61,13 +61,17 @@ class Camera(BaseInput):
         self,
         resolution: Tuple[int, int],
         encoding: CameraEncoding = "absolute",
-        position: CameraPosition = "center"
+        position: CameraPosition = "center",
+        central_resolution: Optional[Tuple[int, int]] = None,
+        peripheral_resolution: Optional[Tuple[int, int]] = None,
     ):
         super().__init__()
         self.resolution = resolution
         self.encoding = encoding
         self.position = position
         self.channel = 0  # Default channel
+        self.central_resolution = central_resolution  # For segmented vision: center segment dimensions
+        self.peripheral_resolution = peripheral_resolution  # For segmented vision: peripheral segment dimensions
         
         # Current frame
         self._current_frame: Optional[np.ndarray] = None
@@ -84,29 +88,35 @@ class Camera(BaseInput):
         resolution: Tuple[int, int] = (640, 480),
         encoding: CameraEncoding = "absolute",
         position: CameraPosition = "center",
-        group_id: Optional[int] = None
+        group_id: Optional[int] = None,
+        central_resolution: Optional[Tuple[int, int]] = None,
+        peripheral_resolution: Optional[Tuple[int, int]] = None,
     ) -> 'Camera':
         """
         Register a new camera input.
         
         Args:
-            resolution: (width, height) in pixels
+            resolution: (width, height) in pixels - input frame size
             encoding: "absolute" (full frame) or "incremental" (changes only)
             position: Camera position for segmented vision
             group_id: Optional cortical group ID. If None, auto-allocates.
+            central_resolution: Optional (width, height) for segmented vision center segment
+            peripheral_resolution: Optional (width, height) for segmented vision peripheral segments
         
         Returns:
             Camera instance
         """
         from feagi.pns import brain_input
         
-        camera = cls(resolution, encoding, position)
+        camera = cls(resolution, encoding, position, central_resolution, peripheral_resolution)
         brain_input.register_input(camera, group_id=group_id)
         return camera
     
     def set_frame(self, frame):
         """
         Set the current camera frame.
+        
+        Automatically resizes frame to match registered resolution if needed.
         
         Args:
             frame: NumPy array with shape (H, W, 3) for RGB images
@@ -118,7 +128,41 @@ class Camera(BaseInput):
         if frame.ndim != 3 or frame.shape[2] != 3:
             raise ValueError(f"Frame must be (H, W, 3), got shape {frame.shape}")
         
-        self._current_frame = frame
+        # Validate and resize frame to match registered resolution
+        frame_height, frame_width = frame.shape[:2]
+        expected_width, expected_height = self.resolution
+        
+        if frame_width != expected_width or frame_height != expected_height:
+            # Resize frame to match registered resolution (required for Rust validation)
+            try:
+                from PIL import Image
+                # Convert NumPy array to PIL Image (H, W, 3) -> PIL expects (W, H)
+                pil_image = Image.fromarray(frame)
+                # Resize to expected resolution
+                pil_image = pil_image.resize((expected_width, expected_height), Image.Resampling.LANCZOS)
+                # Convert back to NumPy array
+                resized_frame = np.asarray(pil_image, dtype=np.uint8)
+                logger.debug(
+                    f"📤 [CAMERA] Resized frame from {frame_width}x{frame_height} to {expected_width}x{expected_height}"
+                )
+                self._current_frame = resized_frame
+            except ImportError:
+                # Fallback: use OpenCV if available
+                try:
+                    import cv2
+                    resized_frame = cv2.resize(frame, (expected_width, expected_height), interpolation=cv2.INTER_LINEAR)
+                    logger.debug(
+                        f"📤 [CAMERA] Resized frame from {frame_width}x{frame_height} to {expected_width}x{expected_height} (using OpenCV)"
+                    )
+                    self._current_frame = resized_frame
+                except ImportError:
+                    raise ValueError(
+                        f"Frame resolution mismatch: got {frame_width}x{frame_height}, "
+                        f"expected {expected_width}x{expected_height}. "
+                        f"Install PIL (Pillow) or OpenCV for auto-resizing."
+                    )
+        else:
+            self._current_frame = frame
     
     def _init_rust_properties(self):
         """Initialize Rust ImageFrameProperties (lazy)"""
@@ -188,17 +232,35 @@ class Camera(BaseInput):
         else:  # incremental
             frame_change_handling = frame_change_handling_enum.Incremental()
         
-        # SegmentedImageFrameProperties - create following test.py pattern
-        # Create center and peripheral resolutions (using same size for simplicity)
-        input_res = self._properties.xy_resolution
-        center_res = cc_desc.ImageXYResolution(input_res.width, input_res.height)
-        peripheral_res = cc_desc.ImageXYResolution(input_res.width, input_res.height)
+        # Use provided resolutions if available, otherwise fall back to FEAGI unit topology defaults
+        # Defaults match sensor_cortical_units.rs SegmentedVision unit_default_topology:
+        # - Center segment (index 4): channel_dimensions_default: [128, 128, 3] -> 128x128
+        # - Peripheral segments (0-3, 5-8): channel_dimensions_default: [32, 32, 1] -> 32x32
+        if self.central_resolution:
+            center_width, center_height = self.central_resolution
+            logger.info(f"📐 Using provided central resolution: {center_width}x{center_height}")
+        else:
+            center_width, center_height = 128, 128  # From unit topology segment 4 default
+            logger.info(f"📐 Using default central resolution: {center_width}x{center_height}")
         
-        # Create segmented resolution using create_with_same_sized_peripheral (from test.py)
+        if self.peripheral_resolution:
+            peripheral_width, peripheral_height = self.peripheral_resolution
+            logger.info(f"📐 Using provided peripheral resolution: {peripheral_width}x{peripheral_height}")
+        else:
+            peripheral_width, peripheral_height = 32, 32  # From unit topology segments 0-3, 5-8 default
+            logger.info(f"📐 Using default peripheral resolution: {peripheral_width}x{peripheral_height}")
+        
+        # Create resolutions using correct dimensions
+        center_res = cc_desc.ImageXYResolution(center_width, center_height)
+        peripheral_res = cc_desc.ImageXYResolution(peripheral_width, peripheral_height)
+        
+        # Create segmented resolution using create_with_same_sized_peripheral
         segmented_res = cc_desc.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
             center_res,
             peripheral_res
         )
+        
+        logger.info(f"📐 Segmented vision registration: center={center_width}x{center_height}, peripheral={peripheral_width}x{peripheral_height}")
         
         # Create SegmentedImageFrameProperties (from examples)
         # Get channel_layout attribute - it's 'channel_layout', not 'color_channel_layout'
@@ -261,47 +323,42 @@ class Camera(BaseInput):
     def _write_to_cache(self, cache):
         """Write current frame to Rust IOCache"""
         import logging
+        import time
         logger = logging.getLogger(__name__)
         
         if self._current_frame is None:
-            logger.warning("⚠️ [CAMERA] No frame to write yet (_current_frame is None)")
+            logger.debug("⚠️ [CAMERA] No frame to write yet (_current_frame is None)")
             return  # No frame to write yet
         
+        t_total_start = time.perf_counter()
         try:
             import feagi_rust_py_libs as frpl
             
-            logger.info(f"📤 [CAMERA] Writing frame to cache: shape={self._current_frame.shape}, dtype={self._current_frame.dtype}, group_id={self.group_id}, channel={self.channel}, cortical_area={getattr(self, '_cortical_area', 'N/A')}")
-            
-            # Convert NumPy to Rust ImageFrame using correct API
-            # OpenCV/NumPy arrays are in (height, width, channels) format
+            # Convert NumPy to Rust ImageFrame (optimized for performance)
+            # NumPy arrays are in (height, width, channels) format
+            # This is a zero-copy operation where possible (Rust borrows NumPy memory)
+            t_convert_start = time.perf_counter()
             frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
                 self._current_frame,
                 frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
                 frpl.connector_core.data_types.descriptors.MemoryOrderLayout.HeightsWidthsChannels
             )
-            logger.info("📤 [CAMERA] ✅ Converted NumPy frame to Rust ImageFrame")
+            t_convert = (time.perf_counter() - t_convert_start) * 1000
             
-            # Use sensor_segmented_vision_write since we registered with sensor_segmented_vision_register
+            # Use sensor_segmented_vision_write (registered during setup)
             method_name = "sensor_segmented_vision_write"
-            
-            logger.info(f"📤 [CAMERA] Using Rust method: {method_name}")
-            
-            # Get method
-            if not hasattr(cache, method_name):
-                raise AttributeError(
-                    f"ConnectorAgent missing write method: {method_name}. "
-                    f"This should exist since we registered with sensor_segmented_vision_register."
-                )
             write_method = getattr(cache, method_name)
             
-            # Write
-            logger.info(f"📤 [CAMERA] Calling {method_name}(group={self.group_id}, channel_index={self.channel})...")
+            # Write frame to Rust cache (all processing happens in Rust)
+            t_write_start = time.perf_counter()
             write_method(
                 group=self.group_id,
                 channel_index=self.channel,
                 data=frame
             )
-            logger.info(f"📤 [CAMERA] ✅ Successfully wrote frame to cache (group={self.group_id}, channel_index={self.channel})")
+            t_write = (time.perf_counter() - t_write_start) * 1000
+            
+            # Performance logging removed for hot path
         except ImportError as e:
             logger.error("❌ [CAMERA] feagi_rust_py_libs import failed", exc_info=True)
             raise ImportError("feagi_rust_py_libs required") from e
