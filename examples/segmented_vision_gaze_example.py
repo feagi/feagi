@@ -28,14 +28,14 @@ async def main():
     resolution_output_center = (128, 128)
     
     # Gaze parameters (size of central region and peripheral tiling)
-    eccentricity = frpl.connector_core.data.Percentage2D(
-        frpl.connector_core.data.Percentage.new_from_0_1(0.2),
-        frpl.connector_core.data.Percentage.new_from_0_1(0.2),
+    eccentricity = frpl.connector_core.data_types.Percentage2D(
+        frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
+        frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
     )
     
-    modulation = frpl.connector_core.data.Percentage2D(
-        frpl.connector_core.data.Percentage.new_from_0_1(0.2),
-        frpl.connector_core.data.Percentage.new_from_0_1(0.2),
+    modulation = frpl.connector_core.data_types.Percentage2D(
+        frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
+        frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
     )
     
     cortical_group = 0
@@ -43,25 +43,25 @@ async def main():
     number_z_neurons = 10
 
     # Create resolution descriptors using Rust types
-    input_image_resolution = frpl.connector_core.data.descriptors.ImageXYResolution(
+    input_image_resolution = frpl.connector_core.data_types.descriptors.ImageXYResolution(
         resolution_size_input[0],
         resolution_size_input[1]
     )
 
-    output_center_resolution = frpl.connector_core.data.descriptors.ImageXYResolution(
+    output_center_resolution = frpl.connector_core.data_types.descriptors.ImageXYResolution(
         resolution_output_center[0],
         resolution_output_center[1]
     )
 
-    output_peripheral_resolution = frpl.connector_core.data.descriptors.ImageXYResolution(
+    output_peripheral_resolution = frpl.connector_core.data_types.descriptors.ImageXYResolution(
         resolution_output_peripheral[0],
         resolution_output_peripheral[1]
     )
 
     # Create image frames using Rust ImageFrame
     # NOTE: NumPy arrays are (height, width, channels), so use HeightsWidthsChannels
-    color_space = frpl.connector_core.data.descriptors.ColorSpace.Linear
-    memory_order = frpl.connector_core.data.descriptors.MemoryOrderLayout.HeightsWidthsChannels
+    color_space = frpl.connector_core.data_types.descriptors.ColorSpace.Linear
+    memory_order = frpl.connector_core.data_types.descriptors.MemoryOrderLayout.HeightsWidthsChannels
     
     # Create a test image (grayscale value 15 for first frame)
     test_image_data = np.ones(
@@ -69,7 +69,7 @@ async def main():
         dtype=np.uint8
     ) * 15
     
-    image_frame_1 = frpl.connector_core.data.ImageFrame.new_from_array(
+    image_frame_1 = frpl.connector_core.data_types.ImageFrame.new_from_array(
         test_image_data,
         color_space,
         memory_order
@@ -79,17 +79,17 @@ async def main():
     color_channel_layout = image_frame_1.channel_layout
 
     # Create segmented image properties
-    output_resolutions = frpl.connector_core.data.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+    output_resolutions = frpl.connector_core.data_types.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
         output_center_resolution,
         output_peripheral_resolution
     )
     
-    gaze = frpl.connector_core.data.descriptors.GazeProperties(
+    gaze = frpl.connector_core.data_types.descriptors.GazeProperties(
         eccentricity,
         modulation
     )
     
-    segment_properties = frpl.connector_core.data.descriptors.SegmentedImageFrameProperties(
+    segment_properties = frpl.connector_core.data_types.descriptors.SegmentedImageFrameProperties(
         output_resolutions,
         color_channel_layout,
         color_channel_layout,

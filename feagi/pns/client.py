@@ -70,7 +70,7 @@ if _rust_sdk_available:
         print(f"[PYTHON-SDK] ❌ Failed to init Rust logging: {e}", flush=True)
         logging.getLogger("feagi.pns.client").warning(f"Failed to init Rust logging: {e}")
 else:
-    print("[PYTHON-SDK] ⚠️ Rust SDK NOT available, using Python fallback", flush=True)
+    # No fallback - Rust SDK is required (will raise ImportError in __init__)
     PyAgentClient = None
     PyAgentConfig = None
     RustAgentType = None

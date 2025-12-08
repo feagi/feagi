@@ -26,8 +26,9 @@ Example:
 
 from feagi.agent.base import BaseAgent
 from feagi.agent.video import VideoStreamAgent
+from feagi.agent.esp32 import Esp32SerialController
 
-__all__ = ["BaseAgent", "VideoStreamAgent"]
+__all__ = ["BaseAgent", "VideoStreamAgent", "Esp32SerialController"]
 
 # Optional Bluetooth support
 try:

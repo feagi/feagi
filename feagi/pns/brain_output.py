@@ -88,17 +88,20 @@ class BrainOutput:
         self._monitors: List['Monitor'] = []
     
     def _init_cache(self):
-        """Initialize Rust MotorDeviceCache (lazy)"""
+        """Initialize Rust ConnectorAgent (lazy)"""
         if self._cache is not None:
             return
         
         try:
             import feagi_rust_py_libs as frpl
-            self._cache = frpl.connector_core.caching.MotorDeviceCache()
+            # Use ConnectorAgent which provides motor methods
+            # NOTE: frpl.connector_core.caching.MotorDeviceCache() does not exist in current API
+            # Using ConnectorAgent instead - encoding methods still need to be added to rust-py-libs
+            self._cache = frpl.connector_core.ConnectorAgent()
             self._cache_available = True
-            logger.info("✅ Rust MotorDeviceCache initialized")
-        except ImportError as e:
-            logger.error(f"❌ Failed to initialize Rust MotorDeviceCache: {e}")
+            logger.info("✅ Rust ConnectorAgent initialized")
+        except (ImportError, AttributeError) as e:
+            logger.error(f"❌ Failed to initialize Rust ConnectorAgent: {e}")
             logger.error("   Install with: pip install feagi_rust_py_libs")
             raise ImportError(
                 "Rust SDK (feagi_rust_py_libs) is required for brain_output.\n"

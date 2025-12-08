@@ -13,15 +13,26 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Set
 
-from feagi_rust import PyAgentRegistry
+# Initialize logger first
+logger = logging.getLogger(__name__)
+
+# Make Rust registry optional - HTTP API registration doesn't require it
+try:
+    from feagi_rust import PyAgentRegistry
+    RUST_REGISTRY_AVAILABLE = True
+except ImportError:
+    PyAgentRegistry = None
+    RUST_REGISTRY_AVAILABLE = False
+    logger.warning(
+        "⚠️ feagi_rust module not available. HTTP API registration will work, "
+        "but local Rust registry operations will be disabled."
+    )
 
 try:
     from feagi.config.toml_loader import get_agent_config, load_feagi_config
 except ImportError:
     load_feagi_config = None
     get_agent_config = None
-
-logger = logging.getLogger(__name__)
 
 
 class AgentRegistrationRequest:
@@ -57,6 +68,7 @@ class AgentRegistrationResponse:
         success: bool,
         message: str,
         agent_id: str,
+        cortical_areas: Dict[str, Any],  # Required in FEAGI 2.0 - must come before optional params
         fq_samplers_enabled: Optional[Dict[str, bool]] = None,
         error_code: Optional[str] = None,
         transport_info: Optional[Dict[str, Any]] = None,
@@ -64,6 +76,7 @@ class AgentRegistrationResponse:
         self.success = success
         self.message = message
         self.agent_id = agent_id
+        self.cortical_areas = cortical_areas  # Cortical area availability status (required)
         self.fq_samplers_enabled = fq_samplers_enabled or {}
         self.transport_info = transport_info or {}
         self.error_code = error_code
@@ -142,7 +155,15 @@ class RegistrationManager:
         return flattened
     
     def _get_registry(self):
-        """Lazy load registry from PNS (handles startup order issues)"""
+        """Lazy load registry from PNS (handles startup order issues)
+        
+        Returns None if Rust registry is not available (HTTP-only mode).
+        HTTP API registration works without local Rust registry.
+        """
+        # If Rust registry is not available, return None (HTTP-only mode)
+        if not RUST_REGISTRY_AVAILABLE:
+            return None
+            
         # Don't attempt lazy-load during shutdown to avoid deadlocks
         if self._shutting_down and not self._registry_initialized:
             return None
@@ -193,6 +214,7 @@ class RegistrationManager:
                         success=False,
                         message=validation_result.get("error", "Validation failed"),
                         agent_id=request.agent_id,
+                        cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                         error_code="VALIDATION_ERROR",
                     )
 
@@ -202,23 +224,28 @@ class RegistrationManager:
                         success=False,
                         message="FEAGI system not ready",
                         agent_id=request.agent_id,
+                        cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                         error_code="FEAGI_NOT_READY",
                     )
 
-                # 3. Check if re-registration
+                # 3. Check if re-registration (skip if Rust registry not available)
                 is_re_registration = False
-                try:
-                    existing_agent_json = self._get_registry().get_agent_json(request.agent_id)
-                    is_re_registration = True
-                    existing_agent = json.loads(existing_agent_json)
-                    logger.warning(f"⚠️ Agent '{request.agent_id}' re-registering")
-                    
-                    # Subtract old capability counts (flatten Rust struct to get all caps)
-                    old_rust_caps = existing_agent.get("capabilities", {})
-                    old_caps = self._flatten_rust_capabilities(old_rust_caps)
-                    self._update_capability_counts(old_caps, increment=False)
-                except Exception:
-                    logger.info(f"✅ New agent '{request.agent_id}' registering")
+                registry = self._get_registry()
+                if registry:
+                    try:
+                        existing_agent_json = registry.get_agent_json(request.agent_id)
+                        is_re_registration = True
+                        existing_agent = json.loads(existing_agent_json)
+                        logger.warning(f"⚠️ Agent '{request.agent_id}' re-registering")
+                        
+                        # Subtract old capability counts (flatten Rust struct to get all caps)
+                        old_rust_caps = existing_agent.get("capabilities", {})
+                        old_caps = self._flatten_rust_capabilities(old_rust_caps)
+                        self._update_capability_counts(old_caps, increment=False)
+                    except Exception:
+                        logger.info(f"✅ New agent '{request.agent_id}' registering")
+                else:
+                    logger.info(f"✅ New agent '{request.agent_id}' registering (HTTP-only mode)")
 
                 # 4. Extract capability rates BEFORE sanitization
                 capability_rates_to_register = []
@@ -278,7 +305,7 @@ class RegistrationManager:
                 
                 rust_capabilities_json = json.dumps(rust_capabilities)
                 
-                # Prepare metadata for Rust registry
+                # Prepare metadata for registration
                 metadata = {}
                 if request.agent_data_port is not None:
                     metadata["agent_data_port"] = request.agent_data_port
@@ -291,26 +318,141 @@ class RegistrationManager:
                 if request.metadata:
                     metadata.update(request.metadata)
                 
-                metadata_json = json.dumps(metadata) if metadata else None
+                # FEAGI 2.0: Register via HTTP API endpoint to trigger auto-creation of missing cortical areas
+                # This ensures the registration endpoint processes the request and creates missing IPU/OPU areas
+                cortical_areas = {"required_ipu_areas": [], "required_opu_areas": []}  # Default
                 
-                # 🦀 Register in Rust registry with metadata
-                result_json = self._get_registry().register_agent_direct(
-                    request.agent_id,
-                    self._map_agent_type_to_rust(request.agent_type),
-                    rust_capabilities_json,
-                    metadata_json
-                )
-                
-                result = json.loads(result_json)
-                if not result.get("success"):
+                try:
+                    import requests
+                    
+                    # Get FEAGI API URL from config, metadata, or environment
+                    feagi_api_url = "http://localhost:8000"  # Default
+                    
+                    # Try to get from request metadata first (allows explicit override)
+                    if request.metadata and "feagi_api_url" in request.metadata:
+                        feagi_api_url = request.metadata["feagi_api_url"]
+                    elif request.metadata and "feagi_api_port" in request.metadata:
+                        api_port = request.metadata["feagi_api_port"]
+                        feagi_api_url = f"http://{request.agent_ip}:{api_port}"
+                    else:
+                        # Try to get from config
+                        try:
+                            if load_feagi_config:
+                                config = load_feagi_config()
+                                agent_config = get_agent_config(config) if get_agent_config else None
+                                if agent_config:
+                                    feagi_api_url = f"http://{agent_config.get('host', 'localhost')}:{config.api.get('port', 8000)}"
+                        except Exception:
+                            pass  # Use default
+                    
+                    # Build registration payload for HTTP API
+                    # agent_data_port is required (u16) - use default if not provided
+                    agent_data_port = request.agent_data_port if request.agent_data_port is not None else 0
+                    
+                    registration_payload = {
+                        "agent_id": request.agent_id,
+                        "agent_type": request.agent_type,
+                        "capabilities": sanitized_caps,
+                        "agent_data_port": agent_data_port,  # Must be u16, not null
+                        "agent_version": request.agent_version or "1.0.0",
+                        "controller_version": request.controller_version or "1.0.0",
+                        "metadata": metadata,
+                    }
+                    
+                    # Call FEAGI HTTP API registration endpoint
+                    api_endpoint = f"{feagi_api_url}/v1/agent/register"
+                    logger.info(f"📡 Registering agent via HTTP API: {api_endpoint}")
+                    
+                    response = requests.post(
+                        api_endpoint,
+                        json=registration_payload,
+                        timeout=10.0,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    if response.status_code != 200:
+                        error_msg = f"HTTP registration failed: {response.status_code} - {response.text}"
+                        logger.error(error_msg)
+                        return AgentRegistrationResponse(
+                            success=False,
+                            message=error_msg,
+                            agent_id=request.agent_id,
+                            cortical_areas=cortical_areas,
+                            error_code="HTTP_REGISTRATION_ERROR",
+                        )
+                    
+                    # Parse response
+                    api_response = response.json()
+                    
+                    # Extract cortical area information from response (FEAGI 2.0 feature)
+                    cortical_areas = api_response.get("cortical_areas", {
+                        "required_ipu_areas": [],
+                        "required_opu_areas": []
+                    })
+                    
+                    # Check if registration was successful
+                    if api_response.get("status") != "success":
+                        error_msg = api_response.get("message", "Registration failed")
+                        logger.error(f"Registration failed: {error_msg}")
+                        return AgentRegistrationResponse(
+                            success=False,
+                            message=error_msg,
+                            agent_id=request.agent_id,
+                            cortical_areas=cortical_areas,
+                            error_code="REGISTRATION_REJECTED",
+                        )
+                    
+                    logger.info(f"✅ Agent registered via HTTP API: {request.agent_id}")
+                    logger.info(f"   Cortical areas: {len(cortical_areas.get('required_ipu_areas', []))} IPU, {len(cortical_areas.get('required_opu_areas', []))} OPU")
+                    
+                    # Extract transport info from API response (contains actual ZMQ ports)
+                    transport_info_from_api = {}
+                    if "transports" in api_response:
+                        transport_info_from_api["transports"] = api_response["transports"]
+                    if "zmq_ports" in api_response:
+                        transport_info_from_api["zmq_ports"] = api_response["zmq_ports"]
+                        logger.info(f"   ZMQ ports from API: {api_response.get('zmq_ports', {})}")
+                    
+                    # Now also register in local Rust registry for backward compatibility
+                    # (This is for internal consistency, not the primary registration)
+                    # Skip if Rust registry is not available (HTTP-only mode)
+                    registry = self._get_registry()
+                    if registry:
+                        metadata_json = json.dumps(metadata) if metadata else None
+                        try:
+                            result_json = registry.register_agent_direct(
+                                request.agent_id,
+                                self._map_agent_type_to_rust(request.agent_type),
+                                rust_capabilities_json,
+                                metadata_json
+                            )
+                            result = json.loads(result_json)
+                            if result.get("success"):
+                                logger.info(f"🦀 Agent also stored in local Rust registry: {request.agent_id}")
+                        except Exception as e:
+                            logger.warning(f"Failed to store in local Rust registry (non-fatal): {e}")
+                    else:
+                        logger.debug("Skipping local Rust registry storage (HTTP-only mode)")
+                    
+                except ImportError:
+                    logger.error("'requests' library not available. Cannot register via HTTP API.")
                     return AgentRegistrationResponse(
                         success=False,
-                        message=result.get("message", "Registration failed"),
+                        message="HTTP registration requires 'requests' library. Install with: pip install requests",
                         agent_id=request.agent_id,
-                        error_code="RUST_REGISTRY_ERROR",
+                        cortical_areas=cortical_areas,
+                        error_code="MISSING_DEPENDENCY",
                     )
-
-                logger.info(f"🦀 Agent stored in Rust registry: {request.agent_id}")
+                except requests.exceptions.RequestException as e:
+                    error_msg = f"HTTP registration request failed: {e}"
+                    logger.error(error_msg)
+                    return AgentRegistrationResponse(
+                        success=False,
+                        message=error_msg,
+                        agent_id=request.agent_id,
+                        cortical_areas=cortical_areas,
+                        error_code="HTTP_REQUEST_ERROR",
+                    )
 
                 # 7. Update capability counts
                 self._update_capability_counts(sanitized_caps, increment=True)
@@ -339,17 +481,24 @@ class RegistrationManager:
                 # 11. Notify listeners
                 self._notify_state_change("agent_registered", request.agent_id)
 
+                registry = self._get_registry()
+                total_agents = registry.agent_count() if registry else "N/A (HTTP-only mode)"
                 logger.info(
                     f"✅ Agent registered: {request.agent_id} "
-                    f"(total: {self._get_registry().agent_count()})"
+                    f"(total: {total_agents})"
                 )
 
+                # Get transport info - prefer API response, fallback to config-based
+                transport_info = transport_info_from_api if transport_info_from_api else self._get_transport_info(request.agent_type, sanitized_caps)
+                
+                # Return response with cortical area information from HTTP API
                 return AgentRegistrationResponse(
                     success=True,
                     message=f"Agent {request.agent_id} registered successfully",
                     agent_id=request.agent_id,
+                    cortical_areas=cortical_areas,  # Use cortical areas from HTTP API response
                     fq_samplers_enabled=fq_changes,
-                    transport_info=self._get_transport_info(request.agent_type, sanitized_caps),
+                    transport_info=transport_info,  # Use transport info from API response if available
                 )
 
             except Exception as e:
@@ -358,6 +507,7 @@ class RegistrationManager:
                     success=False,
                     message=f"Registration failed: {str(e)}",
                     agent_id=request.agent_id,
+                    cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                     error_code="INTERNAL_ERROR",
                 )
 
@@ -375,6 +525,7 @@ class RegistrationManager:
                         success=True,
                         message="Deregistration skipped (system shutting down)",
                         agent_id=agent_id,
+                        cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                         fq_samplers_enabled=False,
                     )
                 
@@ -396,6 +547,7 @@ class RegistrationManager:
                         success=False,
                         message=result.get("message", "Deregistration failed"),
                         agent_id=agent_id,
+                        cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                         error_code="RUST_REGISTRY_ERROR",
                     )
 
@@ -414,6 +566,7 @@ class RegistrationManager:
                     success=True,
                     message=f"Agent {agent_id} deregistered successfully",
                     agent_id=agent_id,
+                    cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                     fq_samplers_enabled=fq_changes,
                 )
 
@@ -423,6 +576,7 @@ class RegistrationManager:
                     success=False,
                     message=f"Deregistration failed: {str(e)}",
                     agent_id=agent_id,
+                    cortical_areas={"required_ipu_areas": [], "required_opu_areas": []},
                     error_code="AGENT_NOT_FOUND",
                 )
 
@@ -577,16 +731,39 @@ class RegistrationManager:
 
     def _get_transport_info(self, agent_type: str, capabilities: Dict[str, Any]) -> Dict[str, Any]:
         """Get transport information for agent (MUST use config - NO fallback)"""
-        from feagi.config.toml_loader import get_port_config, get_host_config
+        # Check if config loader is available
+        if load_feagi_config is None or get_agent_config is None:
+            # Config loader not available - return default endpoints
+            # This can happen when running in environments without feagi.config module
+            logger.warning("⚠️ feagi.config.toml_loader not available, using default transport endpoints")
+            return {
+                "sensory_endpoint": "tcp://127.0.0.1:5558",
+                "motor_endpoint": "tcp://127.0.0.1:5564",
+            }
         
-        config = load_feagi_config()
-        port_config = get_port_config(config)
-        host_config = get_host_config(config)
-        
-        return {
-            "sensory_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_sensory_port}",
-            "motor_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_motor_port}",
-        }
+        try:
+            from feagi.config.toml_loader import get_port_config, get_host_config
+            
+            config = load_feagi_config()
+            port_config = get_port_config(config)
+            host_config = get_host_config(config)
+            
+            return {
+                "sensory_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_sensory_port}",
+                "motor_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_motor_port}",
+            }
+        except ImportError:
+            logger.warning("⚠️ feagi.config.toml_loader not available, using default transport endpoints")
+            return {
+                "sensory_endpoint": "tcp://127.0.0.1:5558",
+                "motor_endpoint": "tcp://127.0.0.1:5564",
+            }
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load config for transport info: {e}, using default endpoints")
+            return {
+                "sensory_endpoint": "tcp://127.0.0.1:5558",
+                "motor_endpoint": "tcp://127.0.0.1:5564",
+            }
 
     def _update_capability_counts(self, capabilities: Dict[str, Any], increment: bool) -> None:
         """Update capability counts"""
