@@ -10,6 +10,7 @@ No duplication, no fallbacks, no dead code.
 import json
 import logging
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Set
 
@@ -124,12 +125,21 @@ class RegistrationManager:
 
         # FEAGI readiness
         self._feagi_ready = True
+        
+        # Heartbeat management (keeps agents registered)
+        self._heartbeat_threads: Dict[str, threading.Thread] = {}
+        self._heartbeat_running: Dict[str, bool] = {}
+        self._heartbeat_interval = 30.0  # Send heartbeat every 30 seconds (timeout is 68s)
+        self._feagi_api_urls: Dict[str, str] = {}  # Store API URL per agent
 
         logger.info("🦀 Rust-backed Registration Manager fully initialized")
 
     def shutdown(self):
         """Signal shutdown to prevent lazy-load deadlocks."""
         self._shutting_down = True
+        # Stop all heartbeat threads
+        for agent_id in list(self._heartbeat_running.keys()):
+            self.stop_heartbeat(agent_id)
 
     def _flatten_rust_capabilities(self, rust_caps: Dict[str, Any]) -> Dict[str, Any]:
         """Flatten Rust AgentCapabilities struct to legacy dict format.
@@ -405,6 +415,9 @@ class RegistrationManager:
                     logger.info(f"✅ Agent registered via HTTP API: {request.agent_id}")
                     logger.info(f"   Cortical areas: {len(cortical_areas.get('required_ipu_areas', []))} IPU, {len(cortical_areas.get('required_opu_areas', []))} OPU")
                     
+                    # Store API URL for heartbeat
+                    self._feagi_api_urls[request.agent_id] = feagi_api_url
+                    
                     # Extract transport info from API response (contains actual ZMQ ports)
                     transport_info_from_api = {}
                     if "transports" in api_response:
@@ -580,14 +593,88 @@ class RegistrationManager:
                     error_code="AGENT_NOT_FOUND",
                 )
 
-    def heartbeat_agent(self, agent_id: str) -> bool:
-        """Update agent activity timestamp"""
+    def heartbeat_agent(self, agent_id: str, feagi_api_url: Optional[str] = None) -> bool:
+        """Send heartbeat to FEAGI API to keep agent registered"""
+        # Use stored API URL or provided one
+        api_url = feagi_api_url or self._feagi_api_urls.get(agent_id)
+        if not api_url:
+            # Try to get from config
+            try:
+                if load_feagi_config:
+                    config = load_feagi_config()
+                    api_url = f"http://{config.api.get('host', 'localhost')}:{config.api.get('port', 8000)}"
+            except Exception:
+                api_url = "http://localhost:8000"  # Default fallback
+        
         try:
-            self._get_registry().update_agent_activity(agent_id)
-            return True
-        except Exception as e:
-            logger.warning(f"Heartbeat failed for {agent_id}: {e}")
+            import requests
+            heartbeat_endpoint = f"{api_url}/v1/agent/heartbeat"
+            response = requests.post(
+                heartbeat_endpoint,
+                json={"agent_id": agent_id},
+                timeout=5.0,
+                headers={"Content-Type": "application/json"}
+            )
+            if response.status_code == 200:
+                logger.debug(f"💓 [HEARTBEAT] Sent heartbeat for agent '{agent_id}'")
+                return True
+            else:
+                logger.warning(f"💓 [HEARTBEAT] Heartbeat failed for '{agent_id}': HTTP {response.status_code}")
+                return False
+        except ImportError:
+            logger.warning("💓 [HEARTBEAT] 'requests' library not available. Cannot send heartbeat via HTTP API.")
             return False
+        except Exception as e:
+            logger.warning(f"💓 [HEARTBEAT] Heartbeat failed for '{agent_id}': {e}")
+            return False
+    
+    def start_heartbeat(self, agent_id: str, feagi_host: str, feagi_api_port: int):
+        """Start background heartbeat thread for an agent"""
+        if agent_id in self._heartbeat_running and self._heartbeat_running[agent_id]:
+            return  # Already running
+        
+        feagi_api_url = f"http://{feagi_host}:{feagi_api_port}"
+        self._feagi_api_urls[agent_id] = feagi_api_url
+        
+        self._heartbeat_running[agent_id] = True
+        heartbeat_interval = self._heartbeat_interval
+        
+        def heartbeat_loop():
+            """Background thread that sends periodic heartbeats"""
+            while self._heartbeat_running.get(agent_id, False):
+                try:
+                    time.sleep(heartbeat_interval)
+                    if not self._heartbeat_running.get(agent_id, False):
+                        break
+                    
+                    # Send heartbeat via HTTP API
+                    self.heartbeat_agent(agent_id, feagi_api_url)
+                except Exception as e:
+                    logger.error(f"💓 [HEARTBEAT] Error in heartbeat loop for '{agent_id}': {e}", exc_info=True)
+                    # Continue heartbeat loop even on error
+                    time.sleep(heartbeat_interval)
+        
+        heartbeat_thread = threading.Thread(
+            target=heartbeat_loop,
+            daemon=True,
+            name=f"heartbeat-{agent_id}"
+        )
+        heartbeat_thread.start()
+        self._heartbeat_threads[agent_id] = heartbeat_thread
+        logger.info(f"💓 [HEARTBEAT] Started heartbeat thread for agent '{agent_id}' (interval: {heartbeat_interval}s, API: {feagi_api_url})")
+    
+    def stop_heartbeat(self, agent_id: str):
+        """Stop background heartbeat thread for an agent"""
+        if agent_id in self._heartbeat_running:
+            self._heartbeat_running[agent_id] = False
+            if agent_id in self._heartbeat_threads:
+                thread = self._heartbeat_threads[agent_id]
+                if thread.is_alive():
+                    thread.join(timeout=2.0)
+                del self._heartbeat_threads[agent_id]
+            if agent_id in self._feagi_api_urls:
+                del self._feagi_api_urls[agent_id]
+            logger.debug(f"💓 [HEARTBEAT] Stopped heartbeat thread for agent '{agent_id}'")
 
     def get_agent_properties(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Get agent properties from Rust registry"""
