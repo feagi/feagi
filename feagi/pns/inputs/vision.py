@@ -78,6 +78,7 @@ class Camera(BaseInput):
         
         # Rust properties (lazy-initialized)
         self._properties = None
+        self._segmented_properties = None  # Store segmented properties for gaze updates
         
         # Cortical IDs that will be generated (populated during registration)
         self._cortical_ids: list[str] = []
@@ -286,6 +287,9 @@ class Camera(BaseInput):
             self._properties.color_space
         )
         
+        # Store segmented properties for later gaze updates
+        self._segmented_properties = segmented_properties
+        
         # GazeProperties - create default centered gaze
         # NOTE: GazeProperties may not be registered in rust-py-libs lib.rs yet
         # If not available, this will raise AttributeError with clear message
@@ -365,4 +369,164 @@ class Camera(BaseInput):
         except Exception as e:
             logger.error(f"❌ [CAMERA] Error writing frame to cache: {e}", exc_info=True)
             raise
+    
+    def update_gaze(self, eccentricity_x: float, eccentricity_y: float, modulation: float):
+        """
+        Update gaze properties dynamically (for segmented vision only).
+        
+        Args:
+            eccentricity_x: X position of gaze center (0.0 to 1.0)
+            eccentricity_y: Y position of gaze center (0.0 to 1.0)
+            modulation: Size of focus area (0.0 to 1.0)
+        """
+        try:
+            import feagi_rust_py_libs as frpl
+            from feagi.pns import brain_input
+            cc_data_types = frpl.connector_core.data_types
+            cc_desc = frpl.connector_core.data_types.descriptors
+            stage_props = frpl.connector_core.data_pipeline.stage_properties
+            
+            # Validate ranges
+            eccentricity_x = max(0.0, min(1.0, float(eccentricity_x)))
+            eccentricity_y = max(0.0, min(1.0, float(eccentricity_y)))
+            modulation = max(0.0, min(1.0, float(modulation)))
+            
+            # Ensure properties are initialized
+            if self._properties is None:
+                self._init_rust_properties()
+            
+            if self._segmented_properties is None:
+                logger.warning("⚠️ [CAMERA] Segmented properties not available. Gaze update only works for segmented vision.")
+                return
+            
+            # Create Percentage2D for eccentricity
+            # Percentage is in data_types, not descriptors
+            # Note: Python bindings use new_from_0_1 (not new_from_0_1_unchecked)
+            # Percentage2D is created using direct constructor, not .new() method
+            percentage_x = cc_data_types.Percentage.new_from_0_1(eccentricity_x)
+            percentage_y = cc_data_types.Percentage.new_from_0_1(eccentricity_y)
+            eccentricity_xy = cc_data_types.Percentage2D(percentage_x, percentage_y)
+            
+            # Create Percentage for modulation (GazeProperties expects a Percentage, not Percentage2D)
+            modulation_percentage = cc_data_types.Percentage.new_from_0_1(modulation)
+            
+            # Create new GazeProperties
+            # GazeProperties is in descriptors, and takes (eccentricity: Percentage2D, modulation: Percentage)
+            # Use direct constructor, not .new() method
+            new_gaze = cc_desc.GazeProperties(eccentricity_xy, modulation_percentage)
+            
+            # Create Python-compatible stage properties object using the Python constructor
+            # PyO3 handles inheritance automatically - the object IS a PyPipelineStageProperties
+            py_stage_props = stage_props.ImageSegmentorStageProperties(
+                self._properties,
+                self._segmented_properties,
+                new_gaze
+            )
+            
+            # Update the stage in the cache
+            # brain_input._cache is the ConnectorAgent itself
+            cache = brain_input._cache
+            if cache is None:
+                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update gaze.")
+                return
+            
+            # Try sensor_segmented_vision_update_single_stage_properties first
+            method_name = 'sensor_segmented_vision_update_single_stage_properties'
+            if hasattr(cache, method_name):
+                getattr(cache, method_name)(
+                    self.group_id,
+                    self.channel,
+                    1,  # Stage index 1 is the ImageSegmentor stage (0 is ImageQuickDiffStage)
+                    py_stage_props
+                )
+                logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
+            else:
+                # Fallback: try image_camera_with_peripheral_update_single_stage_properties
+                method_name = 'sensor_image_camera_with_peripheral_update_single_stage_properties'
+                if hasattr(cache, method_name):
+                    getattr(cache, method_name)(
+                        self.group_id,
+                        self.channel,
+                        1,  # Stage index 1 is the ImageSegmentor stage
+                        py_stage_props
+                    )
+                    logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
+                else:
+                    logger.warning(f"⚠️ [CAMERA] Gaze update methods not available. Update methods may need to be enabled in rust-py-libs.")
+        except Exception as e:
+            logger.error(f"❌ [CAMERA] Error updating gaze: {e}", exc_info=True)
+            # Don't raise - allow streaming to continue even if gaze update fails
+    
+    def update_diff_threshold(self, threshold: int):
+        """
+        Update diff threshold dynamically (for both simple and segmented vision).
+        
+        Args:
+            threshold: Minimum pixel difference to be considered changed (0-255)
+        """
+        try:
+            import feagi_rust_py_libs as frpl
+            from feagi.pns import brain_input
+            cc_data_types = frpl.connector_core.data_types
+            cc_desc = frpl.connector_core.data_types.descriptors
+            stage_props = frpl.connector_core.data_pipeline.stage_properties
+            
+            # Validate range
+            threshold = max(0, min(255, int(threshold)))
+            
+            # Ensure properties are initialized
+            if self._properties is None:
+                self._init_rust_properties()
+            
+            # Create new ImageQuickDiffStageProperties with updated threshold
+            # per_pixel_range: threshold to 255 (pixels must change by at least threshold)
+            # activity_range: 0.0 to 1.0 (accept any amount of activity)
+            per_pixel_min = threshold
+            per_pixel_max = 255
+            activity_min = cc_data_types.Percentage.new_from_0_1(0.0)
+            activity_max = cc_data_types.Percentage.new_from_0_1(1.0)
+            
+            # Create Python-compatible stage properties object
+            py_stage_props = stage_props.ImageQuickDiffStageProperties(
+                per_pixel_min,
+                per_pixel_max,
+                activity_min,
+                activity_max,
+                self._properties
+            )
+            
+            # Update the stage in the cache
+            # brain_input._cache is the ConnectorAgent itself
+            cache = brain_input._cache
+            if cache is None:
+                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update diff threshold.")
+                return
+            
+            # Stage index 0 is the ImageQuickDiffStage (for both simple and segmented vision)
+            # Try sensor_segmented_vision_update_single_stage_properties first (works for segmented)
+            method_name = 'sensor_segmented_vision_update_single_stage_properties'
+            if hasattr(cache, method_name):
+                getattr(cache, method_name)(
+                    self.group_id,
+                    self.channel,
+                    0,  # Stage index 0 is the ImageQuickDiffStage
+                    py_stage_props
+                )
+                logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
+            else:
+                # Fallback: try simple_vision_update_single_stage_properties (for simple vision)
+                method_name = 'sensor_simple_vision_update_single_stage_properties'
+                if hasattr(cache, method_name):
+                    getattr(cache, method_name)(
+                        self.group_id,
+                        self.channel,
+                        0,  # Stage index 0 is the ImageQuickDiffStage
+                        py_stage_props
+                    )
+                    logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
+                else:
+                    logger.warning(f"⚠️ [CAMERA] Diff threshold update methods not available.")
+        except Exception as e:
+            logger.error(f"❌ [CAMERA] Error updating diff threshold: {e}", exc_info=True)
+            # Don't raise - allow streaming to continue even if diff threshold update fails
 
