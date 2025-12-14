@@ -362,7 +362,7 @@ class RegistrationManager:
                     registration_payload = {
                         "agent_id": request.agent_id,
                         "agent_type": request.agent_type,
-                        "capabilities": sanitized_caps,
+                        "capabilities": rust_capabilities,  # Use Rust struct format, not sanitized_caps
                         "agent_data_port": agent_data_port,  # Must be u16, not null
                         "agent_version": request.agent_version or "1.0.0",
                         "controller_version": request.controller_version or "1.0.0",
