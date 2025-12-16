@@ -460,42 +460,39 @@ class BrainInput:
                     raise
             
             # Encode cached data to bytes
-            # CRITICAL: These methods are missing from rust-py-libs ConnectorAgent
-            # Required methods: sensors_encode_cached_data_to_bytes() and sensor_get_byte_container()
+            # Note: Method name was changed to sensors_encode_cached_sensor_data_to_bytes in recent refactor
             try:
-                if not hasattr(self._cache, 'sensors_encode_cached_data_to_bytes'):
+                if not hasattr(self._cache, 'sensors_encode_cached_sensor_data_to_bytes'):
                     raise AttributeError(
-                        "ConnectorAgent missing required method: sensors_encode_cached_data_to_bytes()\n"
+                        "ConnectorAgent missing required method: sensors_encode_cached_sensor_data_to_bytes()\n"
                         "This method needs to be added to rust-py-libs ConnectorAgent.\n"
                         "See MISSING_RUST_PY_LIBS_API.md for details."
                     )
                 
-                self._cache.sensors_encode_cached_data_to_bytes()
+                self._cache.sensors_encode_cached_sensor_data_to_bytes()
             except AttributeError:
                 raise
             except Exception as e:
                 logger.error(f"❌ [BRAIN-INPUT] Error encoding cached data to bytes: {e}", exc_info=True)
                 raise
             
-            # Get encoded byte container (Rust)
+            # Get encoded bytes (Rust)
+            # Note: API changed to sensors_read_bytes() which directly returns Vec<u8>
             try:
-                if not hasattr(self._cache, 'sensor_get_byte_container'):
+                if not hasattr(self._cache, 'sensors_read_bytes'):
                     raise AttributeError(
-                        "ConnectorAgent missing required method: sensor_get_byte_container()\n"
+                        "ConnectorAgent missing required method: sensors_read_bytes()\n"
                         "This method needs to be added to rust-py-libs ConnectorAgent.\n"
                         "See MISSING_RUST_PY_LIBS_API.md for details."
                     )
-                byte_container = self._cache.sensor_get_byte_container()
-                
-                # Get serialized bytes from container
-                py_bytes = byte_container.copy_out_as_byte_vector()
+                py_bytes = self._cache.sensors_read_bytes()
                 serialized = bytes(py_bytes)
                 
                 # Logging removed for hot path
             except AttributeError:
                 raise
             except Exception as e:
-                logger.error(f"❌ [BRAIN-INPUT] Error getting sensor byte container: {e}", exc_info=True)
+                logger.error(f"❌ [BRAIN-INPUT] Error reading sensor bytes: {e}", exc_info=True)
                 raise
             
             # Check if we have data
