@@ -219,6 +219,7 @@ class Camera(BaseInput):
         
         import feagi_rust_py_libs as frpl
         cc_desc = frpl.connector_core.data_types.descriptors
+        cc_data_types = frpl.connector_core.data_types
         
         # Create required parameters for segmented_vision_register
         # Following pattern from test.py and examples
@@ -291,17 +292,16 @@ class Camera(BaseInput):
         self._segmented_properties = segmented_properties
         
         # GazeProperties - create default centered gaze
-        # NOTE: GazeProperties may not be registered in rust-py-libs lib.rs yet
-        # If not available, this will raise AttributeError with clear message
+        # GazeProperties is in data_types, not descriptors
         try:
-            gaze = cc_desc.GazeProperties.create_default_centered()
+            gaze = cc_data_types.GazeProperties.create_default_centered()
         except AttributeError:
             # GazeProperties not exposed - needs to be added to rust-py-libs lib.rs
             raise AttributeError(
                 "GazeProperties is not available in rust-py-libs.\n"
                 "It exists in the Rust code but needs to be registered in lib.rs:\n"
-                "add_python_class!(py, m, \"connector_core.data_types.descriptors\", "
-                "feagi_connector_core::data_types::descriptors::PyGazeProperties);"
+                "add_python_class!(py, m, \"connector_core.data_types\", "
+                "feagi_connector_core::data_types::PyGazeProperties);"
             )
         
         register_method = getattr(cache, method_name)
@@ -316,6 +316,41 @@ class Camera(BaseInput):
             segmented_image_properties=segmented_properties,
             initial_gaze=gaze
         )
+        
+        # Add diff stage to the pipeline (registration only creates segmentor stage)
+        # We need to prepend the diff stage so it processes frames before segmentation
+        # Stage 0: ImageQuickDiffStage - detects changes between frames
+        # Stage 1: ImageFrameSegmentatorStage - segments the image into 9 regions
+        try:
+            stage_props = frpl.connector_core.data_pipeline.stage_properties
+            
+            # Create diff stage properties with default threshold
+            per_pixel_min = 1  # Minimum pixel change to be considered different
+            per_pixel_max = 255
+            activity_min = cc_data_types.Percentage.new_from_0_1(0.0)  # Accept any amount of activity
+            activity_max = cc_data_types.Percentage.new_from_0_1(1.0)
+            
+            diff_stage = stage_props.ImageQuickDiffStageProperties(
+                per_pixel_min,
+                per_pixel_max,
+                activity_min,
+                activity_max,
+                self._properties
+            )
+            
+            # Get the existing segmentor stage (index 0 after registration)
+            segmentor_stage = cache.sensor_segmented_vision_get_single_stage_properties(group_id, 0, 0)
+            
+            # Replace pipeline with [diff_stage, segmentor_stage]
+            new_pipeline = [diff_stage, segmentor_stage]
+            cache.sensor_segmented_vision_replace_all_stages(group_id, 0, new_pipeline)
+            
+            logger.info(f"✅ Added diff stage to segmented vision pipeline (group_id={group_id})")
+            logger.info(f"   Stage 0: ImageQuickDiffStage (threshold={per_pixel_min})")
+            logger.info(f"   Stage 1: ImageFrameSegmentatorStage")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not add diff stage to pipeline: {e}")
+            logger.warning(f"   Segmented vision will work without diff stage, but won't filter unchanged frames")
         
         # Log registration details
         # NOTE: Segmented vision creates 9 cortical IDs (one per segment) with Absolute encoding
@@ -411,13 +446,13 @@ class Camera(BaseInput):
             modulation_percentage = cc_data_types.Percentage.new_from_0_1(modulation)
             
             # Create new GazeProperties
-            # GazeProperties is in descriptors, and takes (eccentricity: Percentage2D, modulation: Percentage)
+            # GazeProperties is in data_types, and takes (eccentricity: Percentage2D, modulation: Percentage)
             # Use direct constructor, not .new() method
-            new_gaze = cc_desc.GazeProperties(eccentricity_xy, modulation_percentage)
+            new_gaze = cc_data_types.GazeProperties(eccentricity_xy, modulation_percentage)
             
             # Create Python-compatible stage properties object using the Python constructor
             # PyO3 handles inheritance automatically - the object IS a PyPipelineStageProperties
-            py_stage_props = stage_props.ImageSegmentorStageProperties(
+            py_stage_props = stage_props.ImageFrameSegmentatorStageProperties(
                 self._properties,
                 self._segmented_properties,
                 new_gaze
