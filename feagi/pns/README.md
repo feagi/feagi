@@ -10,7 +10,7 @@ The Peripheral Nervous System provides the interface layer between FEAGI's neura
 
 ### Rust PNS (Primary I/O Layer)
 
-**Location**: `feagi_core/feagi-rust/crates/feagi-pns/`
+**Location**: `feagi_core/feagi-rust/crates/feagi-io/`
 
 The Rust PNS handles all performance-critical I/O operations:
 
@@ -332,7 +332,7 @@ All PNS configuration is centralized in `feagi_configuration.toml`:
 
 **Rust PNS Tests**:
 ```bash
-cd feagi_core/feagi-rust/crates/feagi-pns
+cd feagi_core/feagi-rust/crates/feagi-io
 cargo test
 ```
 
@@ -347,7 +347,7 @@ pytest tests/system/test_registration_manager_integration.py
 
 To integrate a new agent type:
 
-1. Implement agent using feagi-agent-sdk (Rust) or feagi-connector (Python)
+1. Implement agent using feagi-agent (Rust) or feagi-connector (Python)
 2. Define capabilities during registration (sensory/motor/visualization)
 3. Serialize sensory data to XYZP binary format
 4. Connect to appropriate ZMQ streams:
@@ -381,8 +381,8 @@ The PNS will automatically coordinate resources based on agent capabilities.
 
 The following have been **removed** and migrated to Rust:
 
-- **zmq_sensory_listener.py**: Replaced by feagi-pns/src/zmq/sensory.rs
-- **zmq_registration_listener.py**: Replaced by feagi-pns/src/zmq/rest.rs
+- **zmq_sensory_listener.py**: Replaced by feagi-io/src/zmq/sensory.rs
+- **zmq_registration_listener.py**: Replaced by feagi-io/src/zmq/rest.rs
 - **vision.py**: Dead code, completely unused
 
 **Rationale**: All ZMQ I/O must be in Rust for performance, consistency, and architectural cleanliness.
@@ -391,9 +391,9 @@ The following have been **removed** and migrated to Rust:
 
 ## References
 
-- **Rust PNS Source**: `feagi_core/feagi-rust/crates/feagi-pns/`
+- **Rust PNS Source**: `feagi_core/feagi-rust/crates/feagi-io/`
 - **Python Orchestration**: `feagi_core/feagi/pns/registration_manager.py`
 - **Configuration**: `feagi_core/feagi_configuration.toml`
 - **Architecture Rules**: `.cursorrules` (project root)
-- **Agent SDK**: `feagi_core/feagi-rust/crates/feagi-agent-sdk/`
+- **Agent SDK**: `feagi_core/feagi-rust/crates/feagi-agent/`
 - **Python Connector**: `feagi-connector/` (new connector with Rust backend)
