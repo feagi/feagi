@@ -160,7 +160,8 @@ class BrainInput:
         Args:
             agent_id: Unique agent identifier
             agent_type: Agent type ("sensory", "motor", "both", "visualization", "infrastructure")
-            capabilities: Agent capabilities dict (e.g., {"sensory": {"rate_hz": 30.0}})
+            capabilities: Agent capabilities dict in structured format (e.g., {"vision": {"modality": "camera", "target_cortical_area": "isvi", ...}})
+                          DEPRECATED: {"input": ["cortical_id"]} format is no longer supported - use structured capabilities like VSG
             agent_version: Optional agent version string
             controller_version: Optional controller version string
             
@@ -184,28 +185,62 @@ class BrainInput:
                     "RegistrationManager not available. Agent registration is required in FEAGI 2.0."
                 ) from e
         
+        # Validate capabilities format - REJECT legacy "input": ["cortical_id"] format
+        # FEAGI 2.0 requires structured capabilities like VSG (vision, motor, etc.)
+        if capabilities is not None:
+            # Check for deprecated "input": ["cortical_id"] format
+            if "input" in capabilities and isinstance(capabilities["input"], list):
+                # Check if it's an array of base64 cortical IDs (deprecated format)
+                input_list = capabilities["input"]
+                if input_list and isinstance(input_list[0], str) and len(input_list[0]) > 8:
+                    # Likely base64 cortical IDs - this format is deprecated
+                    raise ValueError(
+                        "❌ DEPRECATED CAPABILITIES FORMAT DETECTED!\n"
+                        "The format {'input': ['cortical_id']} is no longer supported.\n"
+                        "Please use structured capabilities like VSG:\n"
+                        "  {'vision': {'modality': '...', 'target_cortical_area': 'isvi', ...}}\n"
+                        "or other structured capability types.\n"
+                        "See Visual Sensory Generator for reference implementation."
+                    )
+        
         # Build capabilities from registered inputs if not provided
         if capabilities is None:
-            # Check if we have segmented vision inputs (which use Absolute encoding)
-            has_segmented_vision = any(
-                hasattr(inp, 'encoding') and inp.encoding == "absolute" and 
-                hasattr(inp, '__class__') and 'Camera' in inp.__class__.__name__
-                for inp in self._inputs
-            )
-            
-            capabilities = {
-                "sensory": {
-                    "rate_hz": 30.0,  # Default rate
-                    "input_count": len(self._inputs),
-                    "cortical_areas": [
-                        getattr(inp, '_cortical_area', 'unknown') 
-                        for inp in self._inputs 
-                        if hasattr(inp, '_cortical_area')
-                    ],
-                    "encoding": "absolute",  # Explicitly specify Absolute encoding for segmented vision
-                    "cortical_unit_type": "segmented_vision" if has_segmented_vision else None
-                }
-            }
+            # Auto-generate from registered inputs (for Camera, etc.)
+            # This follows VSG pattern
+            if self._inputs:
+                # Check if we have vision inputs
+                has_vision = any(
+                    hasattr(inp, '__class__') and 'Camera' in inp.__class__.__name__
+                    for inp in self._inputs
+                )
+                
+                if has_vision:
+                    # Use vision capability format (like VSG)
+                    vision_input = next(
+                        (inp for inp in self._inputs if hasattr(inp, '__class__') and 'Camera' in inp.__class__.__name__),
+                        None
+                    )
+                    if vision_input:
+                        cortical_area = getattr(vision_input, '_cortical_area', 'unknown')
+                        resolution = getattr(vision_input, 'resolution', (64, 64))
+                        capabilities = {
+                            "vision": {
+                                "modality": "camera",
+                                "dimensions": [resolution[0], resolution[1]],
+                                "channels": 3,
+                                "target_cortical_area": cortical_area
+                            }
+                        }
+                else:
+                    raise ValueError(
+                        "No capabilities provided and no registered inputs found.\n"
+                        "Please provide structured capabilities (e.g., vision, motor) or register inputs first."
+                    )
+            else:
+                raise ValueError(
+                    "No capabilities provided and no registered inputs found.\n"
+                    "Please provide structured capabilities (e.g., vision, motor) or register inputs first."
+                )
         
         # Create registration request with API URL in metadata
         from feagi.pns.registration_manager import AgentRegistrationRequest
@@ -551,6 +586,66 @@ class BrainInput:
                 except Exception:
                     pass
             raise
+    
+    def send_raw_bytes(self, binary_data: bytes):
+        """
+        Send raw binary data directly to FEAGI via ZMQ.
+        
+        This method is for advanced use cases where you're sending pre-serialized
+        FEAGI Byte Container (FBC) data directly, bypassing the normal sensor
+        encoding pipeline.
+        
+        Args:
+            binary_data: Raw FBC-formatted bytes to send
+            
+        Example:
+            # Spike Train Generator use case
+            data = CorticalMappedXYZPNeuronVoxels()
+            # ... populate data ...
+            binary = data.serialize_to_bytes()
+            brain_input.send_raw_bytes(binary)
+        
+        REQUIRES: Agent must be registered and connected.
+        """
+        if not self._agent_registered:
+            raise RuntimeError(
+                "Agent registration required before sending data.\n"
+                "Call brain_input.register_agent(agent_id='...', ...) first."
+            )
+        
+        if not self._connected:
+            raise RuntimeError(
+                "Not connected to FEAGI. Call brain_input.connect() first."
+            )
+        
+        if not binary_data:
+            logger.warning("⚠️ [BRAIN-INPUT] No data to send (binary_data is empty)")
+            return
+        
+        # Send via transport
+        if self._transport:
+            try:
+                import zmq
+                # Send with NOBLOCK to detect immediate failures
+                try:
+                    self._transport.send(binary_data, zmq.NOBLOCK)
+                    logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI")
+                except zmq.Again:
+                    # Socket buffer full - retry with blocking send
+                    logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Socket buffer full, retrying with blocking send...")
+                    self._transport.send(binary_data, 0)  # Blocking send
+                    logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI (blocking)")
+                except zmq.ZMQError as zmq_err:
+                    logger.error(f"📤 [BRAIN-INPUT] ❌ ZMQ error during send: {zmq_err}", exc_info=True)
+                    raise
+            except zmq.ZMQError as zmq_err:
+                logger.error(f"📤 [BRAIN-INPUT] ❌ ZMQ error: {zmq_err}", exc_info=True)
+                raise
+            except Exception as e:
+                logger.error(f"📤 [BRAIN-INPUT] ❌ Error sending raw bytes: {e}", exc_info=True)
+                raise
+        else:
+            raise RuntimeError("Transport not initialized. Call connect() first.")
     
     def get_input_count(self) -> int:
         """Get number of registered inputs"""

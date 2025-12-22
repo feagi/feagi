@@ -330,7 +330,7 @@ class Camera(BaseInput):
             activity_min = cc_data_types.Percentage.new_from_0_1(0.0)  # Accept any amount of activity
             activity_max = cc_data_types.Percentage.new_from_0_1(1.0)
             
-            diff_stage = stage_props.ImageQuickDiffStageProperties(
+            diff_stage = stage_props.PipelineStageProperties.new_image_quick_diff(
                 per_pixel_min,
                 per_pixel_max,
                 activity_min,
@@ -451,8 +451,8 @@ class Camera(BaseInput):
             new_gaze = cc_data_types.GazeProperties(eccentricity_xy, modulation_percentage)
             
             # Create Python-compatible stage properties object using the Python constructor
-            # PyO3 handles inheritance automatically - the object IS a PyPipelineStageProperties
-            py_stage_props = stage_props.ImageFrameSegmentatorStageProperties(
+            # Use new enum-based API: PipelineStageProperties.new_image_frame_segmentator()
+            py_stage_props = stage_props.PipelineStageProperties.new_image_frame_segmentator(
                 self._properties,
                 self._segmented_properties,
                 new_gaze
@@ -522,7 +522,8 @@ class Camera(BaseInput):
             activity_max = cc_data_types.Percentage.new_from_0_1(1.0)
             
             # Create Python-compatible stage properties object
-            py_stage_props = stage_props.ImageQuickDiffStageProperties(
+            # Use new enum-based API: PipelineStageProperties.new_image_quick_diff()
+            py_stage_props = stage_props.PipelineStageProperties.new_image_quick_diff(
                 per_pixel_min,
                 per_pixel_max,
                 activity_min,

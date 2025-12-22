@@ -287,33 +287,65 @@ class RegistrationManager:
                 # 5. Sanitize capabilities
                 sanitized_caps = self._sanitize_capabilities(request.capabilities)
 
-                # 6. Convert to Rust format and register
-                # CRITICAL: Populate actual Rust AgentCapabilities fields, not just "custom"
-                rust_capabilities = {
-                    "custom": {}  # Will hold any non-standard capabilities
-                }
+                # 6. Normalize capabilities to feagi-sensorimotor format: {"input": [...], "output": [...]}
+                # FEAGI HTTP API expects ONLY "input"/"output" keys (not "sensory"/"motor")
+                normalized_caps = {}
                 
-                # Map Python capabilities to Rust struct fields
+                # First pass: Process "input"/"output" keys (prioritize feagi-sensorimotor format)
                 for cap_name, cap_config in sanitized_caps.items():
                     cap_lower = cap_name.lower()
                     
-                    if cap_lower in ["visualization", "viz"]:
-                        # Map to Rust VisualizationCapability
-                        rust_capabilities["visualization"] = cap_config
-                    elif cap_lower in ["motor", "output", "actuator", "motors"]:
-                        # Map to Rust MotorCapability
-                        rust_capabilities["motor"] = cap_config
-                    elif cap_lower in ["sensory", "sensor", "input", "sensors"]:
-                        # Map to Rust SensoryCapability
-                        rust_capabilities["sensory"] = cap_config
-                    elif cap_lower in ["vision"]:
-                        # Map to Rust VisionCapability
-                        rust_capabilities["vision"] = cap_config
-                    else:
-                        # Store non-standard capabilities in custom
-                        rust_capabilities["custom"][cap_name] = cap_config
+                    if cap_lower == "input":
+                        # Already in correct format
+                        if isinstance(cap_config, list):
+                            normalized_caps["input"] = cap_config
+                    elif cap_lower == "output":
+                        # Already in correct format
+                        if isinstance(cap_config, list):
+                            normalized_caps["output"] = cap_config
                 
-                rust_capabilities_json = json.dumps(rust_capabilities)
+                # Second pass: Convert legacy "sensory"/"motor" keys (only if "input"/"output" not already set)
+                for cap_name, cap_config in sanitized_caps.items():
+                    cap_lower = cap_name.lower()
+                    
+                    # Normalize legacy formats to feagi-sensorimotor format
+                    if cap_lower in ["sensory", "sensor", "sensors"]:
+                        # Skip if "input" already exists (prioritize feagi-sensorimotor format)
+                        if "input" not in normalized_caps:
+                            # Convert to "input" format: array of cortical IDs
+                            if isinstance(cap_config, dict):
+                                # Extract cortical_areas if present
+                                if "cortical_areas" in cap_config:
+                                    normalized_caps["input"] = cap_config["cortical_areas"]
+                                elif cap_config:  # Non-empty dict, create empty array
+                                    normalized_caps["input"] = []
+                            elif isinstance(cap_config, list):
+                                # Already in array format
+                                normalized_caps["input"] = cap_config
+                    elif cap_lower in ["motor", "actuator", "motors"]:
+                        # Skip if "output" already exists (prioritize feagi-sensorimotor format)
+                        if "output" not in normalized_caps:
+                            # Convert to "output" format: array of cortical IDs
+                            if isinstance(cap_config, dict):
+                                # Extract source_cortical_areas if present
+                                if "source_cortical_areas" in cap_config:
+                                    normalized_caps["output"] = cap_config["source_cortical_areas"]
+                                elif cap_config:  # Non-empty dict, create empty array
+                                    normalized_caps["output"] = []
+                            elif isinstance(cap_config, list):
+                                # Already in array format
+                                normalized_caps["output"] = cap_config
+                    elif cap_lower in ["visualization", "viz"]:
+                        # Keep visualization as-is (not part of input/output)
+                        normalized_caps["visualization"] = cap_config
+                    elif cap_lower in ["vision"]:
+                        # Keep vision as-is
+                        normalized_caps["vision"] = cap_config
+                    elif cap_lower not in ["input", "output"]:  # Skip already processed keys
+                        # Store non-standard capabilities in custom
+                        if "custom" not in normalized_caps:
+                            normalized_caps["custom"] = {}
+                        normalized_caps["custom"][cap_name] = cap_config
                 
                 # Prepare metadata for registration
                 metadata = {}
@@ -362,7 +394,7 @@ class RegistrationManager:
                     registration_payload = {
                         "agent_id": request.agent_id,
                         "agent_type": request.agent_type,
-                        "capabilities": rust_capabilities,  # Use Rust struct format, not sanitized_caps
+                        "capabilities": normalized_caps,  # Use feagi-sensorimotor format: {"input": [...], "output": [...]}
                         "agent_data_port": agent_data_port,  # Must be u16, not null
                         "agent_version": request.agent_version or "1.0.0",
                         "controller_version": request.controller_version or "1.0.0",

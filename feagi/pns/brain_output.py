@@ -147,11 +147,7 @@ class BrainOutput:
             "agent_version": "2.0.1",
             "controller_version": "2.0.1",
             "capabilities": {
-                "motor": {
-                    "modality": "generic",
-                    "output_count": len(self._outputs),
-                    "source_cortical_areas": list(cortical_ids)
-                }
+                "output": list(cortical_ids)  # feagi-sensorimotor format: array of cortical IDs
             },
             "chosen_transport": "zmq"
         }
