@@ -80,6 +80,11 @@ class Camera(BaseInput):
         self._properties = None
         self._segmented_properties = None  # Store segmented properties for gaze updates
         
+        # Pipeline stage indices (set during registration, used for dynamic updates)
+        self._image_processor_stage_index: Optional[int] = None
+        self._diff_stage_index: Optional[int] = None
+        self._segmentator_stage_index: Optional[int] = None
+        
         # Cortical IDs that will be generated (populated during registration)
         self._cortical_ids: list[str] = []
     
@@ -180,7 +185,9 @@ class Camera(BaseInput):
                     self.resolution[0],  # width
                     self.resolution[1]   # height
                 ),
-                frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
+                # Camera frames are typically sRGB/gamma-encoded u8 values.
+                # Brightness/contrast processing depends on this flag to choose the correct math path.
+                frpl.connector_core.data_types.descriptors.ColorSpace.Gamma,
                 frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB
             )
             
@@ -317,17 +324,24 @@ class Camera(BaseInput):
             initial_gaze=gaze
         )
         
-        # Add diff stage to the pipeline (registration only creates segmentor stage)
-        # We need to prepend the diff stage so it processes frames before segmentation
-        # Stage 0: ImageQuickDiffStage - detects changes between frames
-        # Stage 1: ImageFrameSegmentatorStage - segments the image into 9 regions
+        # Add processing stages to the pipeline (registration only creates segmentor stage)
+        # Pipeline: ImageFrameProcessor (pre-processing) -> ImageQuickDiff -> ImageFrameSegmentator
         try:
             stage_props = frpl.connector_core.data_pipeline.stage_properties
+            processing = frpl.connector_core.data_types.processing
             
-            # Create diff stage properties with default threshold
-            per_pixel_min = 1  # Minimum pixel change to be considered different
+            # Create ImageFrameProcessor for pre-processing (brightness/contrast adjustments)
+            # NOTE: PyO3 exposes this as a constructor, not a `.new(...)` static method.
+            frame_processor = processing.ImageFrameProcessor(self._properties)
+            # Set defaults (no adjustment initially) - these become None internally
+            frame_processor.set_brightness_offset(0)
+            frame_processor.set_contrast_change(1.0)
+            processor_stage = stage_props.PipelineStageProperties.new_image_frame_processor(frame_processor)
+            
+            # Create diff stage
+            per_pixel_min = 1
             per_pixel_max = 255
-            activity_min = cc_data_types.Percentage.new_from_0_1(0.0)  # Accept any amount of activity
+            activity_min = cc_data_types.Percentage.new_from_0_1(0.0)
             activity_max = cc_data_types.Percentage.new_from_0_1(1.0)
             
             diff_stage = stage_props.PipelineStageProperties.new_image_quick_diff(
@@ -338,19 +352,28 @@ class Camera(BaseInput):
                 self._properties
             )
             
-            # Get the existing segmentor stage (index 0 after registration)
+            # Get segmentor stage
             segmentor_stage = cache.sensor_segmented_vision_get_single_stage_properties(group_id, 0, 0)
             
-            # Replace pipeline with [diff_stage, segmentor_stage]
-            new_pipeline = [diff_stage, segmentor_stage]
+            # Build pipeline: [processor, diff, segmentor]
+            new_pipeline = [processor_stage, diff_stage, segmentor_stage]
             cache.sensor_segmented_vision_replace_all_stages(group_id, 0, new_pipeline)
             
-            logger.info(f"✅ Added diff stage to segmented vision pipeline (group_id={group_id})")
-            logger.info(f"   Stage 0: ImageQuickDiffStage (threshold={per_pixel_min})")
-            logger.info(f"   Stage 1: ImageFrameSegmentatorStage")
+            # Store indices dynamically (determined at runtime, not hardcoded)
+            current_index = 0
+            self._image_processor_stage_index = current_index
+            current_index += 1
+            self._diff_stage_index = current_index
+            current_index += 1
+            self._segmentator_stage_index = current_index
+            
+            logger.info(f"✅ Added processing stages to segmented vision pipeline (group_id={group_id})")
+            logger.info(f"   Stage {self._image_processor_stage_index}: ImageFrameProcessor (brightness/contrast)")
+            logger.info(f"   Stage {self._diff_stage_index}: ImageQuickDiffStage")
+            logger.info(f"   Stage {self._segmentator_stage_index}: ImageFrameSegmentatorStage")
         except Exception as e:
-            logger.warning(f"⚠️ Could not add diff stage to pipeline: {e}")
-            logger.warning(f"   Segmented vision will work without diff stage, but won't filter unchanged frames")
+            logger.warning(f"⚠️ Could not add processing stages: {e}")
+            logger.warning(f"   Segmented vision will work without processing stages")
         
         # Log registration details
         # NOTE: Segmented vision creates 9 cortical IDs (one per segment) with Absolute encoding
@@ -379,7 +402,9 @@ class Camera(BaseInput):
             t_convert_start = time.perf_counter()
             frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
                 self._current_frame,
-                frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
+                # Camera frames are typically sRGB/gamma-encoded u8 values.
+                # Brightness/contrast processing depends on this flag to choose the correct math path.
+                frpl.connector_core.data_types.descriptors.ColorSpace.Gamma,
                 frpl.connector_core.data_types.descriptors.MemoryOrderLayout.HeightsWidthsChannels
             )
             t_convert = (time.perf_counter() - t_convert_start) * 1000
@@ -465,13 +490,18 @@ class Camera(BaseInput):
                 logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update gaze.")
                 return
             
+            # Get the segmentator stage index (set during registration)
+            if self._segmentator_stage_index is None:
+                logger.error("❌ [CAMERA] Segmentator stage index not set. Was registration completed?")
+                return
+            
             # Try sensor_segmented_vision_update_single_stage_properties first
             method_name = 'sensor_segmented_vision_update_single_stage_properties'
             if hasattr(cache, method_name):
                 getattr(cache, method_name)(
                     self.group_id,
                     self.channel,
-                    1,  # Stage index 1 is the ImageSegmentor stage (0 is ImageQuickDiffStage)
+                    self._segmentator_stage_index,
                     py_stage_props
                 )
                 logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
@@ -482,7 +512,7 @@ class Camera(BaseInput):
                     getattr(cache, method_name)(
                         self.group_id,
                         self.channel,
-                        1,  # Stage index 1 is the ImageSegmentor stage
+                        self._segmentator_stage_index,
                         py_stage_props
                     )
                     logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
@@ -538,14 +568,18 @@ class Camera(BaseInput):
                 logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update diff threshold.")
                 return
             
-            # Stage index 0 is the ImageQuickDiffStage (for both simple and segmented vision)
+            # Get the diff stage index (set during registration)
+            if self._diff_stage_index is None:
+                logger.error("❌ [CAMERA] Diff stage index not set. Was registration completed?")
+                return
+            
             # Try sensor_segmented_vision_update_single_stage_properties first (works for segmented)
             method_name = 'sensor_segmented_vision_update_single_stage_properties'
             if hasattr(cache, method_name):
                 getattr(cache, method_name)(
                     self.group_id,
                     self.channel,
-                    0,  # Stage index 0 is the ImageQuickDiffStage
+                    self._diff_stage_index,
                     py_stage_props
                 )
                 logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
@@ -556,7 +590,7 @@ class Camera(BaseInput):
                     getattr(cache, method_name)(
                         self.group_id,
                         self.channel,
-                        0,  # Stage index 0 is the ImageQuickDiffStage
+                        self._diff_stage_index,
                         py_stage_props
                     )
                     logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
@@ -565,4 +599,132 @@ class Camera(BaseInput):
         except Exception as e:
             logger.error(f"❌ [CAMERA] Error updating diff threshold: {e}", exc_info=True)
             # Don't raise - allow streaming to continue even if diff threshold update fails
+    
+    def update_brightness(self, brightness: int):
+        """
+        Update brightness adjustment dynamically by updating the ImageFrameProcessor stage in the Rust pipeline.
+        
+        Args:
+            brightness: Brightness offset (-255 to 255), 0 = no change
+        """
+        try:
+            import feagi_rust_py_libs as frpl
+            from feagi.pns import brain_input
+            stage_props = frpl.connector_core.data_pipeline.stage_properties
+            
+            # Validate range
+            brightness = max(-255, min(255, int(brightness)))
+            
+            # Get the ImageFrameProcessor stage index (set during registration)
+            if self._image_processor_stage_index is None:
+                logger.error("❌ [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
+                return
+            
+            # Get the cache
+            cache = brain_input._cache
+            if cache is None:
+                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update brightness.")
+                return
+            
+            # Get the EXISTING stage properties to preserve contrast settings
+            method_name = 'sensor_segmented_vision_get_single_stage_properties'
+            existing_stage = getattr(cache, method_name)(
+                self.group_id,
+                self.channel,
+                self._image_processor_stage_index
+            )
+            
+            # Get the existing transformer definition
+            # The stage properties should be an ImageFrameProcessor variant
+            if not hasattr(existing_stage, 'variant_name') or existing_stage.variant_name() != 'ImageFrameProcessor':
+                logger.error(f"❌ [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
+                return
+            
+            # Get the transformer from the stage
+            try:
+                # Access the transformer_definition directly from the properties
+                transformer = existing_stage.get_transformer_definition()
+            except AttributeError:
+                logger.error("❌ [CAMERA] Could not get transformer from stage properties")
+                return
+            
+            # Update ONLY the brightness on the existing transformer
+            transformer.set_brightness_offset(brightness)
+            
+            # Create new stage properties with the updated transformer
+            new_stage_props = stage_props.PipelineStageProperties.new_image_frame_processor(transformer)
+            
+            # Update the stage
+            getattr(cache, 'sensor_segmented_vision_update_single_stage_properties')(
+                self.group_id,
+                self.channel,
+                self._image_processor_stage_index,
+                new_stage_props
+            )
+            logger.info(f"✅ [CAMERA] Updated brightness: {brightness}")
+        except Exception as e:
+            logger.error(f"❌ [CAMERA] Error updating brightness: {e}", exc_info=True)
+    
+    def update_contrast(self, contrast: float):
+        """
+        Update contrast adjustment dynamically by updating the ImageFrameProcessor stage in the Rust pipeline.
+        
+        Args:
+            contrast: Contrast multiplier (0.0 to 2.0), 1.0 = no change
+        """
+        try:
+            import feagi_rust_py_libs as frpl
+            from feagi.pns import brain_input
+            stage_props = frpl.connector_core.data_pipeline.stage_properties
+            
+            # Validate range
+            contrast = max(0.0, min(2.0, float(contrast)))
+            
+            # Get the ImageFrameProcessor stage index (set during registration)
+            if self._image_processor_stage_index is None:
+                logger.error("❌ [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
+                return
+            
+            # Get the cache
+            cache = brain_input._cache
+            if cache is None:
+                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update contrast.")
+                return
+            
+            # Get the EXISTING stage properties to preserve brightness settings
+            method_name = 'sensor_segmented_vision_get_single_stage_properties'
+            existing_stage = getattr(cache, method_name)(
+                self.group_id,
+                self.channel,
+                self._image_processor_stage_index
+            )
+            
+            # Get the existing transformer definition
+            if not hasattr(existing_stage, 'variant_name') or existing_stage.variant_name() != 'ImageFrameProcessor':
+                logger.error(f"❌ [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
+                return
+            
+            # Get the transformer from the stage
+            try:
+                transformer = existing_stage.get_transformer_definition()
+            except AttributeError:
+                logger.error("❌ [CAMERA] Could not get transformer from stage properties")
+                return
+            
+            # Update ONLY the contrast on the existing transformer
+            transformer.set_contrast_change(contrast)
+            
+            # Create new stage properties with the updated transformer
+            new_stage_props = stage_props.PipelineStageProperties.new_image_frame_processor(transformer)
+            
+            # Update the stage
+            getattr(cache, 'sensor_segmented_vision_update_single_stage_properties')(
+                self.group_id,
+                self.channel,
+                self._image_processor_stage_index,
+                new_stage_props
+            )
+            logger.info(f"✅ [CAMERA] Updated contrast: {contrast:.2f}")
+        except Exception as e:
+            logger.error(f"❌ [CAMERA] Error updating contrast: {e}", exc_info=True)
 
