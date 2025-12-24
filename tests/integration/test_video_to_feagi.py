@@ -29,7 +29,6 @@ except ImportError:
 
 import time
 import cv2
-import numpy as np
 import logging
 from pathlib import Path
 from typing import Optional
@@ -152,7 +151,7 @@ class TestVideoToFEAGI:
         print(f"   Total frames: {total_frames}")
         
         # Step 2: Register Camera input using new SDK
-        print(f"\n📥 Registering Camera input with FEAGI SDK 3.0...")
+        print("\n📥 Registering Camera input with FEAGI SDK 3.0...")
         
         camera = Camera.register(
             resolution=(width, height),
@@ -163,30 +162,34 @@ class TestVideoToFEAGI:
         print(f"   ✓ Camera registered: {width}x{height}, encoding=absolute, position=center")
         
         # Step 3: Configure connection to FEAGI
-        print(f"\n🔧 Configuring connection to FEAGI...")
+        print("\n🔧 Configuring connection to FEAGI...")
         
         brain_input.configure(
             feagi_host=feagi_config["host"],
             feagi_port=feagi_config["sensory_port"],
-            transport="zmq"
+            transport="zmq",
+            api_port=feagi_config["rest_port"],
+            feagi_http_timeout_s=5.0,
+            heartbeat_interval_s=5.0,
+            heartbeat_join_timeout_s=5.0,
         )
         
         print(f"   Host: {feagi_config['host']}")
         print(f"   Port: {feagi_config['sensory_port']}")
-        print(f"   Transport: ZMQ")
+        print("   Transport: ZMQ")
         
         # Step 4: Connect to FEAGI
-        print(f"\n🔗 Connecting to FEAGI...")
+        print("\n🔗 Connecting to FEAGI...")
         
         try:
             brain_input.connect()
-            print(f"   ✓ Connected successfully!")
+            print("   ✓ Connected successfully!")
         except Exception as e:
             pytest.fail(f"Failed to connect to FEAGI: {e}")
         
         # Step 5: Stream frames to FEAGI
-        print(f"\n🎬 Streaming frames to FEAGI...")
-        print(f"   (Sending first 100 frames for testing)\n")
+        print("\n🎬 Streaming frames to FEAGI...")
+        print("   (Sending first 100 frames for testing)\n")
         
         frames_sent = 0
         frames_to_send = min(100, total_frames)  # Limit for testing

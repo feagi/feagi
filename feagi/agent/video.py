@@ -32,7 +32,7 @@ Example:
 import time
 import logging
 from pathlib import Path
-from typing import Optional, Generator, Tuple, Any
+from typing import Optional, Generator, Tuple
 import numpy as np
 
 from feagi.agent.base import BaseAgent
@@ -143,9 +143,14 @@ class VideoStreamAgent(BaseAgent):
     
     def start(
         self,
-        feagi_host: str = "localhost",
-        feagi_port: int = 5558,
-        transport: str = "zmq"
+        *,
+        feagi_host: str,
+        feagi_port: int,
+        api_port: int,
+        transport: str,
+        feagi_http_timeout_s: float,
+        heartbeat_interval_s: float,
+        heartbeat_join_timeout_s: float,
     ):
         """
         Connect to FEAGI and register camera.
@@ -153,9 +158,13 @@ class VideoStreamAgent(BaseAgent):
         Note: FEAGI engine must already be running before calling this.
         
         Args:
-            feagi_host: FEAGI hostname (default: "localhost")
-            feagi_port: FEAGI sensory port (default: 5558)
-            transport: Transport protocol (default: "zmq")
+            feagi_host: FEAGI hostname (required; no defaults in safety mode)
+            feagi_port: FEAGI sensory port (required; no defaults in safety mode)
+            api_port: FEAGI HTTP API port (required; no defaults in safety mode)
+            transport: Transport protocol (required; no defaults in safety mode)
+            feagi_http_timeout_s: HTTP timeout in seconds (required; no defaults in safety mode)
+            heartbeat_interval_s: Heartbeat interval in seconds (required; no defaults in safety mode)
+            heartbeat_join_timeout_s: Heartbeat join timeout in seconds (required; no defaults in safety mode)
         """
         if self._started:
             logger.warning("VideoStreamAgent already started")
@@ -176,7 +185,11 @@ class VideoStreamAgent(BaseAgent):
         brain_input.configure(
             feagi_host=feagi_host,
             feagi_port=feagi_port,
-            transport=transport
+            transport=transport,
+            api_port=api_port,
+            feagi_http_timeout_s=feagi_http_timeout_s,
+            heartbeat_interval_s=heartbeat_interval_s,
+            heartbeat_join_timeout_s=heartbeat_join_timeout_s,
         )
         brain_input.connect()
         

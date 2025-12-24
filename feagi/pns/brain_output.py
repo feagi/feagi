@@ -8,8 +8,6 @@ Uses Rust MotorDeviceCache for high-performance decoding.
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
 import logging
 import sys
-import time
-from datetime import datetime
 
 if TYPE_CHECKING:
     from feagi.pns.outputs.base import BaseOutput
@@ -79,10 +77,12 @@ class BrainOutput:
         
         # Configuration
         self._agent_id = None
-        self._feagi_host = "localhost"
-        self._feagi_port = 5564
-        self._feagi_api_port = 8000
-        self._transport_type = "zmq"
+        # @safety: No implicit defaults. Commercial deployments must be explicitly configured.
+        self._feagi_host: Optional[str] = None
+        self._feagi_port: Optional[int] = None
+        self._feagi_api_port: Optional[int] = None
+        self._transport_type: Optional[str] = None
+        self._feagi_http_timeout_s: Optional[float] = None
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -112,6 +112,15 @@ class BrainOutput:
         """Register agent with FEAGI HTTP API including motor subscriptions"""
         import requests
         import base64
+
+        if self._feagi_host is None or self._feagi_api_port is None:
+            raise RuntimeError(
+                "FEAGI host/api port must be configured before registration (no defaults in safety mode)."
+            )
+        if self._feagi_http_timeout_s is None or self._feagi_http_timeout_s <= 0:
+            raise RuntimeError(
+                "HTTP timeout must be explicitly configured (no defaults in safety mode)."
+            )
         
         # Collect all unique cortical IDs from registered outputs
         cortical_ids = set()
@@ -158,7 +167,7 @@ class BrainOutput:
             logger.info(f"📝 POST {url}")
             logger.info(f"📝 Registering with cortical IDs: {list(cortical_ids)}")
             
-            response = requests.post(url, json=request_payload, timeout=5)
+            response = requests.post(url, json=request_payload, timeout=self._feagi_http_timeout_s)
             response.raise_for_status()
             
             result = response.json()
@@ -216,10 +225,12 @@ class BrainOutput:
     def configure(
         self,
         agent_id: str,
-        feagi_host: str = "localhost",
-        feagi_port: int = 5564,
-        feagi_api_port: int = 8000,
-        transport: str = "zmq"
+        *,
+        feagi_host: str,
+        feagi_port: int,
+        feagi_api_port: int,
+        transport: str,
+        feagi_http_timeout_s: float,
     ):
         """
         Configure connection to FEAGI.
@@ -231,12 +242,26 @@ class BrainOutput:
             feagi_api_port: FEAGI API port (default: 8000)
             transport: Transport type - "zmq" or "websocket"
         """
+        if not agent_id:
+            raise ValueError("agent_id must be provided (no defaults in safety mode).")
+        if not feagi_host:
+            raise ValueError("feagi_host must be provided (no defaults in safety mode).")
+        if feagi_port <= 0:
+            raise ValueError("feagi_port must be a positive integer (no defaults in safety mode).")
+        if feagi_api_port <= 0:
+            raise ValueError("feagi_api_port must be a positive integer (no defaults in safety mode).")
+        if not transport:
+            raise ValueError("transport must be provided (no defaults in safety mode).")
+        if feagi_http_timeout_s <= 0:
+            raise ValueError("feagi_http_timeout_s must be > 0 (no defaults in safety mode).")
+
         self._init_cache()
         self._agent_id = agent_id
         self._feagi_host = feagi_host
         self._feagi_port = feagi_port
         self._feagi_api_port = feagi_api_port
         self._transport_type = transport
+        self._feagi_http_timeout_s = feagi_http_timeout_s
         
         logger.info(f"📡 Configured: agent={agent_id}, {transport}://{feagi_host}:{feagi_port}")
     
@@ -251,6 +276,21 @@ class BrainOutput:
         
         if not self._agent_id:
             raise RuntimeError("Agent ID not set. Call configure(agent_id='...') first.")
+        if self._feagi_host is None or self._feagi_port is None or self._feagi_api_port is None:
+            raise RuntimeError(
+                "brain_output.configure(...) must be called with explicit FEAGI host/ports "
+                "before connect() (no defaults in safety mode)."
+            )
+        if self._transport_type is None:
+            raise RuntimeError(
+                "brain_output.configure(...) must be called with explicit transport "
+                "before connect() (no defaults in safety mode)."
+            )
+        if self._feagi_http_timeout_s is None:
+            raise RuntimeError(
+                "brain_output.configure(...) must be called with explicit feagi_http_timeout_s "
+                "before connect() (no defaults in safety mode)."
+            )
         
         # Step 0: Register motor decoder with total channel count (if motors were registered)
         if self._motor_total_channels > 0 and not self._motor_decoder_registered:
@@ -391,7 +431,6 @@ class BrainOutput:
         try:
             # Receive from transport
             motor_bytes = b""
-            command_count = 0
             
             if self._transport:
                 try:
@@ -422,7 +461,6 @@ class BrainOutput:
                     # Process valid motor data (with error handling to prevent blocking)
                     try:
                         self._cache.process_neurons(list(motor_bytes))
-                        command_count = 1
                     except Exception as e:
                         # Log error but don't crash - prevents blocking
                         logger.debug(f"Error processing neurons: {e}")
@@ -431,7 +469,7 @@ class BrainOutput:
             # Note: _read_from_cache() is no longer needed as callbacks handle updates
             # The motor values are already updated via callbacks during process_neurons()
             
-        except Exception as e:
+        except Exception:
             # Monitor error notifications disabled - was causing performance issues
             raise
     

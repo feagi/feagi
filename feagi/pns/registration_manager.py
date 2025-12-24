@@ -29,11 +29,8 @@ except ImportError:
         "but local Rust registry operations will be disabled."
     )
 
-try:
-    from feagi.config.toml_loader import get_agent_config, load_feagi_config
-except ImportError:
-    load_feagi_config = None
-    get_agent_config = None
+load_feagi_config = None
+get_agent_config = None
 
 
 class AgentRegistrationRequest:
@@ -129,8 +126,11 @@ class RegistrationManager:
         # Heartbeat management (keeps agents registered)
         self._heartbeat_threads: Dict[str, threading.Thread] = {}
         self._heartbeat_running: Dict[str, bool] = {}
-        self._heartbeat_interval = 30.0  # Send heartbeat every 30 seconds (timeout is 68s)
+        # Safety mode: no implicit defaults. Call configure_heartbeat(...) explicitly.
+        self._heartbeat_interval: Optional[float] = None
+        self._heartbeat_join_timeout_s: Optional[float] = None
         self._feagi_api_urls: Dict[str, str] = {}  # Store API URL per agent
+        self._agent_metadata: Dict[str, Dict[str, Any]] = {}  # Store metadata per agent (timeouts, endpoints, etc.)
 
         logger.info("🦀 Rust-backed Registration Manager fully initialized")
 
@@ -140,6 +140,18 @@ class RegistrationManager:
         # Stop all heartbeat threads
         for agent_id in list(self._heartbeat_running.keys()):
             self.stop_heartbeat(agent_id)
+
+    def configure_heartbeat(self, *, interval_s: float, join_timeout_s: float) -> None:
+        """Configure heartbeat timings.
+
+        Safety mode: callers must explicitly set these values (no defaults).
+        """
+        if interval_s <= 0:
+            raise ValueError("interval_s must be > 0 (no defaults in safety mode).")
+        if join_timeout_s <= 0:
+            raise ValueError("join_timeout_s must be > 0 (no defaults in safety mode).")
+        self._heartbeat_interval = interval_s
+        self._heartbeat_join_timeout_s = join_timeout_s
 
     def _flatten_rust_capabilities(self, rust_caps: Dict[str, Any]) -> Dict[str, Any]:
         """Flatten Rust AgentCapabilities struct to legacy dict format.
@@ -185,20 +197,19 @@ class RegistrationManager:
             with self._lock:
                 if not self._registry_initialized:  # Double-check locking
                     try:
-                        if self._process_manager and hasattr(self._process_manager, '_pns') and self._process_manager._pns:
+                        if (
+                            self._process_manager
+                            and hasattr(self._process_manager, "_pns")
+                            and self._process_manager._pns
+                        ):
                             # Use shared registry from PNS (production path)
                             t1 = time.time()
                             self._rust_registry = self._process_manager._pns.get_shared_registry()
                             t2 = time.time()
                             logger.info(f"🦀 ✓ Using shared agent registry from Rust PNS (single source of truth) - took {(t2-t1)*1000:.1f}ms")
                         else:
-                            # Fallback for testing/development
-                            logger.warning("⚠️  PNS not available, creating standalone registry (testing mode)")
-                            self._rust_registry = PyAgentRegistry(
-                                max_agents=1000,
-                                timeout_ms=60000
-                            )
-                            logger.info("🦀 Rust agent registry initialized in standalone mode")
+                            # Safety mode: no implicit fallbacks.
+                            self._rust_registry = None
                         self._registry_initialized = True
                     except Exception as e:
                         logger.error(f"❌ Failed to initialize Rust registry: {e}")
@@ -239,12 +250,10 @@ class RegistrationManager:
                     )
 
                 # 3. Check if re-registration (skip if Rust registry not available)
-                is_re_registration = False
                 registry = self._get_registry()
                 if registry:
                     try:
                         existing_agent_json = registry.get_agent_json(request.agent_id)
-                        is_re_registration = True
                         existing_agent = json.loads(existing_agent_json)
                         logger.warning(f"⚠️ Agent '{request.agent_id}' re-registering")
                         
@@ -367,25 +376,38 @@ class RegistrationManager:
                 try:
                     import requests
                     
-                    # Get FEAGI API URL from config, metadata, or environment
-                    feagi_api_url = "http://localhost:8000"  # Default
-                    
-                    # Try to get from request metadata first (allows explicit override)
+                    # Safety mode: require explicit API URL (no defaults/fallbacks).
+                    feagi_api_url = None
                     if request.metadata and "feagi_api_url" in request.metadata:
                         feagi_api_url = request.metadata["feagi_api_url"]
-                    elif request.metadata and "feagi_api_port" in request.metadata:
-                        api_port = request.metadata["feagi_api_port"]
-                        feagi_api_url = f"http://{request.agent_ip}:{api_port}"
-                    else:
-                        # Try to get from config
-                        try:
-                            if load_feagi_config:
-                                config = load_feagi_config()
-                                agent_config = get_agent_config(config) if get_agent_config else None
-                                if agent_config:
-                                    feagi_api_url = f"http://{agent_config.get('host', 'localhost')}:{config.api.get('port', 8000)}"
-                        except Exception:
-                            pass  # Use default
+
+                    if not feagi_api_url:
+                        return AgentRegistrationResponse(
+                            success=False,
+                            message=(
+                                "Missing required configuration: request.metadata['feagi_api_url'] "
+                                "must be provided (no defaults in safety mode)."
+                            ),
+                            agent_id=request.agent_id,
+                            cortical_areas=cortical_areas,
+                            error_code="MISSING_CONFIG",
+                        )
+
+                    http_timeout_s = None
+                    if request.metadata and "feagi_http_timeout_s" in request.metadata:
+                        http_timeout_s = float(request.metadata["feagi_http_timeout_s"])
+
+                    if not http_timeout_s or http_timeout_s <= 0:
+                        return AgentRegistrationResponse(
+                            success=False,
+                            message=(
+                                "Missing required configuration: request.metadata['feagi_http_timeout_s'] "
+                                "must be provided and > 0 (no defaults in safety mode)."
+                            ),
+                            agent_id=request.agent_id,
+                            cortical_areas=cortical_areas,
+                            error_code="MISSING_CONFIG",
+                        )
                     
                     # Build registration payload for HTTP API
                     # agent_data_port is required (u16) - use default if not provided
@@ -408,7 +430,7 @@ class RegistrationManager:
                     response = requests.post(
                         api_endpoint,
                         json=registration_payload,
-                        timeout=10.0,
+                        timeout=http_timeout_s,
                         headers={"Content-Type": "application/json"}
                     )
                     
@@ -449,6 +471,7 @@ class RegistrationManager:
                     
                     # Store API URL for heartbeat
                     self._feagi_api_urls[request.agent_id] = feagi_api_url
+                    self._agent_metadata[request.agent_id] = dict(request.metadata or {})
                     
                     # Extract transport info from API response (contains actual ZMQ ports)
                     transport_info_from_api = {}
@@ -464,6 +487,7 @@ class RegistrationManager:
                     registry = self._get_registry()
                     if registry:
                         metadata_json = json.dumps(metadata) if metadata else None
+                        rust_capabilities_json = json.dumps(sanitized_caps)
                         try:
                             result_json = registry.register_agent_direct(
                                 request.agent_id,
@@ -534,7 +558,19 @@ class RegistrationManager:
                 )
 
                 # Get transport info - prefer API response, fallback to config-based
-                transport_info = transport_info_from_api if transport_info_from_api else self._get_transport_info(request.agent_type, sanitized_caps)
+                if not transport_info_from_api:
+                    return AgentRegistrationResponse(
+                        success=False,
+                        message=(
+                            "Registration API response did not include transport endpoints "
+                            "(no fallback transport defaults in safety mode)."
+                        ),
+                        agent_id=request.agent_id,
+                        cortical_areas=cortical_areas,
+                        error_code="MISSING_TRANSPORT_INFO",
+                    )
+
+                transport_info = transport_info_from_api
                 
                 # Return response with cortical area information from HTTP API
                 return AgentRegistrationResponse(
@@ -630,13 +666,19 @@ class RegistrationManager:
         # Use stored API URL or provided one
         api_url = feagi_api_url or self._feagi_api_urls.get(agent_id)
         if not api_url:
-            # Try to get from config
-            try:
-                if load_feagi_config:
-                    config = load_feagi_config()
-                    api_url = f"http://{config.api.get('host', 'localhost')}:{config.api.get('port', 8000)}"
-            except Exception:
-                api_url = "http://localhost:8000"  # Default fallback
+            raise RuntimeError(
+                "Missing FEAGI API URL for heartbeat (no defaults in safety mode). "
+                "Provide feagi_api_url or ensure the agent was registered with metadata['feagi_api_url']."
+            )
+
+        http_timeout_s = None
+        if agent_id in self._agent_metadata and "feagi_http_timeout_s" in self._agent_metadata[agent_id]:
+            http_timeout_s = float(self._agent_metadata[agent_id]["feagi_http_timeout_s"])
+        if not http_timeout_s or http_timeout_s <= 0:
+            raise RuntimeError(
+                "Missing heartbeat HTTP timeout (no defaults in safety mode). "
+                "Provide metadata['feagi_http_timeout_s'] during registration."
+            )
         
         try:
             import requests
@@ -644,7 +686,7 @@ class RegistrationManager:
             response = requests.post(
                 heartbeat_endpoint,
                 json={"agent_id": agent_id},
-                timeout=5.0,
+                timeout=http_timeout_s,
                 headers={"Content-Type": "application/json"}
             )
             if response.status_code == 200:
@@ -670,6 +712,11 @@ class RegistrationManager:
         
         self._heartbeat_running[agent_id] = True
         heartbeat_interval = self._heartbeat_interval
+        if heartbeat_interval is None or heartbeat_interval <= 0:
+            raise RuntimeError(
+                "Heartbeat interval must be explicitly configured (no defaults in safety mode). "
+                "Call RegistrationManager.configure_heartbeat(...) before starting heartbeat."
+            )
         
         def heartbeat_loop():
             """Background thread that sends periodic heartbeats"""
@@ -702,10 +749,17 @@ class RegistrationManager:
             if agent_id in self._heartbeat_threads:
                 thread = self._heartbeat_threads[agent_id]
                 if thread.is_alive():
-                    thread.join(timeout=2.0)
+                    if self._heartbeat_join_timeout_s is None:
+                        raise RuntimeError(
+                            "Heartbeat join timeout must be explicitly configured "
+                            "(no defaults in safety mode). Call RegistrationManager.configure_heartbeat(...)."
+                        )
+                    thread.join(timeout=self._heartbeat_join_timeout_s)
                 del self._heartbeat_threads[agent_id]
             if agent_id in self._feagi_api_urls:
                 del self._feagi_api_urls[agent_id]
+            if agent_id in self._agent_metadata:
+                del self._agent_metadata[agent_id]
             logger.debug(f"💓 [HEARTBEAT] Stopped heartbeat thread for agent '{agent_id}'")
 
     def get_agent_properties(self, agent_id: str) -> Optional[Dict[str, Any]]:
@@ -849,40 +903,15 @@ class RegistrationManager:
         return self._feagi_ready
 
     def _get_transport_info(self, agent_type: str, capabilities: Dict[str, Any]) -> Dict[str, Any]:
-        """Get transport information for agent (MUST use config - NO fallback)"""
-        # Check if config loader is available
-        if load_feagi_config is None or get_agent_config is None:
-            # Config loader not available - return default endpoints
-            # This can happen when running in environments without feagi.config module
-            logger.warning("⚠️ feagi.config.toml_loader not available, using default transport endpoints")
-            return {
-                "sensory_endpoint": "tcp://127.0.0.1:5558",
-                "motor_endpoint": "tcp://127.0.0.1:5564",
-            }
-        
-        try:
-            from feagi.config.toml_loader import get_port_config, get_host_config
-            
-            config = load_feagi_config()
-            port_config = get_port_config(config)
-            host_config = get_host_config(config)
-            
-            return {
-                "sensory_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_sensory_port}",
-                "motor_endpoint": f"tcp://{host_config.zmq_host}:{port_config.zmq_motor_port}",
-            }
-        except ImportError:
-            logger.warning("⚠️ feagi.config.toml_loader not available, using default transport endpoints")
-            return {
-                "sensory_endpoint": "tcp://127.0.0.1:5558",
-                "motor_endpoint": "tcp://127.0.0.1:5564",
-            }
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to load config for transport info: {e}, using default endpoints")
-            return {
-                "sensory_endpoint": "tcp://127.0.0.1:5558",
-                "motor_endpoint": "tcp://127.0.0.1:5564",
-            }
+        """Get transport information for agent.
+
+        Safety mode: transport endpoints must come from the FEAGI registration API response.
+        This method is retained only for legacy call sites and must not be used.
+        """
+        raise RuntimeError(
+            "Transport endpoints must be provided by FEAGI during registration "
+            "(no default/fallback endpoints in safety mode)."
+        )
 
     def _update_capability_counts(self, capabilities: Dict[str, Any], increment: bool) -> None:
         """Update capability counts"""

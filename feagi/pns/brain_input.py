@@ -60,10 +60,14 @@ class BrainInput:
         self._next_group_id = 0
         
         # Configuration
-        self._feagi_host = "localhost"
-        self._feagi_port = 5558
-        self._transport_type = "zmq"
-        self._api_port = 8000  # FEAGI API port for registration
+        # @safety: No implicit defaults. Commercial deployments must be explicitly configured.
+        self._feagi_host: Optional[str] = None
+        self._feagi_port: Optional[int] = None
+        self._transport_type: Optional[str] = None
+        self._api_port: Optional[int] = None  # FEAGI API port for registration
+        self._feagi_http_timeout_s: Optional[float] = None
+        self._heartbeat_interval_s: Optional[float] = None
+        self._heartbeat_join_timeout_s: Optional[float] = None
         
         # Agent registration (REQUIRED in FEAGI 2.0)
         self._agent_registered = False
@@ -121,10 +125,14 @@ class BrainInput:
     
     def configure(
         self,
-        feagi_host: str = "localhost",
-        feagi_port: int = 5558,
-        transport: str = "zmq",
-        api_port: int = 8000
+        *,
+        feagi_host: str,
+        feagi_port: int,
+        transport: str,
+        api_port: int,
+        feagi_http_timeout_s: float,
+        heartbeat_interval_s: float,
+        heartbeat_join_timeout_s: float,
     ):
         """
         Configure connection to FEAGI.
@@ -135,11 +143,29 @@ class BrainInput:
             transport: Transport type - "zmq" or "websocket"
             api_port: FEAGI API port for registration (default: 8000)
         """
+        if not feagi_host:
+            raise ValueError("feagi_host must be provided (no defaults in safety mode).")
+        if feagi_port <= 0:
+            raise ValueError("feagi_port must be a positive integer (no defaults in safety mode).")
+        if api_port <= 0:
+            raise ValueError("api_port must be a positive integer (no defaults in safety mode).")
+        if not transport:
+            raise ValueError("transport must be provided (no defaults in safety mode).")
+        if feagi_http_timeout_s <= 0:
+            raise ValueError("feagi_http_timeout_s must be > 0 (no defaults in safety mode).")
+        if heartbeat_interval_s <= 0:
+            raise ValueError("heartbeat_interval_s must be > 0 (no defaults in safety mode).")
+        if heartbeat_join_timeout_s <= 0:
+            raise ValueError("heartbeat_join_timeout_s must be > 0 (no defaults in safety mode).")
+
         self._init_cache()
         self._feagi_host = feagi_host
         self._feagi_port = feagi_port
         self._transport_type = transport
         self._api_port = api_port
+        self._feagi_http_timeout_s = feagi_http_timeout_s
+        self._heartbeat_interval_s = heartbeat_interval_s
+        self._heartbeat_join_timeout_s = heartbeat_join_timeout_s
         
         logger.info(f"📡 Configured: {transport}://{feagi_host}:{feagi_port} (API: {feagi_host}:{api_port})")
     
@@ -184,6 +210,22 @@ class BrainInput:
                 raise RuntimeError(
                     "RegistrationManager not available. Agent registration is required in FEAGI 2.0."
                 ) from e
+
+        if (
+            self._feagi_http_timeout_s is None
+            or self._heartbeat_interval_s is None
+            or self._heartbeat_join_timeout_s is None
+        ):
+            raise RuntimeError(
+                "brain_input.configure(...) must be called with explicit feagi_http_timeout_s, "
+                "heartbeat_interval_s, and heartbeat_join_timeout_s before agent registration "
+                "(no defaults in safety mode)."
+            )
+
+        self._registration_manager.configure_heartbeat(
+            interval_s=self._heartbeat_interval_s,
+            join_timeout_s=self._heartbeat_join_timeout_s,
+        )
         
         # Validate capabilities format - REJECT legacy "input": ["cortical_id"] format
         # FEAGI 2.0 requires structured capabilities like VSG (vision, motor, etc.)
@@ -242,11 +284,18 @@ class BrainInput:
                     "Please provide structured capabilities (e.g., vision, motor) or register inputs first."
                 )
         
+        if self._feagi_host is None or self._api_port is None:
+            raise RuntimeError(
+                "brain_input.configure(...) must be called with explicit FEAGI host/api_port "
+                "before agent registration (no defaults in safety mode)."
+            )
+
         # Create registration request with API URL in metadata
         from feagi.pns.registration_manager import AgentRegistrationRequest
         metadata = {
             "feagi_api_url": f"http://{self._feagi_host}:{self._api_port}",
             "feagi_api_port": self._api_port,
+            "feagi_http_timeout_s": self._feagi_http_timeout_s,
         }
         request = AgentRegistrationRequest(
             agent_id=agent_id,
@@ -328,6 +377,12 @@ class BrainInput:
             raise RuntimeError("Cache not initialized. Call configure() first.")
         
         # Initialize transport
+        if self._transport_type is None or self._feagi_host is None or self._feagi_port is None:
+            raise RuntimeError(
+                "brain_input.configure(...) must be called with explicit FEAGI host/port/transport "
+                "before connect() (no defaults in safety mode)."
+            )
+
         if self._transport_type == "zmq":
             import zmq
             self._zmq_context = zmq.Context()  # Store as instance variable to prevent garbage collection!
@@ -484,7 +539,8 @@ class BrainInput:
             'cortical_areas': cortical_areas
         })
         
-        t_send_total_start = time.perf_counter()
+        # Reserved for future detailed timing breakdowns
+        # (kept disabled to avoid adding overhead in the hot path)
         try:
             # Update all inputs to cache
             for input_instance in self._inputs:
@@ -545,7 +601,7 @@ class BrainInput:
                         # Logging removed for hot path
                     except zmq.Again:
                         # Socket buffer full - this shouldn't happen with PUSH/PULL but log it
-                        logger.warning(f"📤 [BRAIN-INPUT] ⚠️ [ZMQ] Socket buffer full (EAGAIN), retrying with blocking send...")
+                        logger.warning("📤 [BRAIN-INPUT] ⚠️ [ZMQ] Socket buffer full (EAGAIN), retrying with blocking send...")
                         self._transport.send(serialized, 0)  # Blocking send
                         logger.info(f"📤 [BRAIN-INPUT] ✅ Successfully sent {len(serialized)} bytes to FEAGI via ZMQ (blocking)")
                     except zmq.ZMQError as zmq_err:
@@ -632,7 +688,7 @@ class BrainInput:
                     logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI")
                 except zmq.Again:
                     # Socket buffer full - retry with blocking send
-                    logger.warning(f"📤 [BRAIN-INPUT] ⚠️ Socket buffer full, retrying with blocking send...")
+                    logger.warning("📤 [BRAIN-INPUT] ⚠️ Socket buffer full, retrying with blocking send...")
                     self._transport.send(binary_data, 0)  # Blocking send
                     logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI (blocking)")
                 except zmq.ZMQError as zmq_err:

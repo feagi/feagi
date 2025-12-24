@@ -48,7 +48,7 @@ _rust_import_error = None
 try:
     from feagi_rust_py_libs import feagi_agent_sdk as rust_sdk
     _rust_sdk_available = True
-except ImportError as e1:
+except ImportError:
     try:
         import feagi_agent_sdk as rust_sdk
         _rust_sdk_available = True

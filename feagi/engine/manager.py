@@ -7,11 +7,9 @@ Manages the lifecycle of a FEAGI engine instance.
 import subprocess
 import time
 import logging
-import signal
 import os
-import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional
 
 logger = logging.getLogger("feagi.engine")
 
@@ -85,7 +83,6 @@ class FeagiEngine:
         Returns:
             Path to FEAGI executable or None
         """
-        import platform
         import shutil
         
         # 1. Check for bundled binary (highest priority)
