@@ -68,7 +68,10 @@ if _rust_sdk_available:
         print("[PYTHON-SDK] ✅ Rust logging initialized", flush=True)
     except Exception as e:
         print(f"[PYTHON-SDK] ❌ Failed to init Rust logging: {e}", flush=True)
-        logging.getLogger("feagi.pns.client").warning(f"Failed to init Rust logging: {e}")
+        logging.getLogger("feagi.pns.client").warning(
+            "Failed to init Rust logging: %s",
+            e,
+        )
 else:
     # No fallback - Rust SDK is required (will raise ImportError in __init__)
     PyAgentClient = None
@@ -162,7 +165,7 @@ class FeagiAgentClient:
         feagi_host: str = "localhost",
         registration_port: int = 30001,
         sensory_port: int = 5555,
-        motor_port: int = 30005,
+        motor_port: int = 5564,
         vision_capability: Optional[Tuple[str, int, int, int, str]] = None,
         motor_capability: Optional[Tuple[str, int, List[str]]] = None,
         custom_capabilities: Optional[Dict[str, Any]] = None,
@@ -180,7 +183,7 @@ class FeagiAgentClient:
             feagi_host: FEAGI hostname or IP address.
             registration_port: Registration/heartbeat port (default: 30001).
             sensory_port: Sensory data input port (default: 5555).
-            motor_port: Motor data output port (default: 30005).
+            motor_port: Motor data output port (default: 5564).
             vision_capability: Vision capability tuple
                 (modality, width, height, channels, cortical_area).
             motor_capability: Motor capability tuple (modality, output_count,
@@ -528,28 +531,33 @@ class FeagiAgentClient:
             xyzp_data = json.loads(motor_json)
             
             # TEMP DEBUG: Log to file
-            with open("/tmp/feagi_motor_debug.log", "a") as f:
+            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
                 import time
                 f.write(f"\n[{time.time():.3f}] RAW XYZP: {motor_json[:200]}\n")
                 f.write(f"[{time.time():.3f}] PARSED: {xyzp_data}\n")
             
             # Decode XYZP SoA to motor index → power mapping
             # Only decode cortical areas this agent subscribed to
-            cortical_ids = self._motor_cortical_ids if hasattr(self, '_motor_cortical_ids') else None
+            cortical_ids = (
+                self._motor_cortical_ids
+                if hasattr(self, "_motor_cortical_ids")
+                else None
+            )
             motors = decode_motor_xyzp(xyzp_data, cortical_ids)
             
             # TEMP DEBUG: Log decoded result
-            with open("/tmp/feagi_motor_debug.log", "a") as f:
+            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
                 f.write(f"[{time.time():.3f}] DECODED: {motors}\n")
                 f.write(f"[{time.time():.3f}] RETURNING: {{'motor': {motors}}}\n")
                 f.flush()
             
-            # Return in simple format for controllers: {"motor": {0: power, 1: power, ...}}
+            # Return in simple format for controllers:
+            # {"motor": {0: power, 1: power, ...}}
             return {"motor": motors} if motors else None
             
         except Exception as e:
             # TEMP DEBUG: Log error
-            with open("/tmp/feagi_motor_debug.log", "a") as f:
+            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
                 import traceback
                 f.write(f"\n[ERROR] {e}\n{traceback.format_exc()}\n")
                 f.flush()

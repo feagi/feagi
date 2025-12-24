@@ -20,7 +20,7 @@ The Rust PNS handles all performance-critical I/O operations:
 - **heartbeat.rs**: Monitors agent health and deregisters stale agents
 - **zmq/rest.rs**: ROUTER socket for agent registration and heartbeat (port 5563)
 - **zmq/sensory.rs**: PULL socket for receiving binary XYZP sensory data (port 5558)
-- **zmq/motor.rs**: PUB socket for broadcasting motor commands (port 30005)
+- **zmq/motor.rs**: PUB socket for broadcasting motor commands (port 5564)
 - **zmq/visualization.rs**: PUB socket for neural activity visualization (port 5562)
 - **shm.rs**: Shared memory I/O for high-performance local communication
 
@@ -82,7 +82,7 @@ The Python layer provides orchestration and integration with FEAGI's subsystems:
 ### Motor Data Flow (FEAGI → Agent)
 
 1. Rust NPU generates motor commands
-2. Rust PNS motor stream broadcasts via ZMQ PUB (port 30005)
+2. Rust PNS motor stream broadcasts via ZMQ PUB (port 5564)
 3. Agents receive motor commands and execute actions
 
 ### Visualization Data Flow (FEAGI → Brain Visualizer)
@@ -108,7 +108,7 @@ The registration system provides **zero-intervention** coordination between conn
 **Motor FQ Sampler**:
 - Automatically enabled when first motor-capable agent connects
 - Samples OPU (Output Processing Unit) areas only
-- Broadcasts to port 30005
+- Broadcasts to port 5564
 - Automatically disabled when last motor agent disconnects
 
 **Benefits**:
@@ -159,7 +159,7 @@ All ZMQ streams are managed by the Rust PNS for consistency and performance:
 - Direction: Agent → FEAGI
 - Performance: Pure Rust, direct NPU injection
 
-**Motor Stream** (Port 30005):
+**Motor Stream** (Port 5564):
 - Socket Type: PUB (agents use SUB)
 - Purpose: Broadcast motor commands to agents
 - Format: Binary motor command structures
@@ -268,7 +268,7 @@ All PNS configuration is centralized in `feagi_configuration.toml`:
 **Agent Configuration**:
 - registration_port: ZMQ REST stream port (default 5563)
 - sensory_port: ZMQ sensory stream port (default 5558)
-- motor_port: ZMQ motor stream port (default 30005)
+- motor_port: ZMQ motor stream port (default 5564)
 - visualization_port: ZMQ visualization stream port (default 5562)
 - heartbeat_timeout_ms: Agent heartbeat timeout (default 60000)
 
@@ -353,7 +353,7 @@ To integrate a new agent type:
 4. Connect to appropriate ZMQ streams:
    - Registration: tcp://host:5563
    - Sensory: tcp://host:5558 (PUSH socket)
-   - Motor: tcp://host:30005 (SUB socket)
+   - Motor: tcp://host:5564 (SUB socket)
    - Visualization: tcp://host:5562 (SUB socket)
 5. Send periodic heartbeats to maintain registration
 

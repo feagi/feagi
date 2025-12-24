@@ -116,7 +116,7 @@ controller = Esp32SerialController(
 Default ports (matches FEAGI 2.0 defaults):
 - Registration: `30001`
 - Sensory Input: `5555` (ZMQ PUSH)
-- Motor Output: `30005` (ZMQ SUB)
+- Motor Output: `5564` (ZMQ SUB)
 
 ## Error Handling
 

@@ -24,13 +24,14 @@ Usage:
 
 import json
 import logging
-import serial
-import serial.tools.list_ports
 import threading
 import time
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
-from feagi.pns import FeagiAgentClient, AgentType
+import serial
+import serial.tools.list_ports
+
+from feagi.pns import AgentType, FeagiAgentClient
 
 logger = logging.getLogger("feagi.agent.esp32")
 
@@ -48,7 +49,7 @@ class Esp32SerialController:
         feagi_host: FEAGI server hostname or IP
         feagi_registration_port: FEAGI registration port (default: 30001)
         feagi_sensory_port: FEAGI sensory input port (default: 5555)
-        feagi_motor_port: FEAGI motor output port (default: 30005)
+        feagi_motor_port: FEAGI motor output port (default: 5564)
         heartbeat_interval: Heartbeat interval in seconds (default: 5.0)
     
     Example:
@@ -70,7 +71,7 @@ class Esp32SerialController:
         feagi_host: str = "localhost",
         feagi_registration_port: int = 30001,
         feagi_sensory_port: int = 5555,
-        feagi_motor_port: int = 30005,
+        feagi_motor_port: int = 5564,
         heartbeat_interval: float = 5.0,
         auto_detect_port: bool = True,
     ):
@@ -79,14 +80,16 @@ class Esp32SerialController:
         
         Args:
             agent_id: Unique identifier for this controller instance
-            serial_port: Serial port path. If None and auto_detect_port=True, will auto-detect
+            serial_port: Serial port path. If None and auto_detect_port=True, will
+                auto-detect.
             baud_rate: Serial communication baud rate (default: 115200)
             feagi_host: FEAGI server hostname or IP address
             feagi_registration_port: FEAGI registration port
             feagi_sensory_port: FEAGI sensory data input port (ZMQ PUSH)
             feagi_motor_port: FEAGI motor command output port (ZMQ SUB)
             heartbeat_interval: Heartbeat interval in seconds (0 to disable)
-            auto_detect_port: If True and serial_port is None, auto-detect ESP32 port
+            auto_detect_port: If True and serial_port is None, auto-detect ESP32
+                port.
         """
         self.agent_id = agent_id
         self.baud_rate = baud_rate
@@ -105,7 +108,9 @@ class Esp32SerialController:
                 )
         
         if serial_port is None:
-            raise ValueError("serial_port must be provided or auto_detect_port must be True")
+            raise ValueError(
+                "serial_port must be provided or auto_detect_port must be True"
+            )
         
         self.serial_port = serial_port
         self.serial_connection: Optional[serial.Serial] = None
@@ -128,7 +133,12 @@ class Esp32SerialController:
         
         logger.info(f"ESP32 Serial Controller initialized: {agent_id}")
         logger.info(f"  Serial port: {serial_port} @ {baud_rate} baud")
-        logger.info(f"  FEAGI: {feagi_host}:{feagi_sensory_port} (sensory), {feagi_motor_port} (motor)")
+        logger.info(
+            "  FEAGI: %s:%s (sensory), %s (motor)",
+            feagi_host,
+            feagi_sensory_port,
+            feagi_motor_port,
+        )
     
     @staticmethod
     def _detect_esp32_port() -> Optional[str]:
@@ -156,14 +166,21 @@ class Esp32SerialController:
             
             # Check if description or manufacturer contains ESP32 keywords
             for keyword in esp32_keywords:
-                if keyword.upper() in port_description or keyword.upper() in port_manufacturer:
-                    logger.info(f"  ✓ Found potential ESP32: {port.device} ({port.description})")
+                if (
+                    keyword.upper() in port_description
+                    or keyword.upper() in port_manufacturer
+                ):
+                    logger.info(
+                        "  ✓ Found potential ESP32: %s (%s)",
+                        port.device,
+                        port.description,
+                    )
                     return port.device
             
             # Also check common Linux serial port patterns
-            if port.device.startswith("/dev/ttyUSB") or port.device.startswith("/dev/ttyACM"):
+            if port.device.startswith(("/dev/ttyUSB", "/dev/ttyACM")):
                 # If no other criteria match, this might be an ESP32
-                logger.info(f"  ⚠ Found serial port (may be ESP32): {port.device}")
+                logger.info("  ⚠ Found serial port (may be ESP32): %s", port.device)
                 return port.device
         
         logger.warning("  ✗ No ESP32 serial port detected")
@@ -176,7 +193,11 @@ class Esp32SerialController:
             return
         
         try:
-            logger.info(f"Connecting to serial port: {self.serial_port} @ {self.baud_rate} baud")
+            logger.info(
+                "Connecting to serial port: %s @ %s baud",
+                self.serial_port,
+                self.baud_rate,
+            )
             self.serial_connection = serial.Serial(
                 port=self.serial_port,
                 baudrate=self.baud_rate,
@@ -361,7 +382,11 @@ class Esp32SerialController:
                             "value": power_float
                         })
                     except (ValueError, TypeError):
-                        logger.warning(f"Invalid motor command: {motor_idx_str}={power}")
+                        logger.warning(
+                            "Invalid motor command: %s=%s",
+                            motor_idx_str,
+                            power,
+                        )
                         continue
         
         if not motor_commands:
@@ -390,7 +415,11 @@ class Esp32SerialController:
             self.serial_connection.flush()  # Ensure data is sent immediately
             
             if bytes_written != len(data_bytes):
-                logger.warning(f"Partial write: {bytes_written}/{len(data_bytes)} bytes")
+                logger.warning(
+                    "Partial write: %s/%s bytes",
+                    bytes_written,
+                    len(data_bytes),
+                )
                 return False
             
             return True
@@ -428,8 +457,9 @@ class Esp32SerialController:
                     # Log periodically
                     if self.stats["sensory_messages_sent"] % 100 == 0:
                         logger.debug(
-                            f"Sent {self.stats['sensory_messages_sent']} sensory messages "
-                            f"({len(neuron_pairs)} neurons in last message)"
+                            "Sent %s sensory messages (%s neurons in last message)",
+                            self.stats["sensory_messages_sent"],
+                            len(neuron_pairs),
                         )
                         
                 except Exception as e:
@@ -469,7 +499,8 @@ class Esp32SerialController:
                     # Log periodically
                     if self.stats["motor_messages_received"] % 100 == 0:
                         logger.debug(
-                            f"Received {self.stats['motor_messages_received']} motor messages"
+                            "Received %s motor messages",
+                            self.stats["motor_messages_received"],
                         )
                 else:
                     logger.warning("Failed to write motor command to serial")
@@ -529,11 +560,17 @@ class Esp32SerialController:
                     time.sleep(1.0)
                     
                     # Print statistics periodically
-                    if sum(self.stats.values()) > 0 and sum(self.stats.values()) % 1000 == 0:
+                    total_events = sum(self.stats.values())
+                    if total_events > 0 and total_events % 1000 == 0:
+                        total_errors = (
+                            self.stats["serial_read_errors"]
+                            + self.stats["serial_write_errors"]
+                            + self.stats["feagi_errors"]
+                        )
                         logger.info(
                             f"Stats: Sensory={self.stats['sensory_messages_sent']}, "
                             f"Motor={self.stats['motor_messages_received']}, "
-                            f"Errors={self.stats['serial_read_errors'] + self.stats['serial_write_errors'] + self.stats['feagi_errors']}"
+                            f"Errors={total_errors}"
                         )
                         
             except KeyboardInterrupt:
@@ -566,7 +603,10 @@ class Esp32SerialController:
         logger.info("=" * 60)
         logger.info("Controller Statistics:")
         logger.info(f"  Sensory messages sent: {self.stats['sensory_messages_sent']}")
-        logger.info(f"  Motor messages received: {self.stats['motor_messages_received']}")
+        logger.info(
+            "  Motor messages received: %s",
+            self.stats["motor_messages_received"],
+        )
         logger.info(f"  Serial read errors: {self.stats['serial_read_errors']}")
         logger.info(f"  Serial write errors: {self.stats['serial_write_errors']}")
         logger.info(f"  FEAGI errors: {self.stats['feagi_errors']}")
@@ -602,7 +642,10 @@ Examples:
     parser.add_argument(
         "--serial-port",
         default=None,
-        help="Serial port path (e.g., /dev/ttyUSB0 or COM3). Auto-detects if not specified."
+        help=(
+            "Serial port path (e.g., /dev/ttyUSB0 or COM3). "
+            "Auto-detects if not specified."
+        ),
     )
     parser.add_argument(
         "--baud-rate",
@@ -630,8 +673,8 @@ Examples:
     parser.add_argument(
         "--feagi-motor-port",
         type=int,
-        default=30005,
-        help="FEAGI motor output port (default: 30005)"
+        default=5564,
+        help="FEAGI motor output port (default: 5564)",
     )
     parser.add_argument(
         "--heartbeat-interval",
