@@ -5,7 +5,8 @@ Global manager for all FEAGI inputs (sensory data sources).
 Uses Rust IOCache for high-performance encoding.
 """
 
-from typing import List, Optional, TYPE_CHECKING, Any, Dict
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import json
 import logging
 import time
 from datetime import datetime
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from feagi.pns.observability.monitor import Monitor
 
 logger = logging.getLogger("feagi.pns.brain_input")
+
+# @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-input
 
 
 class BrainInput:
@@ -55,6 +58,11 @@ class BrainInput:
         self._transport = None
         self._zmq_context = None  # MUST keep context alive!
         self._connected = False
+
+        # Rust-backed agent client (preferred transport)
+        self._agent_client = None
+        self._agent_capabilities: Optional[Dict[str, Any]] = None
+        self._agent_type: Optional[str] = None
         
         # Auto-incrementing group IDs
         self._next_group_id = 0
@@ -93,15 +101,25 @@ class BrainInput:
                     frpl.init_rust_logging()
                     logger.debug("✅ Rust tracing logging initialized")
                 # Fallback to connector_core module
-                elif hasattr(frpl, 'connector_core') and hasattr(frpl.connector_core, 'init_rust_logging'):
+                elif (
+                    hasattr(frpl, "connector_core")
+                    and hasattr(frpl.connector_core, "init_rust_logging")
+                ):
                     frpl.connector_core.init_rust_logging()
                     logger.debug("✅ Rust tracing logging initialized via connector_core")
-                # Fallback to feagi_agent_sdk (may be commented out)
-                elif hasattr(frpl, 'feagi_agent_sdk') and hasattr(frpl.feagi_agent_sdk, 'init_rust_logging'):
+                # Fallback to feagi_agent_sdk
+                # (may be commented out in some builds)
+                elif (
+                    hasattr(frpl, "feagi_agent_sdk")
+                    and hasattr(frpl.feagi_agent_sdk, "init_rust_logging")
+                ):
                     frpl.feagi_agent_sdk.init_rust_logging()
                     logger.debug("✅ Rust tracing logging initialized via feagi_agent_sdk")
             except Exception as log_init_err:
-                logger.debug(f"Could not initialize Rust logging (non-fatal): {log_init_err}")
+                logger.debug(
+                    "Could not initialize Rust logging (non-fatal): %s",
+                    log_init_err,
+                )
             
             # Use ConnectorAgent which provides sensor methods
             # NOTE: frpl.connector_core.caching.IOCache() does not exist in current API
@@ -200,16 +218,22 @@ class BrainInput:
         if self._agent_registered:
             logger.warning(f"Agent '{self._agent_id}' already registered. Re-registering...")
         
+        # Import once (avoid redefinitions and ensure symbols exist even if we don't
+        # need to instantiate a new RegistrationManager in this call).
+        try:
+            from feagi.pns.registration_manager import (  # noqa: PLC0415
+                AgentRegistrationRequest,
+                RegistrationManager,
+            )
+        except ImportError as e:
+            logger.error(f"Failed to import RegistrationManager: {e}")
+            raise RuntimeError(
+                "RegistrationManager not available. Agent registration is required in FEAGI 2.0."
+            ) from e
+
         # Initialize registration manager
         if self._registration_manager is None:
-            try:
-                from feagi.pns.registration_manager import RegistrationManager, AgentRegistrationRequest
-                self._registration_manager = RegistrationManager()
-            except ImportError as e:
-                logger.error(f"Failed to import RegistrationManager: {e}")
-                raise RuntimeError(
-                    "RegistrationManager not available. Agent registration is required in FEAGI 2.0."
-                ) from e
+            self._registration_manager = RegistrationManager()
 
         if (
             self._feagi_http_timeout_s is None
@@ -291,7 +315,6 @@ class BrainInput:
             )
 
         # Create registration request with API URL in metadata
-        from feagi.pns.registration_manager import AgentRegistrationRequest
         metadata = {
             "feagi_api_url": f"http://{self._feagi_host}:{self._api_port}",
             "feagi_api_port": self._api_port,
@@ -325,6 +348,8 @@ class BrainInput:
             self._agent_registered = True
             self._agent_id = agent_id
             self._registration_response = response
+            self._agent_type = agent_type
+            self._agent_capabilities = capabilities
             
             # Log cortical area status
             if response.cortical_areas:
@@ -384,53 +409,111 @@ class BrainInput:
             )
 
         if self._transport_type == "zmq":
-            import zmq
-            self._zmq_context = zmq.Context()  # Store as instance variable to prevent garbage collection!
-            self._transport = self._zmq_context.socket(zmq.PUSH)  # PUSH socket to send data to FEAGI
-            
-            # Set socket options for better debugging
-            self._transport.setsockopt(zmq.LINGER, 0)  # Don't wait on close
-            self._transport.setsockopt(zmq.SNDHWM, 1000)  # Send high water mark
-            
-            # Use configured port (should be ZMQ sensory port, not API port)
-            endpoint = f"tcp://{self._feagi_host}:{self._feagi_port}"
-            logger.info(f"🔗 [ZMQ] Attempting to connect to FEAGI at {endpoint}...")
-            logger.info(f"🔗 [ZMQ] Using port {self._feagi_port} (API port is {self._api_port})")
-            
-            # Warn if port matches API port (likely misconfiguration)
-            if self._feagi_port == self._api_port:
-                logger.warning(f"🔗 [ZMQ] ⚠️ WARNING: ZMQ port ({self._feagi_port}) matches API port! This is likely wrong. ZMQ sensory port should be 5558, not {self._api_port}")
-            
+            if self._registration_response is None:
+                raise RuntimeError(
+                    "Missing registration response (register_agent must succeed before connect)."
+                )
+
+            transport_info = getattr(self._registration_response, "transport_info", None)
+            if not isinstance(transport_info, dict) or "zmq_ports" not in transport_info:
+                raise RuntimeError(
+                    "Registration response did not include ZMQ ports (safety mode: "
+                    "endpoints must come from registration response)."
+                )
+
+            zmq_ports = transport_info.get("zmq_ports")
+            if not isinstance(zmq_ports, dict):
+                raise RuntimeError("Invalid transport_info['zmq_ports'] format")
+
+            registration_port = zmq_ports.get("registration")
+            sensory_port = zmq_ports.get("sensory")
+            if registration_port is None or sensory_port is None:
+                raise RuntimeError(
+                    f"Missing required ZMQ ports in registration response: {zmq_ports}"
+                )
+
+            # Rust-backed client (single source of truth for ZMQ send semantics)
             try:
-                self._transport.connect(endpoint)
-                logger.info(f"🔗 [ZMQ] ✅ Successfully connected to FEAGI at {endpoint}")
-                logger.info(f"🔗 [ZMQ] Socket type: PUSH, State: {self._transport.get(zmq.TYPE)}")
-            except Exception as e:
-                logger.error(f"🔗 [ZMQ] ❌ Failed to connect to {endpoint}: {e}", exc_info=True)
-                raise
+                from feagi_rust_py_libs.feagi_rust_py_libs import (  # noqa: PLC0415
+                    feagi_agent as rust_sdk,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "Rust SDK (feagi_rust_py_libs) is required for ZMQ transport. "
+                    "Install with: pip install feagi_rust_py_libs"
+                ) from e
+
+            if not self._agent_id:
+                raise RuntimeError("Agent ID missing (register_agent must be called first).")
+
+            if self._agent_capabilities is None:
+                raise RuntimeError("Agent capabilities missing (register_agent must be called first).")
+
+            rust_agent_type = rust_sdk.AgentType.sensory()
+
+            config = rust_sdk.PyAgentConfig(self._agent_id, rust_agent_type)
+            config.with_registration_endpoint(
+                f"tcp://{self._feagi_host}:{int(registration_port)}"
+            )
+            config.with_sensory_endpoint(
+                f"tcp://{self._feagi_host}:{int(sensory_port)}"
+            )
+
+            # Enforce deterministic heartbeat config (caller provided explicit interval)
+            config.with_heartbeat_interval(float(self._heartbeat_interval_s))
+
+            # Capabilities: map vision when schema matches, store everything else as custom.
+            caps = dict(self._agent_capabilities)
+            if "vision" in caps:
+                vision = caps.get("vision")
+                if not isinstance(vision, dict):
+                    raise RuntimeError("capabilities['vision'] must be a dict")
+
+                modality = vision.get("modality")
+                dims = vision.get("dimensions")
+                channels = vision.get("channels")
+                cortical_area = vision.get("target_cortical_area")
+
+                if (
+                    not isinstance(modality, str)
+                    or not isinstance(dims, list)
+                    or len(dims) != 2
+                    or not isinstance(channels, int)
+                    or not isinstance(cortical_area, str)
+                ):
+                    raise RuntimeError(
+                        "Invalid vision capability schema. Expected keys: "
+                        "{modality:str, dimensions:[w,h], channels:int, target_cortical_area:str}"
+                    )
+
+                config.with_vision_capability(
+                    modality,
+                    int(dims[0]),
+                    int(dims[1]),
+                    int(channels),
+                    cortical_area,
+                )
+
+            for key, value in caps.items():
+                if key == "vision":
+                    continue
+                config.with_custom_capability(key, json.dumps(value))
+
+            # Validate and connect (registers with FEAGI and starts heartbeat in Rust)
+            config.validate()
+            self._agent_client = rust_sdk.PyAgentClient(config)
+            self._agent_client.connect()
         else:
             raise NotImplementedError(f"Transport type '{self._transport_type}' not yet implemented")
         
         self._connected = True
-        
-        # Start heartbeat via RegistrationManager (proper module for heartbeat logic)
-        if self._registration_manager and self._agent_id:
-            self._registration_manager.start_heartbeat(self._agent_id, self._feagi_host, self._api_port)
     
     def disconnect(self):
         """Disconnect from FEAGI"""
-        if self._transport:
-            try:
-                self._transport.close()
-            except Exception as e:
-                logger.warning(f"Error closing transport: {e}")
-            self._transport = None
-        if self._zmq_context:
-            try:
-                self._zmq_context.term()
-            except Exception as e:
-                logger.warning(f"Error terminating ZMQ context: {e}")
-            self._zmq_context = None
+        # Drop Rust client to trigger deregistration/cleanup in Rust.
+        self._agent_client = None
+        self._transport = None
+        self._zmq_context = None
         self._connected = False
         logger.info("🔌 Disconnected from FEAGI")
     
@@ -592,31 +675,15 @@ class BrainInput:
                 return
             
             # Send via transport
-            if self._transport:
-                try:
-                    import zmq
-                    # Send with NOBLOCK to detect immediate failures
-                    try:
-                        self._transport.send(serialized, zmq.NOBLOCK)
-                        # Logging removed for hot path
-                    except zmq.Again:
-                        # Socket buffer full - this shouldn't happen with PUSH/PULL but log it
-                        logger.warning("📤 [BRAIN-INPUT] ⚠️ [ZMQ] Socket buffer full (EAGAIN), retrying with blocking send...")
-                        self._transport.send(serialized, 0)  # Blocking send
-                        logger.info(f"📤 [BRAIN-INPUT] ✅ Successfully sent {len(serialized)} bytes to FEAGI via ZMQ (blocking)")
-                    except zmq.ZMQError as zmq_err:
-                        logger.error(f"📤 [BRAIN-INPUT] ❌ [ZMQ] ZMQ error during send: {zmq_err} (errno: {zmq_err.errno})", exc_info=True)
-                        raise
-                except zmq.ZMQError as zmq_err:
-                    logger.error(f"📤 [BRAIN-INPUT] ❌ [ZMQ] ZMQ error sending data: {zmq_err} (errno: {zmq_err.errno})", exc_info=True)
-                    raise
-                except Exception as e:
-                    logger.error(f"📤 [BRAIN-INPUT] ❌ Error sending data to FEAGI: {e}", exc_info=True)
-                    raise
-            else:
-                # No transport configured yet (shouldn't happen in normal use)
-                logger.error(f"No transport configured - cannot send {len(self._inputs)} inputs")
-                raise RuntimeError("Transport not configured")
+            if self._agent_client is None:
+                logger.error(
+                    "Rust agent client not initialized - cannot send %d inputs",
+                    len(self._inputs),
+                )
+                raise RuntimeError("Rust agent client not initialized. Call connect() first.")
+
+            # Real-time: Rust client drops on backpressure (no blocking, no buffering).
+            self._agent_client.send_sensory_bytes(serialized)
             
             # Calculate metrics
             duration_ms = (time.perf_counter() - start_time) * 1000.0
@@ -679,29 +746,10 @@ class BrainInput:
             return
         
         # Send via transport
-        if self._transport:
-            try:
-                import zmq
-                # Send with NOBLOCK to detect immediate failures
-                try:
-                    self._transport.send(binary_data, zmq.NOBLOCK)
-                    logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI")
-                except zmq.Again:
-                    # Socket buffer full - retry with blocking send
-                    logger.warning("📤 [BRAIN-INPUT] ⚠️ Socket buffer full, retrying with blocking send...")
-                    self._transport.send(binary_data, 0)  # Blocking send
-                    logger.debug(f"📤 [BRAIN-INPUT] Sent {len(binary_data)} raw bytes to FEAGI (blocking)")
-                except zmq.ZMQError as zmq_err:
-                    logger.error(f"📤 [BRAIN-INPUT] ❌ ZMQ error during send: {zmq_err}", exc_info=True)
-                    raise
-            except zmq.ZMQError as zmq_err:
-                logger.error(f"📤 [BRAIN-INPUT] ❌ ZMQ error: {zmq_err}", exc_info=True)
-                raise
-            except Exception as e:
-                logger.error(f"📤 [BRAIN-INPUT] ❌ Error sending raw bytes: {e}", exc_info=True)
-                raise
-        else:
-            raise RuntimeError("Transport not initialized. Call connect() first.")
+        if self._agent_client is None:
+            raise RuntimeError("Rust agent client not initialized. Call connect() first.")
+
+        self._agent_client.send_sensory_bytes(binary_data)
     
     def get_input_count(self) -> int:
         """Get number of registered inputs"""
