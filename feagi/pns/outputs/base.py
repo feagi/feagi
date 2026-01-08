@@ -45,7 +45,7 @@ class BaseOutput(ABC):
         self._registered = False
     
     @abstractmethod
-    def _register_with_cache(self, cache: Any, group_id: int):
+    def _register_with_cache(self, cache: Any, group_id: int, channel_index: int = None, decoder_registered: bool = False):
         """
         Register this output with Rust IOCache.
         
@@ -55,6 +55,8 @@ class BaseOutput(ABC):
         Args:
             cache: Rust IOCache instance
             group_id: Assigned cortical group ID
+            channel_index: Optional channel index (for motors, all use group=0, differentiated by channel)
+            decoder_registered: Whether the motor decoder has already been registered
         """
         pass
     

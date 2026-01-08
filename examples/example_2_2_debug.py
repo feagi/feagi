@@ -17,10 +17,10 @@ async def main():
     input_image_resolution = (128, 128, 3)
     print(f"\n[1/6] Setting up image properties: {input_image_resolution}")
 
-    input_image_properties = frpl.connector_core.data.descriptors.ImageFrameProperties(
-        frpl.connector_core.data.descriptors.ImageXYResolution(input_image_resolution[0], input_image_resolution[1]),
-        frpl.connector_core.data.descriptors.ColorSpace.Linear,
-        frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+    input_image_properties = frpl.connector_core.data_types.descriptors.ImageFrameProperties(
+        frpl.connector_core.data_types.descriptors.ImageXYResolution(input_image_resolution[0], input_image_resolution[1]),
+        frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
+        frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB
     )
     print("      ✓ Image properties created")
 
@@ -78,10 +78,10 @@ async def main():
     image_arr: np.ndarray = np.ones(input_image_resolution).astype(np.uint8) * 100
     print(f"      ✓ Created {input_image_resolution} image with value 100")
     
-    image_frame = frpl.connector_core.data.ImageFrame.new_from_array(
+    image_frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
         image_arr, 
         input_image_properties.color_space, 
-        frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+        frpl.connector_core.data_types.descriptors.MemoryOrderLayout.WidthsHeightsChannels
     )
     print("      ✓ Image frame created")
     

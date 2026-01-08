@@ -33,13 +33,13 @@ async def main():
     print("\n[TEST 2] Setting up image properties...")
     try:
         input_image_resolution = (128, 128, 3)
-        input_image_properties = frpl.connector_core.data.descriptors.ImageFrameProperties(
-            frpl.connector_core.data.descriptors.ImageXYResolution(
+        input_image_properties = frpl.connector_core.data_types.descriptors.ImageFrameProperties(
+            frpl.connector_core.data_types.descriptors.ImageXYResolution(
                 input_image_resolution[0], 
                 input_image_resolution[1]
             ),
-            frpl.connector_core.data.descriptors.ColorSpace.Linear,
-            frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+            frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
+            frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB
         )
         print(f"         ✓ Properties created for {input_image_resolution}")
     except Exception as e:
@@ -74,10 +74,10 @@ async def main():
     try:
         frames = {}
         for name, img_arr in images.items():
-            frame = frpl.connector_core.data.ImageFrame.new_from_array(
+            frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
                 img_arr, 
                 input_image_properties.color_space, 
-                frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+                frpl.connector_core.data_types.descriptors.MemoryOrderLayout.WidthsHeightsChannels
             )
             frames[name] = frame
         print(f"         ✓ Converted {len(frames)} images to frames")
@@ -116,10 +116,10 @@ async def main():
         
         # Write to different devices
         test_img = np.ones(input_image_resolution).astype(np.uint8) * 50
-        test_frame = frpl.connector_core.data.ImageFrame.new_from_array(
+        test_frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
             test_img,
             input_image_properties.color_space,
-            frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+            frpl.connector_core.data_types.descriptors.MemoryOrderLayout.WidthsHeightsChannels
         )
         
         feagi_agent.brain_input.image_camera_center.write(1, 0, test_frame)

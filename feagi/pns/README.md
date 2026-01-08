@@ -10,7 +10,7 @@ The Peripheral Nervous System provides the interface layer between FEAGI's neura
 
 ### Rust PNS (Primary I/O Layer)
 
-**Location**: `feagi_core/feagi-rust/crates/feagi-pns/`
+**Location**: `feagi_core/feagi-rust/crates/feagi-io/`
 
 The Rust PNS handles all performance-critical I/O operations:
 
@@ -20,7 +20,7 @@ The Rust PNS handles all performance-critical I/O operations:
 - **heartbeat.rs**: Monitors agent health and deregisters stale agents
 - **zmq/rest.rs**: ROUTER socket for agent registration and heartbeat (port 5563)
 - **zmq/sensory.rs**: PULL socket for receiving binary XYZP sensory data (port 5558)
-- **zmq/motor.rs**: PUB socket for broadcasting motor commands (port 30005)
+- **zmq/motor.rs**: PUB socket for broadcasting motor commands (port 5564)
 - **zmq/visualization.rs**: PUB socket for neural activity visualization (port 5562)
 - **shm.rs**: Shared memory I/O for high-performance local communication
 
@@ -82,7 +82,7 @@ The Python layer provides orchestration and integration with FEAGI's subsystems:
 ### Motor Data Flow (FEAGI → Agent)
 
 1. Rust NPU generates motor commands
-2. Rust PNS motor stream broadcasts via ZMQ PUB (port 30005)
+2. Rust PNS motor stream broadcasts via ZMQ PUB (port 5564)
 3. Agents receive motor commands and execute actions
 
 ### Visualization Data Flow (FEAGI → Brain Visualizer)
@@ -108,7 +108,7 @@ The registration system provides **zero-intervention** coordination between conn
 **Motor FQ Sampler**:
 - Automatically enabled when first motor-capable agent connects
 - Samples OPU (Output Processing Unit) areas only
-- Broadcasts to port 30005
+- Broadcasts to port 5564
 - Automatically disabled when last motor agent disconnects
 
 **Benefits**:
@@ -159,7 +159,7 @@ All ZMQ streams are managed by the Rust PNS for consistency and performance:
 - Direction: Agent → FEAGI
 - Performance: Pure Rust, direct NPU injection
 
-**Motor Stream** (Port 30005):
+**Motor Stream** (Port 5564):
 - Socket Type: PUB (agents use SUB)
 - Purpose: Broadcast motor commands to agents
 - Format: Binary motor command structures
@@ -268,7 +268,7 @@ All PNS configuration is centralized in `feagi_configuration.toml`:
 **Agent Configuration**:
 - registration_port: ZMQ REST stream port (default 5563)
 - sensory_port: ZMQ sensory stream port (default 5558)
-- motor_port: ZMQ motor stream port (default 30005)
+- motor_port: ZMQ motor stream port (default 5564)
 - visualization_port: ZMQ visualization stream port (default 5562)
 - heartbeat_timeout_ms: Agent heartbeat timeout (default 60000)
 
@@ -332,7 +332,7 @@ All PNS configuration is centralized in `feagi_configuration.toml`:
 
 **Rust PNS Tests**:
 ```bash
-cd feagi_core/feagi-rust/crates/feagi-pns
+cd feagi_core/feagi-rust/crates/feagi-io
 cargo test
 ```
 
@@ -347,13 +347,13 @@ pytest tests/system/test_registration_manager_integration.py
 
 To integrate a new agent type:
 
-1. Implement agent using feagi-agent-sdk (Rust) or feagi-connector (Python)
+1. Implement agent using feagi-agent (Rust) or feagi-connector (Python)
 2. Define capabilities during registration (sensory/motor/visualization)
 3. Serialize sensory data to XYZP binary format
 4. Connect to appropriate ZMQ streams:
    - Registration: tcp://host:5563
    - Sensory: tcp://host:5558 (PUSH socket)
-   - Motor: tcp://host:30005 (SUB socket)
+   - Motor: tcp://host:5564 (SUB socket)
    - Visualization: tcp://host:5562 (SUB socket)
 5. Send periodic heartbeats to maintain registration
 
@@ -381,8 +381,8 @@ The PNS will automatically coordinate resources based on agent capabilities.
 
 The following have been **removed** and migrated to Rust:
 
-- **zmq_sensory_listener.py**: Replaced by feagi-pns/src/zmq/sensory.rs
-- **zmq_registration_listener.py**: Replaced by feagi-pns/src/zmq/rest.rs
+- **zmq_sensory_listener.py**: Replaced by feagi-io/src/zmq/sensory.rs
+- **zmq_registration_listener.py**: Replaced by feagi-io/src/zmq/rest.rs
 - **vision.py**: Dead code, completely unused
 
 **Rationale**: All ZMQ I/O must be in Rust for performance, consistency, and architectural cleanliness.
@@ -391,9 +391,9 @@ The following have been **removed** and migrated to Rust:
 
 ## References
 
-- **Rust PNS Source**: `feagi_core/feagi-rust/crates/feagi-pns/`
+- **Rust PNS Source**: `feagi_core/feagi-rust/crates/feagi-io/`
 - **Python Orchestration**: `feagi_core/feagi/pns/registration_manager.py`
 - **Configuration**: `feagi_core/feagi_configuration.toml`
 - **Architecture Rules**: `.cursorrules` (project root)
-- **Agent SDK**: `feagi_core/feagi-rust/crates/feagi-agent-sdk/`
+- **Agent SDK**: `feagi_core/feagi-rust/crates/feagi-agent/`
 - **Python Connector**: `feagi-connector/` (new connector with Rust backend)

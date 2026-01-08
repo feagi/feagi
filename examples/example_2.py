@@ -3,10 +3,10 @@ import feagi_rust_py_libs as frpl
 import numpy as np
 
 
-def to_percentage(v: float) -> frpl.connector_core.data.Percentage:
-    return frpl.connector_core.data.Percentage.new_from_0_1(v)
+def to_percentage(v: float) -> frpl.connector_core.data_types.Percentage:
+    return frpl.connector_core.data_types.Percentage.new_from_0_1(v)
 
-def move_robot_arm_position(rotation_percentage: frpl.connector_core.data.Percentage):
+def move_robot_arm_position(rotation_percentage: frpl.connector_core.data_types.Percentage):
     # spins the motor on the wheel however the robot works in its API
     print(rotation_percentage, "amount rotated arm")
 
@@ -16,29 +16,29 @@ percentage = to_percentage(0.5)
 
 #input_image_properties = ImageFrameProperties.new_with_resolution(128, 128)
 
-input_image_properties = frpl.connector_core.data.descriptors.ImageFrameProperties(
-    frpl.connector_core.data.descriptors.ImageXYResolution(128, 128),
-    frpl.connector_core.data.descriptors.ColorSpace.Linear,
-    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB
+input_image_properties = frpl.connector_core.data_types.descriptors.ImageFrameProperties(
+    frpl.connector_core.data_types.descriptors.ImageXYResolution(128, 128),
+    frpl.connector_core.data_types.descriptors.ColorSpace.Linear,
+    frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB
 )
 
-segmented_image_properties = frpl.connector_core.data.descriptors.SegmentedImageFrameProperties(
-    frpl.connector_core.data.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
-        frpl.connector_core.data.descriptors.ImageXYResolution(64, 64),
-        frpl.connector_core.data.descriptors.ImageXYResolution(32, 32),
+segmented_image_properties = frpl.connector_core.data_types.descriptors.SegmentedImageFrameProperties(
+    frpl.connector_core.data_types.descriptors.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+        frpl.connector_core.data_types.descriptors.ImageXYResolution(64, 64),
+        frpl.connector_core.data_types.descriptors.ImageXYResolution(32, 32),
     ),
-    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB,
-    frpl.connector_core.data.descriptors.ColorChannelLayout.RGB,
-    frpl.connector_core.data.descriptors.ColorSpace.Linear
+    frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB,
+    frpl.connector_core.data_types.descriptors.ColorChannelLayout.RGB,
+    frpl.connector_core.data_types.descriptors.ColorSpace.Linear
 )
 
 
 
 
 
-misc_size = frpl.connector_core.data.descriptors.MiscDataDimensions(5, 5, 5)
+misc_size = frpl.connector_core.data_types.descriptors.MiscDataDimensions(5, 5, 5)
 
-gaze = frpl.connector_core.data.descriptors.GazeProperties.create_default_centered()
+gaze = frpl.connector_core.data_types.descriptors.GazeProperties.create_default_centered()
 
 # registering sensors and motors
 feagi_agent.brain_input.infrared_absolute_linear.register(0, 1, 10)

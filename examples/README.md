@@ -22,16 +22,16 @@ import feagi_rust_py_libs as frpl
 from feagi_connector import FeagiAgentConnector
 
 # Create image frames using Rust types
-color_space = frpl.connector_core.data.descriptors.ColorSpace.Linear
-memory_order = frpl.connector_core.data.descriptors.MemoryOrderLayout.WidthsHeightsChannels
-image_frame = frpl.connector_core.data.ImageFrame.new_from_array(
+color_space = frpl.connector_core.data_types.descriptors.ColorSpace.Linear
+memory_order = frpl.connector_core.data_types.descriptors.MemoryOrderLayout.WidthsHeightsChannels
+image_frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
     numpy_array, color_space, memory_order
 )
 
 # Create gaze properties
-eccentricity = frpl.connector_core.data.Percentage2D(
-    frpl.connector_core.data.Percentage.new_from_0_1(0.2),
-    frpl.connector_core.data.Percentage.new_from_0_1(0.2)
+eccentricity = frpl.connector_core.data_types.Percentage2D(
+    frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
+    frpl.connector_core.data_types.Percentage.new_from_0_1(0.2)
 )
 
 # Register segmented vision sensor

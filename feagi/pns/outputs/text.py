@@ -4,30 +4,34 @@ Text Outputs
 Text/language outputs for FEAGI (language generation, NLP, etc).
 """
 
-from typing import Literal, Optional
+from typing import Literal
 from feagi.pns.outputs.base import BaseOutput
 
 # Type hints
-TextTokenizer = Literal["char", "word", "byte"]
+TextTokenizer = Literal["gpt2"]
 
 
 class TextStream(BaseOutput):
     """
     Text stream output for language generation.
     
-    Converts FEAGI neuron activations to text output.
-    Supports character-level, word-level, or byte-level detokenization.
+    Streams FEAGI output tokens (oten) and decodes them into text using a GPT-2
+    tokenizer.
     
     Args:
-        tokenizer: "char", "word", or "byte"
+        tokenizer: "gpt2"
+        tokenizer_json_path: Path to the pinned GPT-2 `tokenizer.json`
         max_length: Maximum text length
+        depth: Bitplane depth for oten (default 16; must match cortical area
+            topology)
     
     Example:
         from feagi.pns.outputs import TextStream
         from feagi.pns import brain_output
         
         text_out = TextStream.register(
-            tokenizer="char",
+            tokenizer="gpt2",
+            tokenizer_json_path="/path/to/tokenizer.json",
             max_length=100
         )
         
@@ -42,51 +46,65 @@ class TextStream(BaseOutput):
     
     def __init__(
         self,
-        tokenizer: TextTokenizer = "char",
-        max_length: int = 100
+        tokenizer: TextTokenizer = "gpt2",
+        tokenizer_json_path: str = "",
+        max_length: int = 100,
+        depth: int = 16,
     ):
         super().__init__()
         self.tokenizer = tokenizer
+        self.tokenizer_json_path = tokenizer_json_path
         self.max_length = max_length
+        self.depth = depth
         
         # Current generated text
         self._current_text: str = ""
-        
-        # Vocabulary (for detokenization)
-        self._vocab = None
-        self._init_vocab()
-    
-    def _init_vocab(self):
-        """Initialize vocabulary based on tokenizer"""
-        if self.tokenizer == "char":
-            # ASCII printable characters (reverse mapping)
-            self._vocab = {i - 32: chr(i) for i in range(32, 127)}
-        elif self.tokenizer == "byte":
-            # Raw bytes (0-255)
-            self._vocab = {i: bytes([i]) for i in range(256)}
-        elif self.tokenizer == "word":
-            # Word-level requires dynamic vocabulary
-            self._vocab = {}
+
+        self._tokenizer = None
+
+    def _ensure_tokenizer(self) -> None:
+        if self._tokenizer is not None:
+            return
+        if self.tokenizer != "gpt2":
+            raise ValueError(f"Unsupported tokenizer: {self.tokenizer}")
+        if not self.tokenizer_json_path:
+            raise ValueError(
+                "tokenizer_json_path must be provided for tokenizer='gpt2'."
+            )
+        import feagi_rust_py_libs as frpl
+        data_types = frpl.connector_core.data_types
+        self._tokenizer = data_types.Gpt2Tokenizer.from_file(
+            self.tokenizer_json_path
+        )
     
     @classmethod
     def register(
         cls,
-        tokenizer: TextTokenizer = "char",
-        max_length: int = 100
+        tokenizer: TextTokenizer = "gpt2",
+        tokenizer_json_path: str = "",
+        max_length: int = 100,
+        depth: int = 16,
     ) -> 'TextStream':
         """
         Register a new text stream output.
         
         Args:
-            tokenizer: "char" (character-level), "word", or "byte"
+            tokenizer: "gpt2"
+            tokenizer_json_path: Path to the pinned GPT-2 `tokenizer.json`
             max_length: Maximum text length to generate
+            depth: Bitplane depth for oten (default 16)
         
         Returns:
             TextStream instance
         """
         from feagi.pns import brain_output
         
-        stream = cls(tokenizer, max_length)
+        stream = cls(
+            tokenizer=tokenizer,
+            tokenizer_json_path=tokenizer_json_path,
+            max_length=max_length,
+            depth=depth,
+        )
         brain_output.register_output(stream)
         return stream
     
@@ -99,31 +117,71 @@ class TextStream(BaseOutput):
         """
         return self._current_text
     
-    def _detokenize(self, tokens: list) -> str:
-        """Detokenize token list based on tokenizer type"""
-        if self.tokenizer == "char":
-            return ''.join(self._vocab.get(t, '?') for t in tokens)
-        elif self.tokenizer == "byte":
-            byte_data = b''.join(self._vocab.get(t, b'?') for t in tokens)
-            try:
-                return byte_data.decode('utf-8', errors='replace')
-            except Exception:
-                return ""
-        elif self.tokenizer == "word":
-            # TODO: Implement proper word detokenization
-            return ' '.join(str(t) for t in tokens)
-        return ""
-    
     def _register_with_cache(self, cache, group_id: int):
         """Register with Rust IOCache"""
-        # TODO: Implement text output registration in Rust
-        # For now, this is a placeholder
-        pass
+        import feagi_rust_py_libs as frpl
+        self._ensure_tokenizer()
+        dims = frpl.connector_core.data_types.descriptors.MiscDataDimensions(
+            1,
+            1,
+            int(self.depth),
+        )
+        frame = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute
+        )
+        cache.motor_text_english_output_register(
+            group=group_id,
+            number_channels=1,
+            frame_change_handling=frame,
+            misc_data_dimensions=dims,
+        )
+
+    def _get_cortical_id(self) -> str:
+        """Return the base64 CorticalID for this output stream (oten).
+
+        Used for agent registration / motor subscription.
+        """
+        if self.group_id is None:
+            raise RuntimeError(
+                "TextStream output is not registered (group_id is None)."
+            )
+
+        import feagi_rust_py_libs as frpl
+
+        genomic = frpl.data_structures.genomic
+        FrameChangeHandling = genomic.cortical_area.FrameChangeHandling
+        MotorCorticalUnit = genomic.MotorCorticalUnit
+
+        frame = FrameChangeHandling.Absolute
+        ids = MotorCorticalUnit.text_english_output_cortical_ids(
+            frame_change_handling=frame,
+            group=int(self.group_id),
+        )
+        if not ids:
+            raise RuntimeError(
+                "Failed to generate oten CorticalID list (empty)."
+            )
+        return ids[0].as_base_64()
     
     def _read_from_cache(self, cache):
         """Read generated text from Rust IOCache"""
-        # TODO: Implement text decoding from cache
-        # This will require Rust support for text outputs
-        # For now, just keep empty text
-        pass
+        import feagi_rust_py_libs as frpl
+
+        self._ensure_tokenizer()
+        misc = cache.motor_text_english_output_read_postprocessed_cache_value(
+            group=self.group_id,
+            channel_index=0,
+        )
+        data_types = frpl.connector_core.data_types
+        token_id = data_types.TextTokenCodec.decode_from_misc_data(misc)
+        if token_id is None:
+            return
+
+        chunk = self._tokenizer.decode([int(token_id)], True)
+        if not chunk:
+            return
+
+        self._current_text = (self._current_text + chunk)[
+            -self.max_length :
+        ]
 
