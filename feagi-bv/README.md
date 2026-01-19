@@ -13,6 +13,16 @@ The FEAGI CLI launches Brain Visualizer with:
 feagi bv start --config feagi_configuration.toml
 ```
 
+Python usage:
+
+```python
+from feagi_bv import BrainVisualizer
+
+bv = BrainVisualizer()
+bv.load_config("feagi_configuration.toml")
+pid = bv.start()
+```
+
 ## Directory Layout
 
 ```

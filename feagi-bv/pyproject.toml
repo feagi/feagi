@@ -22,6 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+dependencies = [
+    "toml>=0.10.2",
+]
 
 [tool.setuptools]
 packages = { find = {} }

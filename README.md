@@ -29,6 +29,22 @@ pip install feagi[bv]
 feagi bv start --config feagi_configuration.toml
 ```
 
+Start FEAGI from Python CLI:
+```bash
+feagi start --config feagi_configuration.toml --genome my_genome.json
+# or
+feagi start --config feagi_configuration.toml --connectome trained_brain.connectome
+```
+
+Start Brain Visualizer from Python:
+```python
+from feagi_bv import BrainVisualizer
+
+bv = BrainVisualizer()
+bv.load_config("feagi_configuration.toml")
+pid = bv.start()
+```
+
 ## Quick Start
 
 ### Basic Agent
