@@ -56,3 +56,4 @@ tmp/
 # Bundled binaries (built during CI/CD)
 feagi/bin/*/feagi
 feagi/bin/*/feagi.exe
+feagi-bv/feagi_bv/bin/**
