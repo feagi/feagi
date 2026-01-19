@@ -18,6 +18,15 @@ FEAGI SDK provides everything needed to:
 pip install feagi
 ```
 
+Optional extras:
+- `bv`: Brain Visualizer runtime
+- `video`: OpenCV video helpers
+- `bluetooth`: Bluetooth support
+- `test`: Test dependencies
+- `dev`: Dev tooling
+- `docs`: Documentation tooling
+- `full`: Common extras combined
+
 For video processing support:
 ```bash
 pip install feagi[video]
@@ -203,9 +212,9 @@ See `examples/` directory for complete agent implementations:
 - [Agent Development Guide](https://docs.feagi.org/agent-guide)
 - [Marketplace Guide](https://docs.feagi.org/marketplace)
 
-## What's New in 3.0.0
+## What's New in 2.x
 
-**Complete rewrite with clean architecture:**
+**Current architecture highlights:**
 - ✅ Renamed from `feagi_connector` to `feagi`
 - ✅ Modular structure: `engine`, `agent`, `genome`, `connectome`, `packaging`, `pns`, `cli`
 - ✅ No legacy code, no deprecated APIs, no fallbacks
@@ -222,13 +231,13 @@ See `examples/` directory for complete agent implementations:
 - Python 3.10+ required
 - Imports changed: `from feagi_connector import X` → `from feagi.pns import X`
 
-## Migration from 2.x
+## Migration from 1.x / feagi_connector
 
 ```python
-# Old (2.x)
+# Old (feagi_connector)
 from feagi_connector import FeagiAgentClient
 
-# New (3.0)
+# New (feagi 2.x)
 from feagi.pns import FeagiAgentClient
 ```
 
