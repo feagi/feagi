@@ -34,6 +34,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+bv = [
+    "feagi-bv>=1.0.0,<2.0.0",
+]
 video = [
     "opencv-python>=4.9.0",
 ]

@@ -23,6 +23,12 @@ For video processing support:
 pip install feagi[video]
 ```
 
+For Brain Visualizer (optional runtime):
+```bash
+pip install feagi[bv]
+feagi bv start --config feagi_configuration.toml
+```
+
 ## Quick Start
 
 ### Basic Agent
