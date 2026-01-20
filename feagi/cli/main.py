@@ -128,7 +128,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "start":
         return _handle_start_command(args)
 
-    print("FEAGI CLI v3.0.0")
+    # Get version from package metadata
+    try:
+        from importlib.metadata import version
+        pkg_version = version("feagi")
+    except Exception:
+        pkg_version = "unknown"
+
+    print(f"FEAGI CLI v{pkg_version}")
     print("\nAvailable commands:")
     print("  feagi bv start       - Launch Brain Visualizer")
     print("  feagi start          - Start FEAGI with genome/connectome")
