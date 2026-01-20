@@ -1,4 +1,4 @@
-name: Publish FEAGI SDK to PyPI
+name: Publish to PyPI - FEAGI SDK
 
 on:
   release:
