@@ -110,6 +110,22 @@ See the [embodiment-controllers repository](https://github.com/feagi/embodiment-
     ↓
 [Actuators]
 ```
+[Sensors]
+    ↓
+[FEAGI Sensory Cortical Areas]
+    ↓
+[Cognitive / Associative Circuits]
+    ↓
+[Motor Cortical Areas]
+    ↓
+[Actuators]
+```
+
+FEAGI runs as the **neural execution engine**, while adapters (built with this SDK) translate between FEAGI's neural signals and the embodiment's sensors and actuators.
+
+---
+
+## Example Use Cases
 
 FEAGI runs as the **neural execution engine**, while adapters (built with this SDK) translate between FEAGI's neural signals and the embodiment's sensors and actuators.
 
