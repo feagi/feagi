@@ -1,0 +1,295 @@
+name: Publish FEAGI SDK to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 2.1.0 or 2.1.0b1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (build only, do not publish)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write  # Required for trusted publishing to PyPI
+
+jobs:
+  publish:
+    name: Build and Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/feagi/
+    
+    steps:
+      - name: Determine version and ref
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+            VERSION="${TAG#v}"  # Strip 'v' prefix: v2.1.0 → 2.1.0
+            REF="${{ github.event.release.tag_name }}"
+            IS_PRERELEASE="${{ github.event.release.prerelease }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+            REF="${GITHUB_REF}"
+            # Check if version contains pre-release identifiers
+            if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]]; then
+              IS_PRERELEASE="true"
+            else
+              IS_PRERELEASE="false"
+            fi
+          fi
+          
+          # Validate PEP 440 compliance
+          echo "🔍 Validating version format: $VERSION"
+          
+          # PEP 440 regex pattern
+          # Matches: X.Y.Z, X.Y.ZaN, X.Y.ZbN, X.Y.ZrcN, X.Y.Z.postN, X.Y.Z.devN
+          # Does NOT match: X.Y.Z-beta, X.Y.Z_beta, vX.Y.Z, etc.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(a[0-9]+|b[0-9]+|rc[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$ ]]; then
+            echo "❌ ERROR: Version '$VERSION' does not comply with PEP 440"
+            echo ""
+            echo "Valid PEP 440 formats:"
+            echo "  - 2.1.0         (stable release)"
+            echo "  - 2.1.0a1       (alpha 1)"
+            echo "  - 2.1.0b1       (beta 1)"
+            echo "  - 2.1.0rc1      (release candidate 1)"
+            echo "  - 2.1.0.post1   (post release)"
+            echo "  - 2.1.0.dev1    (development)"
+            echo ""
+            echo "Invalid formats:"
+            echo "  - 2.1.0-beta1   (wrong separator)"
+            echo "  - 2.1.0_beta1   (wrong separator)"
+            echo "  - v2.1.0        (v prefix not allowed in version)"
+            echo "  - 2.1.0beta1    (missing separator)"
+            echo ""
+            echo "Note: Git tags can use 'v' prefix (e.g., v2.1.0b1)"
+            echo "      but the version extracted must be PEP 440 compliant"
+            exit 1
+          fi
+          
+          echo "✅ Version format is PEP 440 compliant"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "📦 Publishing FEAGI SDK"
+          echo "  Version: $VERSION"
+          echo "  Pre-release: $IS_PRERELEASE"
+          echo "  Ref: $REF"
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.version.outputs.ref }}
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Verify binaries exist
+        run: |
+          echo "🔍 Verifying all required binaries are present..."
+          
+          MISSING_BINARIES=()
+          
+          # Check Linux x86_64
+          if [ ! -f "feagi/bin/linux-x86_64/feagi" ]; then
+            MISSING_BINARIES+=("linux-x86_64/feagi")
+          fi
+          
+          # Check Linux ARM64
+          if [ ! -f "feagi/bin/linux-aarch64/feagi" ]; then
+            MISSING_BINARIES+=("linux-aarch64/feagi")
+          fi
+          
+          # Check macOS Intel
+          if [ ! -f "feagi/bin/darwin-x86_64/feagi" ]; then
+            MISSING_BINARIES+=("darwin-x86_64/feagi")
+          fi
+          
+          # Check macOS Apple Silicon
+          if [ ! -f "feagi/bin/darwin-aarch64/feagi" ]; then
+            MISSING_BINARIES+=("darwin-aarch64/feagi")
+          fi
+          
+          # Check Windows
+          if [ ! -f "feagi/bin/windows-x86_64/feagi.exe" ]; then
+            MISSING_BINARIES+=("windows-x86_64/feagi.exe")
+          fi
+          
+          if [ ${#MISSING_BINARIES[@]} -gt 0 ]; then
+            echo "❌ Missing binaries:"
+            for bin in "${MISSING_BINARIES[@]}"; do
+              echo "  - feagi/bin/${bin}"
+            done
+            echo ""
+            echo "📁 Current bin directory structure:"
+            find feagi/bin -type f || echo "  (feagi/bin directory not found)"
+            exit 1
+          fi
+          
+          echo "✅ All binaries verified:"
+          ls -lh feagi/bin/*/
+          
+          echo ""
+          echo "📊 Binary sizes:"
+          du -h feagi/bin/*/*
+      
+      - name: Update version in files
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          echo "📝 Updating version to: $VERSION"
+          
+          # Update pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          
+          # Update feagi/__init__.py
+          sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" feagi/__init__.py
+          
+          echo ""
+          echo "✅ Version updated in:"
+          echo "  - pyproject.toml"
+          grep "^version = " pyproject.toml
+          echo "  - feagi/__init__.py"
+          grep "^__version__ = " feagi/__init__.py
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: |
+          echo "🔨 Building FEAGI SDK with bundled binaries..."
+          python -m build
+          echo ""
+          echo "✅ Build complete!"
+          echo ""
+          echo "📦 Package contents:"
+          ls -lh dist/
+          echo ""
+          echo "📊 Package sizes:"
+          du -h dist/*
+      
+      - name: Check package integrity
+        run: |
+          echo "🔍 Checking package integrity..."
+          python -m twine check dist/*
+          
+          echo ""
+          echo "🔍 Verifying binaries are included..."
+          python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "⚠️  No binaries found in wheel!"
+          
+          echo ""
+          echo "📋 Package metadata:"
+          python -m twine check --strict dist/*
+      
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
+          verbose: true
+      
+      - name: Generate summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          
+          if [ "$DRY_RUN" = "true" ]; then
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🔍 FEAGI SDK Build (Dry Run)
+          
+          **Package:** feagi  
+          **Version:** $VERSION  
+          **Build Status:** ✅ Success  
+          
+          **Note:** This was a dry run. Package was NOT published to PyPI.
+          EOF
+          else
+            RELEASE_TYPE="Stable Release"
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              RELEASE_TYPE="Pre-release"
+            fi
+            
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## 🚀 FEAGI SDK Published to PyPI
+          
+          **Package:** feagi  
+          **Version:** $VERSION  
+          **Type:** $RELEASE_TYPE  
+          **Repository:** pypi.org  
+          
+          ### Included Binaries
+          - ✅ Linux x86_64
+          - ✅ Linux ARM64
+          - ✅ macOS Intel (x86_64)
+          - ✅ macOS Apple Silicon (ARM64)
+          - ✅ Windows x86_64
+          
+          ### Installation
+          EOF
+            
+            if [ "$IS_PRERELEASE" = "true" ]; then
+              cat >> $GITHUB_STEP_SUMMARY << EOF
+          
+          **Pre-release version** - Users must explicitly request:
+          \`\`\`bash
+          pip install feagi==$VERSION
+          \`\`\`
+          
+          Or install latest pre-release:
+          \`\`\`bash
+          pip install --pre feagi
+          \`\`\`
+          EOF
+            else
+              cat >> $GITHUB_STEP_SUMMARY << EOF
+          
+          **Stable version** - Default install:
+          \`\`\`bash
+          pip install feagi
+          \`\`\`
+          
+          Or specific version:
+          \`\`\`bash
+          pip install feagi==$VERSION
+          \`\`\`
+          EOF
+            fi
+            
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          
+          ### Test It
+          \`\`\`python
+          from feagi.engine import FeagiEngine
+          
+          engine = FeagiEngine()  # Should auto-detect bundled binary
+          print(f"FEAGI found at: {engine.feagi_path}")
+          \`\`\`
+          
+          ### View Package
+          🔗 [https://pypi.org/project/feagi/$VERSION/](https://pypi.org/project/feagi/$VERSION/)
+          
+          ---
+          
+          **Note:** Binaries are pre-built and committed to the repository. The workflow packages and publishes them to PyPI.
+          EOF
+          fi
+          
+          echo ""
+          echo "✅ Workflow complete!"
