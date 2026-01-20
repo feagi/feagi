@@ -9,6 +9,8 @@ Version 3.0.0 - Clean architecture, no legacy code.
 Main modules:
 - feagi.engine: Start/stop FEAGI neural engine
 - feagi.agent: Agent framework (BaseAgent templates)
+- feagi.config: Configuration management and generation
+- feagi.paths: Cross-platform directory management
 - feagi.genome: Runtime genome manipulation
 - feagi.connectome: Runtime connectome operations
 - feagi.packaging: Build marketplace packages
@@ -16,7 +18,7 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 # Import key classes for convenience, but keep optional dependencies lazy so
 # `import feagi` does not require platform-specific extras (e.g., pyserial).

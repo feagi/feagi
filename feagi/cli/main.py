@@ -39,8 +39,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     bv_start.add_argument(
         "--config",
-        default="feagi_configuration.toml",
-        help="Path to FEAGI configuration TOML file.",
+        default=None,
+        help="Path to FEAGI configuration TOML file (default: uses ~/.feagi/config/feagi_configuration.toml).",
     )
 
     start_parser = subparsers.add_parser(
@@ -72,6 +72,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seconds to wait for readiness (required with --wait).",
     )
 
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize FEAGI environment and generate default configuration.",
+    )
+    init_parser.add_argument(
+        "--config-only",
+        action="store_true",
+        help="Only generate config file, don't create all directories.",
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing configuration file.",
+    )
+    init_parser.add_argument(
+        "--output",
+        help="Custom output path for config file.",
+    )
+    
     subparsers.add_parser(
         "create-agent",
         help="Scaffold a new agent (coming in Phase 4).",
@@ -95,6 +114,42 @@ def _handle_bv_command(args: argparse.Namespace) -> int:
             print(f"Failed to launch Brain Visualizer: {exc}", file=sys.stderr)
             return 1
     raise ValueError(f"Unsupported BV command: {args.bv_command}")
+
+
+def _handle_init_command(args: argparse.Namespace) -> int:
+    """Handle FEAGI init command."""
+    from feagi.config import generate_default_config, init_feagi_environment
+    from feagi.paths import get_feagi_paths
+    from pathlib import Path
+    
+    try:
+        if args.config_only:
+            # Only generate config file
+            output_path = Path(args.output) if args.output else None
+            config_path = generate_default_config(output_path, force=args.force)
+            print(f"Generated configuration file: {config_path}")
+        else:
+            # Initialize full environment
+            env = init_feagi_environment()
+            print("FEAGI environment initialized successfully!")
+            print(f"\nConfiguration: {env['config_file']}")
+            print(f"Genomes:       {env['genomes_dir']}")
+            print(f"Connectomes:   {env['connectomes_dir']}")
+            print(f"Logs:          {env['logs_dir']}")
+            print(f"Cache:         {env['cache_dir']}")
+            print("\nNext steps:")
+            print("  1. Edit configuration if needed:")
+            print(f"     {env['config_file']}")
+            print("  2. Start Brain Visualizer:")
+            print("     feagi bv start")
+        return 0
+    except FileExistsError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        print("Use --force to overwrite existing files.", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"Failed to initialize FEAGI environment: {exc}", file=sys.stderr)
+        return 1
 
 
 def _handle_start_command(args: argparse.Namespace) -> int:
@@ -163,6 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     # Handle commands
     if args.command == "bv":
         return _handle_bv_command(args)
+    if args.command == "init":
+        return _handle_init_command(args)
     if args.command == "start":
         return _handle_start_command(args)
 
@@ -170,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"FEAGI CLI v{pkg_version}")
     print("\nAvailable commands:")
     print("  feagi bv start       - Launch Brain Visualizer")
+    print("  feagi init           - Initialize FEAGI environment")
     print("  feagi start          - Start FEAGI with genome/connectome")
     print("  feagi create-agent   - Scaffold new agent (Coming in Phase 4)")
     print("  feagi build-package  - Build marketplace package (Coming in Phase 4)")

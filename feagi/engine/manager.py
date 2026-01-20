@@ -175,17 +175,23 @@ class FeagiEngine:
         
         return None
     
-    def load_config(self, config_path: str) -> 'FeagiEngine':
+    def load_config(self, config_path: str | None = None) -> 'FeagiEngine':
         """
         Load FEAGI configuration file
         
         Args:
-            config_path: Path to feagi_configuration.toml
+            config_path: Path to feagi_configuration.toml. If None, uses default config.
         
         Returns:
             Self for chaining
         """
-        self.config_path = Path(config_path)
+        from feagi.config import ensure_default_config
+        
+        # Use default config if none specified
+        if config_path is None:
+            self.config_path = ensure_default_config()
+        else:
+            self.config_path = Path(config_path)
         
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -214,7 +220,10 @@ class FeagiEngine:
         Load genome file (initial neural structure)
         
         Args:
-            genome_path: Path to genome JSON file
+            genome_path: Path to genome JSON file. Can be:
+                - Absolute path: /path/to/genome.json
+                - Relative path: ./genome.json (uses current directory)
+                - Filename only: genome.json (searches in default genomes directory)
         
         Returns:
             Self for chaining
@@ -223,7 +232,17 @@ class FeagiEngine:
             Use load_genome() for starting with a fresh neural structure.
             Use load_connectome() for loading a trained/saved state.
         """
-        self.genome_path = Path(genome_path)
+        from feagi.paths import get_feagi_paths
+        
+        paths = get_feagi_paths()
+        
+        # Resolve path: if just a filename, look in genomes directory
+        genome_path_obj = Path(genome_path)
+        if not genome_path_obj.is_absolute() and "/" not in genome_path and "\\" not in genome_path:
+            # Just a filename, try genomes directory
+            self.genome_path = paths.resolve_path(genome_path, "genome")
+        else:
+            self.genome_path = Path(genome_path)
         
         if not self.genome_path.exists():
             raise FileNotFoundError(f"Genome file not found: {genome_path}")
@@ -241,7 +260,10 @@ class FeagiEngine:
         Load connectome file (trained neural state)
         
         Args:
-            connectome_path: Path to connectome file
+            connectome_path: Path to connectome file. Can be:
+                - Absolute path: /path/to/trained.connectome
+                - Relative path: ./trained.connectome (uses current directory)
+                - Filename only: trained.connectome (searches in default connectomes directory)
         
         Returns:
             Self for chaining
@@ -251,7 +273,17 @@ class FeagiEngine:
             Use load_connectome() to resume from a saved state.
             Use load_genome() to start fresh with initial structure.
         """
-        self.connectome_path = Path(connectome_path)
+        from feagi.paths import get_feagi_paths
+        
+        paths = get_feagi_paths()
+        
+        # Resolve path: if just a filename, look in connectomes directory
+        connectome_path_obj = Path(connectome_path)
+        if not connectome_path_obj.is_absolute() and "/" not in connectome_path and "\\" not in connectome_path:
+            # Just a filename, try connectomes directory
+            self.connectome_path = paths.resolve_path(connectome_path, "connectome")
+        else:
+            self.connectome_path = Path(connectome_path)
         
         if not self.connectome_path.exists():
             raise FileNotFoundError(f"Connectome file not found: {connectome_path}")
