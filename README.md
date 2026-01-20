@@ -197,6 +197,6 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-Apache 2.0 - See [LICENSE.txt](LICENSE.txt) for details.
+Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 **Copyright 2016-2025 Neuraville Inc. All Rights Reserved.**
