@@ -76,12 +76,18 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
     if system.startswith("linux"):
         package_name = "feagi_bv_linux"
         platform_dir = "linux"
+        app_name = None
+        binary_name = "BrainVisualizer"
     elif system == "darwin":
         package_name = "feagi_bv_macos"
         platform_dir = "macos"
+        app_name = "BrainVisualizer-Remote.app"
+        binary_name = "Brain Visualizer"
     elif system == "win32":
         package_name = "feagi_bv_windows"
         platform_dir = "windows"
+        app_name = None
+        binary_name = "BrainVisualizer.exe"
     else:
         raise BrainVisualizerLaunchError(f"Unsupported platform: {system}")
     
@@ -96,19 +102,17 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
     package_dir = Path(spec.submodule_search_locations[0])
     bin_dir = package_dir / "bin" / platform_dir
 
-    if system == "win32":
-        binary = bin_dir / "BrainVisualizer.exe"
-        pck_file = bin_dir / "BrainVisualizer.pck"
-        working_dir = bin_dir
-    elif system.startswith("linux"):
-        binary = bin_dir / "BrainVisualizer"
-        pck_file = None
-        working_dir = bin_dir
-    elif system == "darwin":
-        app_dir = bin_dir / "BrainVisualizer.app"
-        binary = app_dir / "Contents" / "MacOS" / "BrainVisualizer"
-        pck_file = None
+    if app_name:
+        # macOS: app bundle structure
+        app_dir = bin_dir / app_name
+        binary = app_dir / "Contents" / "MacOS" / binary_name
         working_dir = binary.parent
+        pck_file = None
+    else:
+        # Linux/Windows: direct binary
+        binary = bin_dir / binary_name
+        working_dir = bin_dir
+        pck_file = bin_dir / "BrainVisualizer.pck" if system == "win32" else None
     
     if not binary.exists():
         raise BrainVisualizerLaunchError(f"BV binary not found: {binary}")
