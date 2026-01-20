@@ -22,6 +22,7 @@ port = 8000
 
 [websocket]
 host = "0.0.0.0"
+enabled = true
 visualization_port = 8080
 sensory_port = 5558
 motor_port = 5564

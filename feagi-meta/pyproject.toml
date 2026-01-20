@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "feagi-core"
+name = "feagi"
 version = "2.1.0b1"
-description = "Core SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages (without Brain Visualizer)"
+description = "Complete FEAGI SDK with Brain Visualizer - Framework for Evolutionary Artificial General Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -23,23 +23,18 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [
-    "numpy>=1.20.0",
-    "pyzmq>=24.0.0",
-    "aiohttp>=3.9.0",
-    "toml>=0.10.2",
-    "requests>=2.31.0",
-    "feagi-rust-py-libs>=0.0.82",
-    "pyserial>=3.5",  # For ESP32 serial communication
-]
 
-[project.optional-dependencies]
-bv = [
+# Meta-package that includes feagi-core + Brain Visualizer
+dependencies = [
+    "feagi-core==2.1.0b1",
     "feagi-bv>=2.0.0,<3.0.0",
     "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
     "feagi-bv-macos>=2.0.0,<3.0.0 ; sys_platform == 'darwin'",
     "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
 ]
+
+[project.optional-dependencies]
+# Additional optional dependencies
 video = [
     "opencv-python>=4.9.0",
 ]
@@ -72,10 +67,6 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
-    "feagi-bv>=2.0.0,<3.0.0",
-    "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos>=2.0.0,<3.0.0 ; sys_platform == 'darwin'",
-    "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
     "opencv-python>=4.9.0",
     "bleak>=0.21.0",
     "websockets>=12.0",
@@ -85,47 +76,3 @@ full = [
 "Homepage" = "https://github.com/Neuraville/FEAGI-2.0"
 "Bug Tracker" = "https://github.com/Neuraville/FEAGI-2.0/issues"
 "Documentation" = "https://docs.feagi.org"
-
-[project.scripts]
-feagi = "feagi.cli:main"
-
-[tool.setuptools]
-# Auto-discover all packages and subpackages
-# This ensures feagi.agent, feagi.pns, feagi.cli, etc. are all included
-packages = { find = {} }
-
-[tool.setuptools.package-data]
-feagi = [
-    "bin/linux-x86_64/feagi",
-    "bin/linux-aarch64/feagi",
-    "bin/darwin-x86_64/feagi",
-    "bin/darwin-aarch64/feagi",
-    "bin/windows-x86_64/feagi.exe",
-]
-
-[tool.isort]
-profile = "black"
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-addopts = "-v --tb=short"
-markers = [
-    "integration: Integration tests requiring running FEAGI instance",
-    "unit: Fast unit tests",
-]
-
-[tool.black]
-line-length = 88
-target-version = ["py310"]
-
-[tool.ruff]
-line-length = 88
-target-version = "py310"
-select = ["E", "F", "B", "I"]
-ignore = []

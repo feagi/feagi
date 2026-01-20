@@ -339,15 +339,57 @@ class FeagiEngine:
         
         # Start process
         try:
-            self.process = subprocess.Popen(
-                cmd,
-                cwd=self.working_dir,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,  # Line buffered
+            # Determine if we should detach (daemon mode)
+            detach = env.get("FEAGI_DAEMON_MODE") == "1"
+            logger.info(
+                f"Daemon mode: {detach} "
+                f"(FEAGI_DAEMON_MODE={env.get('FEAGI_DAEMON_MODE')})"
             )
+            
+            if detach:
+                # Detached mode for CLI: redirect to log files
+                logger.info("Starting FEAGI in detached/daemon mode")
+                from feagi.paths import get_feagi_paths
+                paths = get_feagi_paths()
+                paths.ensure_logs_dir()
+                
+                log_file = paths.logs_dir / "feagi.log"
+                error_file = paths.logs_dir / "feagi_error.log"
+                
+                # Use low-level file descriptors that persist
+                stdout_fd = os.open(
+                    str(log_file),
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o644
+                )
+                stderr_fd = os.open(
+                    str(error_file),
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o644
+                )
+                
+                self.process = subprocess.Popen(
+                    cmd,
+                    cwd=self.working_dir,
+                    env=env,
+                    stdout=stdout_fd,
+                    stderr=stderr_fd,
+                    start_new_session=True,
+                )
+                
+                # Mark as daemon mode to prevent __del__ from stopping it
+                self._daemon_mode = True
+            else:
+                # Normal mode: capture output for monitoring
+                self.process = subprocess.Popen(
+                    cmd,
+                    cwd=self.working_dir,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                )
             
             logger.info(f"✓ FEAGI started (PID: {self.process.pid})")
             
@@ -488,7 +530,8 @@ class FeagiEngine:
         self.stop()
     
     def __del__(self):
-        """Destructor - auto-stop"""
-        if self.process is not None:
+        """Destructor - auto-stop (except in daemon mode)"""
+        # Don't stop if running in daemon mode (detached from CLI)
+        if self.process is not None and not hasattr(self, '_daemon_mode'):
             self.stop()
 

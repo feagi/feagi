@@ -21,11 +21,9 @@ Complete guide to installing, configuring, and deploying FEAGI across different 
 The fastest way to get started with FEAGI and Brain Visualizer:
 
 ```bash
-pip install "feagi[bv]"
+pip install feagi
 feagi bv start
 ```
-
-> **Note for zsh users (macOS default shell):** Use quotes around `"feagi[bv]"` to avoid `zsh: no matches found` errors. Square brackets are special characters in zsh.
 
 That's it! This will:
 1. Install FEAGI SDK and Brain Visualizer
@@ -41,57 +39,50 @@ That's it! This will:
 
 ## Installation Options
 
-### Basic SDK Only
+### Full (Recommended for Development)
 
 ```bash
 pip install feagi
 ```
 
-Installs core FEAGI SDK without optional dependencies. Use this for:
-- Building custom agents
-- Programmatic FEAGI control
+Includes Brain Visualizer for real-time neural activity visualization (~196MB). **Recommended for most users.**
+
+Use this for:
+- Visual development and debugging
+- Learning FEAGI
+- Interactive demos
+- Tutorials
+
+### Slim/Core (Recommended for Production)
+
+```bash
+pip install feagi-core
+```
+
+SDK only without Brain Visualizer (~5MB). Use this for:
+- Production deployments
+- Docker containers
+- CI/CD pipelines
+- Inference-only systems
+- Edge devices
 - Server deployments without GUI
-- Embedded systems
 
-### SDK + Brain Visualizer
+> **Note:** Both packages use identical imports (`from feagi import ...`)
 
-```bash
-pip install "feagi[bv]"
-```
+### Add Optional Features
 
-Includes Brain Visualizer for real-time neural activity visualization. **Recommended for most users.**
-
-### SDK + Video Processing
+With either package, add extra features:
 
 ```bash
-pip install "feagi[video]"
+# Video processing (OpenCV)
+pip install feagi-core[video]  # or feagi[video]
+
+# Bluetooth support
+pip install feagi-core[bluetooth]  # or feagi[bluetooth]
+
+# Everything
+pip install feagi[full]
 ```
-
-Adds OpenCV support for:
-- Video file processing
-- Camera integration
-- Image manipulation agents
-
-### SDK + Bluetooth
-
-```bash
-pip install "feagi[bluetooth]"
-```
-
-Adds Bluetooth support for:
-- BLE device control
-- Wireless robot communication
-- IoT integration
-
-### Everything
-
-```bash
-pip install "feagi[full]"
-```
-
-Installs all optional dependencies (Brain Visualizer, video, bluetooth, etc.).
-
-> **Important:** If using **zsh** (macOS default), use quotes: `pip install "feagi[bv]"`. Bash users can omit quotes.
 
 ---
 
