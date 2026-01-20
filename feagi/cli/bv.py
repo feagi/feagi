@@ -136,8 +136,22 @@ def _build_bv_env(api_url: str, ws_host: str, ws_port: int) -> Dict[str, str]:
     return env
 
 
-def start_bv(config_path: str) -> int:
-    """Launch Brain Visualizer using configuration from a TOML file."""
+def start_bv(config_path: str | None = None) -> int:
+    """
+    Launch Brain Visualizer using configuration from a TOML file.
+    
+    Args:
+        config_path: Path to config file. If None, uses default config.
+    
+    Returns:
+        Process ID of launched Brain Visualizer
+    """
+    from feagi.config import ensure_default_config
+    
+    # Use default config if none specified
+    if config_path is None:
+        config_path = str(ensure_default_config())
+    
     config = _load_feagi_config(Path(config_path))
     api_host, api_port, ws_host, ws_port = _extract_network_settings(config)
     binary, working_dir = _resolve_bv_binary()

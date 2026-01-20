@@ -9,6 +9,8 @@ Version 3.0.0 - Clean architecture, no legacy code.
 Main modules:
 - feagi.engine: Start/stop FEAGI neural engine
 - feagi.agent: Agent framework (BaseAgent templates)
+- feagi.config: Configuration management and generation
+- feagi.paths: Cross-platform directory management
 - feagi.genome: Runtime genome manipulation
 - feagi.connectome: Runtime connectome operations
 - feagi.packaging: Build marketplace packages
