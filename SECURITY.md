@@ -241,7 +241,7 @@ We thank security researchers and community members who responsibly disclose vul
 - [FEAGI Architecture Documentation](docs/)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Code of Conduct](CONTRIBUTING.md#code-of-conduct)
-- [Apache 2.0 License](LICENSE.txt)
+- [Apache 2.0 License](LICENSE)
 
 ---
 
