@@ -201,7 +201,7 @@ jobs:
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
           verbose: true
       
       - name: Generate summary
