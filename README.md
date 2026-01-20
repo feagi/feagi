@@ -6,6 +6,24 @@
 
 ---
 
+## Installation Options
+
+**🎨 Full Experience (Recommended for Development):**
+```bash
+pip install feagi
+```
+Includes Brain Visualizer for real-time 3D neural activity visualization (~196MB)
+
+**⚡ Slim/Core (Recommended for Production):**
+```bash
+pip install feagi-core
+```
+SDK only without Brain Visualizer - perfect for containers, CI/CD, and inference (~5MB)
+
+> **Note:** Both packages use identical imports (`from feagi import ...`)
+
+---
+
 ## What is FEAGI?
 
 **FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables spiking-neural-circuit-driven perception, cognition, and control across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.

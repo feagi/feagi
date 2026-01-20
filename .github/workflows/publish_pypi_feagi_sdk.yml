@@ -153,16 +153,22 @@ jobs:
           
           echo "📝 Updating version to: $VERSION"
           
-          # Update pyproject.toml
+          # Update feagi-core pyproject.toml
           sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          
+          # Update feagi meta-package pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" feagi-meta/pyproject.toml
+          sed -i "s/feagi-core==.*/feagi-core==$VERSION\",/" feagi-meta/pyproject.toml
           
           # Update feagi/__init__.py
           sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" feagi/__init__.py
           
           echo ""
           echo "✅ Version updated in:"
-          echo "  - pyproject.toml"
+          echo "  - pyproject.toml (feagi-core)"
           grep "^version = " pyproject.toml
+          echo "  - feagi-meta/pyproject.toml (feagi)"
+          grep "^version = " feagi-meta/pyproject.toml
           echo "  - feagi/__init__.py"
           grep "^__version__ = " feagi/__init__.py
       
@@ -171,37 +177,62 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
       
-      - name: Build package
+      - name: Build packages
         run: |
-          echo "🔨 Building FEAGI SDK with bundled binaries..."
+          echo "🔨 Building feagi-core (SDK without BV)..."
           python -m build
           echo ""
-          echo "✅ Build complete!"
+          echo "✅ feagi-core build complete!"
           echo ""
-          echo "📦 Package contents:"
+          
+          echo "🔨 Building feagi (meta-package with BV)..."
+          cd feagi-meta
+          python -m build
+          cd ..
+          echo ""
+          echo "✅ feagi meta-package build complete!"
+          echo ""
+          
+          echo "📦 Built packages:"
           ls -lh dist/
+          ls -lh feagi-meta/dist/
           echo ""
           echo "📊 Package sizes:"
           du -h dist/*
+          du -h feagi-meta/dist/*
       
       - name: Check package integrity
         run: |
-          echo "🔍 Checking package integrity..."
+          echo "🔍 Checking feagi-core package integrity..."
           python -m twine check dist/*
           
           echo ""
-          echo "🔍 Verifying binaries are included..."
+          echo "🔍 Verifying binaries are included in feagi-core..."
           python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "⚠️  No binaries found in wheel!"
+          
+          echo ""
+          echo "🔍 Checking feagi meta-package integrity..."
+          python -m twine check feagi-meta/dist/*
           
           echo ""
           echo "📋 Package metadata:"
           python -m twine check --strict dist/*
+          python -m twine check --strict feagi-meta/dist/*
       
-      - name: Publish to PyPI
+      - name: Publish feagi-core to PyPI
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
+          packages-dir: dist/
+          verbose: true
+      
+      - name: Publish feagi (meta-package) to PyPI
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
+          packages-dir: feagi-meta/dist/
           verbose: true
       
       - name: Generate summary
@@ -214,11 +245,14 @@ jobs:
             cat >> $GITHUB_STEP_SUMMARY << EOF
           ## 🔍 FEAGI SDK Build (Dry Run)
           
-          **Package:** feagi  
+          **Packages Built:**
+          - feagi-core (SDK only, ~5MB)
+          - feagi (meta-package: SDK + BV, ~5MB)
+          
           **Version:** $VERSION  
           **Build Status:** ✅ Success  
           
-          **Note:** This was a dry run. Package was NOT published to PyPI.
+          **Note:** This was a dry run. Packages were NOT published to PyPI.
           EOF
           else
             RELEASE_TYPE="Stable Release"
@@ -229,7 +263,10 @@ jobs:
             cat >> $GITHUB_STEP_SUMMARY << EOF
           ## 🚀 FEAGI SDK Published to PyPI
           
-          **Package:** feagi  
+          **Packages Published:**
+          - \`feagi-core\` (SDK only, ~5MB)
+          - \`feagi\` (meta-package: SDK + BV, ~5MB)
+          
           **Version:** $VERSION  
           **Type:** $RELEASE_TYPE  
           **Repository:** pypi.org  
@@ -248,26 +285,42 @@ jobs:
               cat >> $GITHUB_STEP_SUMMARY << EOF
           
           **Pre-release version** - Users must explicitly request:
+          
+          **Full (with Brain Visualizer):**
           \`\`\`bash
           pip install feagi==$VERSION
           \`\`\`
           
+          **Slim (SDK only):**
+          \`\`\`bash
+          pip install feagi-core==$VERSION
+          \`\`\`
+          
           Or install latest pre-release:
           \`\`\`bash
-          pip install --pre feagi
+          pip install --pre feagi  # or feagi-core
           \`\`\`
           EOF
             else
               cat >> $GITHUB_STEP_SUMMARY << EOF
           
-          **Stable version** - Default install:
+          **Stable version:**
+          
+          **Full (with Brain Visualizer - Recommended):**
           \`\`\`bash
           pip install feagi
           \`\`\`
           
-          Or specific version:
+          **Slim (SDK only - Production/CI):**
+          \`\`\`bash
+          pip install feagi-core
+          \`\`\`
+          
+          **Specific version:**
           \`\`\`bash
           pip install feagi==$VERSION
+          # or
+          pip install feagi-core==$VERSION
           \`\`\`
           EOF
             fi
