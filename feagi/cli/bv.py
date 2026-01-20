@@ -10,11 +10,13 @@ from __future__ import annotations
 import importlib.util
 import os
 import platform
-import subprocess
 from pathlib import Path
 from typing import Dict, Tuple
 
+import requests
 import toml
+
+from feagi.cli.bv_process import BVProcessManager
 
 
 class BrainVisualizerLaunchError(RuntimeError):
@@ -33,7 +35,9 @@ def _load_feagi_config(config_path: Path) -> Dict[str, object]:
         ) from exc
 
 
-def _extract_network_settings(config: Dict[str, object]) -> Tuple[str, int, str, int]:
+def _extract_network_settings(
+    config: Dict[str, object]
+) -> Tuple[str, int, str, int]:
     """Extract FEAGI API and WebSocket settings from config."""
     api_config = config.get("api")
     ws_config = config.get("websocket")
@@ -112,7 +116,9 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
         # Linux/Windows: direct binary
         binary = bin_dir / binary_name
         working_dir = bin_dir
-        pck_file = bin_dir / "BrainVisualizer.pck" if system == "win32" else None
+        pck_file = (
+            bin_dir / "BrainVisualizer.pck" if system == "win32" else None
+        )
     
     if not binary.exists():
         raise BrainVisualizerLaunchError(f"BV binary not found: {binary}")
@@ -136,6 +142,29 @@ def _build_bv_env(api_url: str, ws_host: str, ws_port: int) -> Dict[str, str]:
     return env
 
 
+def _check_feagi_running(api_url: str) -> bool:
+    """
+    Check if FEAGI is running and responding.
+    
+    Args:
+        api_url: FEAGI API URL (e.g., http://localhost:8000)
+    
+    Returns:
+        True if FEAGI is responding, False otherwise
+    """
+    # Convert 0.0.0.0 bind address to localhost for health check
+    check_url = api_url.replace("://0.0.0.0", "://127.0.0.1")
+    
+    try:
+        response = requests.get(
+            f"{check_url}/v1/system/health_check",
+            timeout=2.0
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 def start_bv(config_path: str | None = None) -> int:
     """
     Launch Brain Visualizer using configuration from a TOML file.
@@ -145,6 +174,85 @@ def start_bv(config_path: str | None = None) -> int:
     
     Returns:
         Process ID of launched Brain Visualizer
+    
+    Raises:
+        BrainVisualizerLaunchError: If prerequisites not met
+        BVProcessError: If process management fails
+    """
+    from feagi.config import ensure_default_config
+    
+    # Use default config if none specified
+    if config_path is None:
+        config_path = str(ensure_default_config())
+    
+    config = _load_feagi_config(Path(config_path))
+    api_host, api_port, ws_host, ws_port = _extract_network_settings(config)
+    api_url = f"http://{api_host}:{api_port}"
+    
+    # Check if FEAGI is running
+    if not _check_feagi_running(api_url):
+        raise BrainVisualizerLaunchError(
+            f"FEAGI is not running at {api_url}.\n"
+            "Start FEAGI first:\n"
+            "  feagi start                     "
+            "(starts with barebones genome)\n"
+            "  feagi start --genome <path>     "
+            "(starts with custom genome)"
+        )
+    
+    binary, working_dir = _resolve_bv_binary()
+    env = _build_bv_env(api_url, ws_host, ws_port)
+    
+    # Use process manager for robust lifecycle management
+    manager = BVProcessManager()
+    return manager.start(binary, working_dir, env)
+
+
+def stop_bv(timeout: float = 10.0) -> bool:
+    """
+    Stop Brain Visualizer process gracefully.
+    
+    Args:
+        timeout: Seconds to wait before force kill
+    
+    Returns:
+        True if stopped, False if not running
+    
+    Raises:
+        BVProcessError: If stop fails
+    """
+    manager = BVProcessManager()
+    return manager.stop(timeout=timeout)
+
+
+def status_bv() -> Dict[str, object]:
+    """
+    Get Brain Visualizer process status.
+    
+    Returns:
+        Dictionary with status information:
+        - running: bool
+        - pid: int or None
+        - pid_file: str
+    """
+    manager = BVProcessManager()
+    return manager.get_status()
+
+
+def restart_bv(config_path: str | None = None, timeout: float = 10.0) -> int:
+    """
+    Restart Brain Visualizer process.
+    
+    Args:
+        config_path: Path to config file. If None, uses default config.
+        timeout: Seconds to wait for stop before force kill
+    
+    Returns:
+        New process ID
+    
+    Raises:
+        BrainVisualizerLaunchError: If prerequisites not met
+        BVProcessError: If restart fails
     """
     from feagi.config import ensure_default_config
     
@@ -157,10 +265,6 @@ def start_bv(config_path: str | None = None) -> int:
     binary, working_dir = _resolve_bv_binary()
     api_url = f"http://{api_host}:{api_port}"
     env = _build_bv_env(api_url, ws_host, ws_port)
-
-    process = subprocess.Popen(
-        [str(binary)],
-        cwd=str(working_dir),
-        env=env,
-    )
-    return process.pid
+    
+    manager = BVProcessManager()
+    return manager.restart(binary, working_dir, env, stop_timeout=timeout)
