@@ -4,8 +4,10 @@ This package provides platform-specific Brain Visualizer binaries for the FEAGI 
 It is intended to be installed as an optional dependency:
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 ```
+
+> **Note:** Use quotes for zsh users (macOS default shell).
 
 The FEAGI CLI launches Brain Visualizer with:
 

@@ -96,7 +96,7 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
     if spec is None or not spec.submodule_search_locations:
         raise BrainVisualizerLaunchError(
             f"{package_name} runtime package not found. "
-            f"Install with: pip install feagi[bv]"
+            f'Install with: pip install "feagi[bv]"'
         )
 
     package_dir = Path(spec.submodule_search_locations[0])
