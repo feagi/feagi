@@ -21,7 +21,12 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="feagi",
         description="FEAGI CLI utilities.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show FEAGI CLI version and exit.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=False)
 
     bv_parser = subparsers.add_parser(
         "bv",
@@ -123,11 +128,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "bv":
-        return _handle_bv_command(args)
-    if args.command == "start":
-        return _handle_start_command(args)
-
     # Get version from package metadata
     try:
         from importlib.metadata import version
@@ -135,6 +135,38 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         pkg_version = "unknown"
 
+    # Handle --version flag
+    if args.version:
+        print(f"FEAGI CLI v{pkg_version}")
+        
+        # Try to detect installed Brain Visualizer package
+        bv_version = None
+        try:
+            import platform
+            system = platform.system().lower()
+            if system == "darwin":
+                bv_version = version("feagi-bv-macos")
+            elif system.startswith("linux"):
+                bv_version = version("feagi-bv-linux")
+            elif system == "win32":
+                bv_version = version("feagi-bv-windows")
+        except Exception:
+            pass
+        
+        if bv_version:
+            print(f"Brain Visualizer v{bv_version}")
+        else:
+            print("Brain Visualizer: not installed (install with: pip install feagi[bv])")
+        
+        return 0
+
+    # Handle commands
+    if args.command == "bv":
+        return _handle_bv_command(args)
+    if args.command == "start":
+        return _handle_start_command(args)
+
+    # No command specified - show help
     print(f"FEAGI CLI v{pkg_version}")
     print("\nAvailable commands:")
     print("  feagi bv start       - Launch Brain Visualizer")
