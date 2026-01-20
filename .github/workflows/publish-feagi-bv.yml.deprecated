@@ -1,12 +1,23 @@
-name: Publish FEAGI BV Runtime (TestPyPI)
+name: Publish FEAGI BV Runtime
 
 on:
+  push:
+    branches:
+      - staging
+      - main
   workflow_dispatch:
     inputs:
       bv_version:
         description: "Brain Visualizer release tag (e.g., v1.2.3) or 'latest'"
-        required: true
+        required: false
         default: "latest"
+      major_version:
+        description: "Major version gate (e.g., 1 or 2) - only process BV releases with this major version"
+        required: false
+        default: "1"
+
+env:
+  BV_MAJOR_VERSION: "1"  # Change this when moving to BV 2.x
 
 permissions:
   contents: read
@@ -30,13 +41,51 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ inputs.bv_version }}" = "latest" ]; then
+          # Use input version if provided, otherwise use latest
+          BV_INPUT="${{ inputs.bv_version }}"
+          if [ -z "$BV_INPUT" ] || [ "$BV_INPUT" = "latest" ]; then
             BV_TAG=$(gh release view --repo feagi/brain-visualizer --json tagName -q .tagName)
           else
-            BV_TAG="${{ inputs.bv_version }}"
+            BV_TAG="$BV_INPUT"
           fi
           echo "tag=${BV_TAG}" >> $GITHUB_OUTPUT
-          echo "Using Brain Visualizer release: ${BV_TAG}"
+          
+          # Extract version number (remove 'v' prefix if present)
+          BV_VERSION="${BV_TAG#v}"
+          echo "version=${BV_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Extract major version
+          BV_MAJOR=$(echo "$BV_VERSION" | cut -d. -f1)
+          echo "major=${BV_MAJOR}" >> $GITHUB_OUTPUT
+          
+          # Get the gating major version
+          GATE_MAJOR="${{ inputs.major_version }}"
+          if [ -z "$GATE_MAJOR" ]; then
+            GATE_MAJOR="${{ env.BV_MAJOR_VERSION }}"
+          fi
+          
+          echo "🔍 Brain Visualizer release: ${BV_TAG} (version: ${BV_VERSION})"
+          echo "🔒 Major version gate: ${GATE_MAJOR}"
+          
+          # Validate major version matches gate
+          if [ "$BV_MAJOR" != "$GATE_MAJOR" ]; then
+            echo "❌ ERROR: BrainVisualizer major version ${BV_MAJOR} does not match gate ${GATE_MAJOR}"
+            echo "To process BV ${BV_VERSION}, update BV_MAJOR_VERSION in the workflow to '${BV_MAJOR}'"
+            exit 1
+          fi
+          
+          echo "✅ Version check passed: BV ${BV_VERSION} matches gate ${GATE_MAJOR}.x.x"
+
+      - name: Update feagi-bv version
+        run: |
+          BV_VERSION="${{ steps.bv.outputs.version }}"
+          echo "📝 Updating feagi-bv version to ${BV_VERSION}"
+          
+          # Update version in pyproject.toml
+          sed -i.bak "s/^version = .*/version = \"${BV_VERSION}\"/" feagi-python-sdk/feagi-bv/pyproject.toml
+          
+          echo "Updated pyproject.toml:"
+          grep "^version = " feagi-python-sdk/feagi-bv/pyproject.toml
 
       - name: Download Linux artifact
         env:
@@ -92,13 +141,41 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ inputs.bv_version }}" = "latest" ]; then
+          # Use input version if provided, otherwise use latest
+          BV_INPUT="${{ inputs.bv_version }}"
+          if [ -z "$BV_INPUT" ] || [ "$BV_INPUT" = "latest" ]; then
             BV_TAG=$(gh release view --repo feagi/brain-visualizer --json tagName -q .tagName)
           else
-            BV_TAG="${{ inputs.bv_version }}"
+            BV_TAG="$BV_INPUT"
           fi
           echo "tag=${BV_TAG}" >> $GITHUB_OUTPUT
-          echo "Using Brain Visualizer release: ${BV_TAG}"
+          
+          # Extract version number
+          BV_VERSION="${BV_TAG#v}"
+          echo "version=${BV_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Extract major version
+          BV_MAJOR=$(echo "$BV_VERSION" | cut -d. -f1)
+          
+          # Get the gating major version
+          GATE_MAJOR="${{ inputs.major_version }}"
+          if [ -z "$GATE_MAJOR" ]; then
+            GATE_MAJOR="${{ env.BV_MAJOR_VERSION }}"
+          fi
+          
+          echo "🔍 Brain Visualizer release: ${BV_TAG} (version: ${BV_VERSION})"
+          
+          # Validate major version matches gate
+          if [ "$BV_MAJOR" != "$GATE_MAJOR" ]; then
+            echo "❌ ERROR: BrainVisualizer major version ${BV_MAJOR} does not match gate ${GATE_MAJOR}"
+            exit 1
+          fi
+
+      - name: Update feagi-bv version
+        run: |
+          BV_VERSION="${{ steps.bv.outputs.version }}"
+          sed -i.bak "s/^version = .*/version = \"${BV_VERSION}\"/" feagi-python-sdk/feagi-bv/pyproject.toml
+          grep "^version = " feagi-python-sdk/feagi-bv/pyproject.toml
 
       - name: Download macOS artifact
         env:
@@ -154,13 +231,48 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          if ("${{ inputs.bv_version }}" -eq "latest") {
+          # Use input version if provided, otherwise use latest
+          $bvInput = "${{ inputs.bv_version }}"
+          if ([string]::IsNullOrEmpty($bvInput) -or $bvInput -eq "latest") {
             $tag = gh release view --repo feagi/brain-visualizer --json tagName -q .tagName
           } else {
-            $tag = "${{ inputs.bv_version }}"
+            $tag = $bvInput
           }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Using Brain Visualizer release: $tag"
+          
+          # Extract version number (remove 'v' prefix if present)
+          $version = $tag -replace '^v', ''
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          
+          # Extract major version
+          $major = $version.Split('.')[0]
+          
+          # Get the gating major version
+          $gateMajor = "${{ inputs.major_version }}"
+          if ([string]::IsNullOrEmpty($gateMajor)) {
+            $gateMajor = "${{ env.BV_MAJOR_VERSION }}"
+          }
+          
+          Write-Host "🔍 Brain Visualizer release: $tag (version: $version)"
+          
+          # Validate major version matches gate
+          if ($major -ne $gateMajor) {
+            Write-Host "❌ ERROR: BrainVisualizer major version $major does not match gate $gateMajor"
+            exit 1
+          }
+
+      - name: Update feagi-bv version
+        shell: pwsh
+        run: |
+          $version = "${{ steps.bv.outputs.version }}"
+          Write-Host "📝 Updating feagi-bv version to $version"
+          
+          $content = Get-Content feagi-python-sdk/feagi-bv/pyproject.toml
+          $content = $content -replace '^version = .*', "version = `"$version`""
+          $content | Set-Content feagi-python-sdk/feagi-bv/pyproject.toml
+          
+          Write-Host "Updated pyproject.toml:"
+          Select-String -Path feagi-python-sdk/feagi-bv/pyproject.toml -Pattern '^version = '
 
       - name: Download Windows artifact
         env:
@@ -211,15 +323,26 @@ jobs:
           path: feagi-python-sdk/feagi-bv/dist/*.whl
 
   publish:
-    name: Publish feagi-bv wheels to TestPyPI
+    name: Publish feagi-bv wheels
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
-    environment:
-      name: test-pypi
-      url: https://test.pypi.org/project/feagi-bv/
     permissions:
       id-token: write
     steps:
+      - name: Determine target repository
+        id: repo
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/staging" ]]; then
+            echo "target=testpypi" >> "$GITHUB_OUTPUT"
+            echo "url=https://test.pypi.org/project/feagi-bv/" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "target=pypi" >> "$GITHUB_OUTPUT"
+            echo "url=https://pypi.org/project/feagi-bv/" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=testpypi" >> "$GITHUB_OUTPUT"
+            echo "url=https://test.pypi.org/project/feagi-bv/" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download all wheel artifacts
         uses: actions/download-artifact@v4
         with:
@@ -233,9 +356,17 @@ jobs:
           cp dist-artifacts/feagi-bv-windows/*.whl dist/
           ls -lh dist/
 
-      - name: Publish to TestPyPI
+      - name: Publish to TestPyPI (staging)
+        if: steps.repo.outputs.target == 'testpypi'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          verbose: true
+
+      - name: Publish to PyPI (production)
+        if: steps.repo.outputs.target == 'pypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
           skip-existing: true
           verbose: true
