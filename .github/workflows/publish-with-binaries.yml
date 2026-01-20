@@ -125,7 +125,7 @@ jobs:
       - name: Publish to Test PyPI
         env:
           TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_PASSWORD: ${{ secrets.FEAGI_TEST_PYPI_TOKEN }}
         run: |
           echo "📤 Publishing to test.pypi.org..."
           echo "📦 Package files to upload:"
@@ -133,7 +133,7 @@ jobs:
           echo ""
           
           if [ -z "$TWINE_PASSWORD" ]; then
-            echo "❌ ERROR: TEST_PYPI_API_TOKEN secret is not set!"
+            echo "❌ ERROR: FEAGI_TEST_PYPI_TOKEN secret is not set!"
             echo "Please add the token in: Settings → Secrets and variables → Actions"
             echo "Get a token from: https://test.pypi.org/manage/account/token/"
             exit 1
