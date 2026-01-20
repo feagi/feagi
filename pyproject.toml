@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi"
-version = "2.0.3"
+version = "2.0.4"
 description = "Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,9 @@ dependencies = [
 [project.optional-dependencies]
 bv = [
     "feagi-bv>=2.0.0,<3.0.0",
+    "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos>=2.0.0,<3.0.0 ; sys_platform == 'darwin'",
+    "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
 ]
 video = [
     "opencv-python>=4.9.0",
