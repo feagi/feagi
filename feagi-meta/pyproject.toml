@@ -73,6 +73,7 @@ full = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/Neuraville/FEAGI-2.0"
-"Bug Tracker" = "https://github.com/Neuraville/FEAGI-2.0/issues"
-"Documentation" = "https://docs.feagi.org"
+"Homepage" = "https://www.neuraville.com/feagi"
+"Source" = "https://github.com/feagi/feagi"
+"Bug Tracker" = "https://github.com/feagi/feagi/issues"
+"Documentation" = "https://github.com/feagi/feagi/tree/staging/docs"
