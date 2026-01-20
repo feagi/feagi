@@ -24,7 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: 🚨 Check for undefined names (F821)
+      - name: Check for undefined names (F821)
         run: |
           echo "::group::Checking for undefined names like 'np' without import..."
           ruff check . --select=F821 --output-format=github
@@ -34,61 +34,61 @@ jobs:
           fi
           echo "::endgroup::"
 
-      - name: 🚨 Check for unused imports (F401)
+      - name: Check for unused imports (F401)
         run: |
           echo "::group::Checking for unused imports..."
           ruff check . --select=F401 --output-format=github
           echo "::endgroup::"
 
-      - name: 🚨 Check for import errors (F402, E402)
+      - name: Check for import errors (F402, E402)
         run: |
           echo "::group::Checking for import issues..."
           ruff check . --select=F402,E402 --output-format=github
           echo "::endgroup::"
 
-      - name: 🔍 Syntax and basic Python errors
+      - name: Syntax and basic Python errors
         run: |
           echo "::group::Checking for syntax errors..."
           ruff check . --select=E9,F63,F7,F82 --output-format=github
           echo "::endgroup::"
 
-      - name: 📊 Generate lint report
+      - name: Generate lint report
         if: always()
         run: |
-          echo "## 📋 Lint Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Lint Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
 
           # Check undefined names
           if ruff check . --select=F821 --quiet; then
-            echo "| Undefined Names (F821) | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+            echo "| Undefined Names (F821) | Pass |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Undefined Names (F821) | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+            echo "| Undefined Names (F821) | Fail |" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Check unused imports
           if ruff check . --select=F401 --quiet; then
-            echo "| Unused Imports (F401) | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+            echo "| Unused Imports (F401) | Pass |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Unused Imports (F401) | ⚠️ Warning |" >> $GITHUB_STEP_SUMMARY
+            echo "| Unused Imports (F401) | Warning |" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Check import errors
           if ruff check . --select=F402,E402 --quiet; then
-            echo "| Import Issues (F402,E402) | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+            echo "| Import Issues (F402,E402) | Pass |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Import Issues (F402,E402) | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+            echo "| Import Issues (F402,E402) | Fail |" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Check syntax errors
           if ruff check . --select=E9,F63,F7,F82 --quiet; then
-            echo "| Syntax Errors | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+            echo "| Syntax Errors | Pass |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "| Syntax Errors | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+            echo "| Syntax Errors | Fail |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "💡 **Tip**: Run \`ruff check . --select=F821\` locally to catch undefined name issues like missing numpy imports!" >> $GITHUB_STEP_SUMMARY
+          echo "**Tip**: Run \`ruff check . --select=F821\` locally to catch undefined name issues like missing numpy imports!" >> $GITHUB_STEP_SUMMARY
 
   comprehensive-lint:
     name: Comprehensive Lint

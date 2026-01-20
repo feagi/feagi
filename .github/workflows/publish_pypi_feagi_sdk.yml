@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/feagi/
+      url: https://pypi.org/project/feagi-core/
     
     steps:
       - name: Determine version and ref
@@ -48,13 +48,13 @@ jobs:
           fi
           
           # Validate PEP 440 compliance
-          echo "🔍 Validating version format: $VERSION"
+          echo "Validating version format: $VERSION"
           
           # PEP 440 regex pattern
           # Matches: X.Y.Z, X.Y.ZaN, X.Y.ZbN, X.Y.ZrcN, X.Y.Z.postN, X.Y.Z.devN
           # Does NOT match: X.Y.Z-beta, X.Y.Z_beta, vX.Y.Z, etc.
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(a[0-9]+|b[0-9]+|rc[0-9]+)?(\.post[0-9]+)?(\.dev[0-9]+)?$ ]]; then
-            echo "❌ ERROR: Version '$VERSION' does not comply with PEP 440"
+            echo "ERROR: Version '$VERSION' does not comply with PEP 440"
             echo ""
             echo "Valid PEP 440 formats:"
             echo "  - 2.1.0         (stable release)"
@@ -75,14 +75,14 @@ jobs:
             exit 1
           fi
           
-          echo "✅ Version format is PEP 440 compliant"
+          echo "Version format is PEP 440 compliant"
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "ref=$REF" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           
           echo ""
-          echo "📦 Publishing FEAGI SDK"
+          echo "Publishing FEAGI SDK"
           echo "  Version: $VERSION"
           echo "  Pre-release: $IS_PRERELEASE"
           echo "  Ref: $REF"
@@ -100,7 +100,7 @@ jobs:
       
       - name: Verify binaries exist
         run: |
-          echo "🔍 Verifying all required binaries are present..."
+          echo "Verifying all required binaries are present..."
           
           MISSING_BINARIES=()
           
@@ -130,28 +130,28 @@ jobs:
           fi
           
           if [ ${#MISSING_BINARIES[@]} -gt 0 ]; then
-            echo "❌ Missing binaries:"
+            echo "ERROR: Missing binaries:"
             for bin in "${MISSING_BINARIES[@]}"; do
               echo "  - feagi/bin/${bin}"
             done
             echo ""
-            echo "📁 Current bin directory structure:"
+            echo "Current bin directory structure:"
             find feagi/bin -type f || echo "  (feagi/bin directory not found)"
             exit 1
           fi
           
-          echo "✅ All binaries verified:"
+          echo "All binaries verified:"
           ls -lh feagi/bin/*/
           
           echo ""
-          echo "📊 Binary sizes:"
+          echo "Binary sizes:"
           du -h feagi/bin/*/*
       
       - name: Update version in files
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
-          echo "📝 Updating version to: $VERSION"
+          echo "Updating version to: $VERSION"
           
           # Update feagi-core pyproject.toml
           sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
@@ -164,7 +164,7 @@ jobs:
           sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" feagi/__init__.py
           
           echo ""
-          echo "✅ Version updated in:"
+          echo "Version updated in:"
           echo "  - pyproject.toml (feagi-core)"
           grep "^version = " pyproject.toml
           echo "  - feagi-meta/pyproject.toml (feagi)"
@@ -179,43 +179,43 @@ jobs:
       
       - name: Build packages
         run: |
-          echo "🔨 Building feagi-core (SDK without BV)..."
+          echo "Building feagi-core (SDK without BV)..."
           python -m build
           echo ""
-          echo "✅ feagi-core build complete!"
+          echo "feagi-core build complete"
           echo ""
           
-          echo "🔨 Building feagi (meta-package with BV)..."
+          echo "Building feagi (meta-package with BV)..."
           cd feagi-meta
           python -m build
           cd ..
           echo ""
-          echo "✅ feagi meta-package build complete!"
+          echo "feagi meta-package build complete"
           echo ""
           
-          echo "📦 Built packages:"
+          echo "Built packages:"
           ls -lh dist/
           ls -lh feagi-meta/dist/
           echo ""
-          echo "📊 Package sizes:"
+          echo "Package sizes:"
           du -h dist/*
           du -h feagi-meta/dist/*
       
       - name: Check package integrity
         run: |
-          echo "🔍 Checking feagi-core package integrity..."
+          echo "Checking feagi-core package integrity..."
           python -m twine check dist/*
           
           echo ""
-          echo "🔍 Verifying binaries are included in feagi-core..."
-          python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "⚠️  No binaries found in wheel!"
+          echo "Verifying binaries are included in feagi-core..."
+          python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "WARNING: No binaries found in wheel"
           
           echo ""
-          echo "🔍 Checking feagi meta-package integrity..."
+          echo "Checking feagi meta-package integrity..."
           python -m twine check feagi-meta/dist/*
           
           echo ""
-          echo "📋 Package metadata:"
+          echo "Package metadata:"
           python -m twine check --strict dist/*
           python -m twine check --strict feagi-meta/dist/*
       
@@ -243,14 +243,14 @@ jobs:
           
           if [ "$DRY_RUN" = "true" ]; then
             cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## 🔍 FEAGI SDK Build (Dry Run)
+          ## FEAGI SDK Build (Dry Run)
           
           **Packages Built:**
           - feagi-core (SDK only, ~5MB)
           - feagi (meta-package: SDK + BV, ~5MB)
           
           **Version:** $VERSION  
-          **Build Status:** ✅ Success  
+          **Build Status:** Success  
           
           **Note:** This was a dry run. Packages were NOT published to PyPI.
           EOF
@@ -261,7 +261,7 @@ jobs:
             fi
             
             cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## 🚀 FEAGI SDK Published to PyPI
+          ## FEAGI SDK Published to PyPI
           
           **Packages Published:**
           - \`feagi-core\` (SDK only, ~5MB)
@@ -272,11 +272,11 @@ jobs:
           **Repository:** pypi.org  
           
           ### Included Binaries
-          - ✅ Linux x86_64
-          - ✅ Linux ARM64
-          - ✅ macOS Intel (x86_64)
-          - ✅ macOS Apple Silicon (ARM64)
-          - ✅ Windows x86_64
+          - Linux x86_64
+          - Linux ARM64
+          - macOS Intel (x86_64)
+          - macOS Apple Silicon (ARM64)
+          - Windows x86_64
           
           ### Installation
           EOF
@@ -336,7 +336,7 @@ jobs:
           \`\`\`
           
           ### View Package
-          🔗 [https://pypi.org/project/feagi/$VERSION/](https://pypi.org/project/feagi/$VERSION/)
+          [https://pypi.org/project/feagi/$VERSION/](https://pypi.org/project/feagi/$VERSION/)
           
           ---
           
@@ -345,4 +345,4 @@ jobs:
           fi
           
           echo ""
-          echo "✅ Workflow complete!"
+          echo "Workflow complete"
