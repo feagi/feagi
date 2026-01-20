@@ -17,8 +17,10 @@ pip install feagi
 For development installations (including optional dependencies):
 
 ```bash
-pip install feagi[dev]
+pip install "feagi[dev]"
 ```
+
+> **Note:** Use quotes for zsh users (macOS default shell).
 
 ## Quick Start
 

@@ -115,11 +115,13 @@ FEAGI runs as the **neural execution engine**, while adapters (built with this S
 Get started with FEAGI in just 2 lines:
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 feagi bv start
 ```
 
 That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer.
+
+> **Note for zsh users (macOS default):** Use quotes around `"feagi[bv]"` to avoid shell glob expansion errors.
 
 **For detailed installation options, configuration, and platform-specific notes, see [DEPLOY.md](./DEPLOY.md).**
 
@@ -184,14 +186,16 @@ Install additional features as needed:
 
 ```bash
 # Video processing (OpenCV)
-pip install feagi[video]
+pip install "feagi[video]"
 
 # Bluetooth support
-pip install feagi[bluetooth]
+pip install "feagi[bluetooth]"
 
 # All extras
-pip install feagi[full]
+pip install "feagi[full]"
 ```
+
+> **zsh users:** Always use quotes around package names with brackets.
 
 ### Direct PNS Communication
 

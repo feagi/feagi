@@ -165,8 +165,10 @@ binaries. It is published via a dedicated workflow:
 Installation:
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 ```
+
+> **Note:** Use quotes for zsh users (macOS default shell).
 
 Notes:
 - Wheels are platform-specific (Linux/macOS/Windows).

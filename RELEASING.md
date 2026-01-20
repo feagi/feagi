@@ -233,7 +233,7 @@ If no major issues are found, stable 2.1.0 will be released.
 
 ### ✨ New Features
 - **Cross-platform paths management** - Automatic directory structure for Linux, macOS, and Windows
-- **Zero-config quick start** - `pip install feagi[bv] && feagi bv start` just works
+- **Zero-config quick start** - `pip install "feagi[bv]" && feagi bv start` just works
 - **Smart path resolution** - Genomes and connectomes auto-resolve from standard directories
 - **Configuration auto-generation** - `feagi init` creates complete environment
 
@@ -255,9 +255,11 @@ If no major issues are found, stable 2.1.0 will be released.
 ### 📦 Installation
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 feagi bv start
 ```
+
+> **Note:** Use quotes for zsh users (macOS default shell).
 
 ### 🔗 Links
 - [Documentation](https://docs.feagi.org)

@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         if bv_version:
             print(f"Brain Visualizer v{bv_version}")
         else:
-            print("Brain Visualizer: not installed (install with: pip install feagi[bv])")
+            print('Brain Visualizer: not installed (install with: pip install "feagi[bv]")')
         
         return 0
 

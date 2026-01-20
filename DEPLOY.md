@@ -21,9 +21,11 @@ Complete guide to installing, configuring, and deploying FEAGI across different 
 The fastest way to get started with FEAGI and Brain Visualizer:
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 feagi bv start
 ```
+
+> **Note for zsh users (macOS default shell):** Use quotes around `"feagi[bv]"` to avoid `zsh: no matches found` errors. Square brackets are special characters in zsh.
 
 That's it! This will:
 1. Install FEAGI SDK and Brain Visualizer
@@ -54,7 +56,7 @@ Installs core FEAGI SDK without optional dependencies. Use this for:
 ### SDK + Brain Visualizer
 
 ```bash
-pip install feagi[bv]
+pip install "feagi[bv]"
 ```
 
 Includes Brain Visualizer for real-time neural activity visualization. **Recommended for most users.**
@@ -62,7 +64,7 @@ Includes Brain Visualizer for real-time neural activity visualization. **Recomme
 ### SDK + Video Processing
 
 ```bash
-pip install feagi[video]
+pip install "feagi[video]"
 ```
 
 Adds OpenCV support for:
@@ -73,7 +75,7 @@ Adds OpenCV support for:
 ### SDK + Bluetooth
 
 ```bash
-pip install feagi[bluetooth]
+pip install "feagi[bluetooth]"
 ```
 
 Adds Bluetooth support for:
@@ -84,10 +86,12 @@ Adds Bluetooth support for:
 ### Everything
 
 ```bash
-pip install feagi[full]
+pip install "feagi[full]"
 ```
 
 Installs all optional dependencies (Brain Visualizer, video, bluetooth, etc.).
+
+> **Important:** If using **zsh** (macOS default), use quotes: `pip install "feagi[bv]"`. Bash users can omit quotes.
 
 ---
 
