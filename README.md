@@ -8,7 +8,7 @@
 
 ## Installation Options
 
-**🎨 Full Experience (Recommended for Development):**
+**Full Experience (Recommended for Development):**
 ```bash
 pip install feagi
 ```
