@@ -523,25 +523,33 @@ def main(argv: list[str] | None = None) -> int:
         # Try to detect installed Brain Visualizer package
         bv_version = None
         try:
-            import platform
-            system = platform.system().lower()
-            if system == "darwin":
-                # Check for architecture-specific macOS packages
-                machine = platform.machine().lower()
-                if machine in ('arm64', 'aarch64'):
-                    bv_version = version("feagi-bv-macos-arm64")
-                elif machine in ('x86_64', 'amd64'):
-                    bv_version = version("feagi-bv-macos-x86_64")
-                # Fallback to old package name for backward compatibility
-                if not bv_version:
-                    try:
-                        bv_version = version("feagi-bv-macos")
-                    except Exception:
-                        pass
-            elif system.startswith("linux"):
-                bv_version = version("feagi-bv-linux")
-            elif system == "win32":
-                bv_version = version("feagi-bv-windows")
+            # First try the meta package (most accurate)
+            try:
+                bv_version = version("feagi-bv")
+            except Exception:
+                pass
+            
+            # Fallback to platform-specific package if meta package not found
+            if not bv_version:
+                import platform
+                system = platform.system().lower()
+                if system == "darwin":
+                    # Check for architecture-specific macOS packages
+                    machine = platform.machine().lower()
+                    if machine in ('arm64', 'aarch64'):
+                        bv_version = version("feagi-bv-macos-arm64")
+                    elif machine in ('x86_64', 'amd64'):
+                        bv_version = version("feagi-bv-macos-x86_64")
+                    # Fallback to old package name for backward compatibility
+                    if not bv_version:
+                        try:
+                            bv_version = version("feagi-bv-macos")
+                        except Exception:
+                            pass
+                elif system.startswith("linux"):
+                    bv_version = version("feagi-bv-linux")
+                elif system == "win32":
+                    bv_version = version("feagi-bv-windows")
         except Exception:
             pass
         
