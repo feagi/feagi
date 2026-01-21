@@ -17,11 +17,11 @@ DEFAULT_CONFIG_CONTENT = """# FEAGI Configuration File
 # For more information, see: https://github.com/feagi/feagi/tree/main/docs
 
 [api]
-host = "0.0.0.0"
+host = "127.0.0.1"  # Localhost only - secure by default, no firewall prompts. Override with FEAGI_API_HOST for network deployments
 port = 8000
 
 [websocket]
-host = "0.0.0.0"
+host = "127.0.0.1"  # Localhost only - secure by default, no firewall prompts. Override with FEAGI_WS_HOST for network deployments
 enabled = true
 visualization_port = 8080
 sensory_port = 5558

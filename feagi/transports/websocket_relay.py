@@ -30,7 +30,7 @@ class WebSocketTransport(BaseTransport):
     
     Example:
         config = {
-            "host": "0.0.0.0",
+            "host": "127.0.0.1",  # Localhost only by default, use "0.0.0.0" for network deployments
             "port": 9052,
             "embodiment_id": "em-bittle123"
         }
@@ -46,7 +46,7 @@ class WebSocketTransport(BaseTransport):
         
         Args:
             config: Dictionary with keys:
-                - host: Host to bind to (default: "0.0.0.0")
+                - host: Host to bind to (default: "127.0.0.1" - localhost only, secure by default)
                 - port: Port to listen on (default: 9052)
                 - embodiment_id: Optional ID for logging
         """
@@ -57,7 +57,7 @@ class WebSocketTransport(BaseTransport):
             )
         
         super().__init__(config)
-        self.host = config.get("host", "0.0.0.0")
+        self.host = config.get("host", "127.0.0.1")
         self.port = config.get("port", 9052)
         self.embodiment_id = config.get("embodiment_id", "unknown")
         
