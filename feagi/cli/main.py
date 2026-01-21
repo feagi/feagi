@@ -526,7 +526,18 @@ def main(argv: list[str] | None = None) -> int:
             import platform
             system = platform.system().lower()
             if system == "darwin":
-                bv_version = version("feagi-bv-macos")
+                # Check for architecture-specific macOS packages
+                machine = platform.machine().lower()
+                if machine in ('arm64', 'aarch64'):
+                    bv_version = version("feagi-bv-macos-arm64")
+                elif machine in ('x86_64', 'amd64'):
+                    bv_version = version("feagi-bv-macos-x86_64")
+                # Fallback to old package name for backward compatibility
+                if not bv_version:
+                    try:
+                        bv_version = version("feagi-bv-macos")
+                    except Exception:
+                        pass
             elif system.startswith("linux"):
                 bv_version = version("feagi-bv-linux")
             elif system == "win32":

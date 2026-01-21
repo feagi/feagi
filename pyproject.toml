@@ -37,7 +37,8 @@ dependencies = [
 bv = [
     "feagi-bv>=2.0.0,<3.0.0",
     "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos>=2.0.0,<3.0.0 ; sys_platform == 'darwin'",
+    "feagi-bv-macos-arm64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
 ]
 video = [
@@ -74,7 +75,8 @@ docs = [
 full = [
     "feagi-bv>=2.0.0,<3.0.0",
     "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos>=2.0.0,<3.0.0 ; sys_platform == 'darwin'",
+    "feagi-bv-macos-arm64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
     "opencv-python>=4.9.0",
     "bleak>=0.21.0",
