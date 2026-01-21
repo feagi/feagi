@@ -9,8 +9,8 @@ pip install feagi
 ```
 
 This installs:
-- ✅ **feagi-core** - SDK for building agents and controlling FEAGI
-- ✅ **Brain Visualizer** - Real-time 3D neural activity visualization
+- **feagi-core** - SDK for building agents and controlling FEAGI
+- **Brain Visualizer** - Real-time 3D neural activity visualization
 
 ## Quick Start
 
@@ -25,10 +25,10 @@ feagi bv start
 ## When to Use This Package
 
 Use `feagi` (this package) when you want:
-- 🎨 Visual development and debugging
-- 📊 Real-time neural activity monitoring
-- 🎓 Learning and tutorials
-- 🎮 Interactive demos
+- Visual development and debugging
+- Real-time neural activity monitoring
+- Learning and tutorials
+- Interactive demos
 
 ## Alternative: feagi-core (Slim)
 
@@ -39,10 +39,10 @@ pip install feagi-core
 ```
 
 The `feagi-core` package:
-- 📦 **Smaller** - ~5MB vs ~196MB
-- 🚀 **Faster installs** - Great for containers
-- 🔧 **Same imports** - All code examples work identically
-- ⚡ **Perfect for** - Production, inference-only, edge devices, CI/CD
+- **Smaller** - ~5MB vs ~196MB
+- **Faster installs** - Great for containers
+- **Same imports** - All code examples work identically
+- **Perfect for** - Production, inference-only, edge devices, CI/CD
 
 ## Imports Work Identically
 
