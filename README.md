@@ -14,7 +14,7 @@ pip install feagi
 ```
 Includes Brain Visualizer for real-time 3D neural activity visualization (~196MB)
 
-**⚡ Slim/Core (Recommended for Production):**
+**Slim/Core (Recommended for Production):**
 ```bash
 pip install feagi-core
 ```
