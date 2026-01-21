@@ -64,9 +64,7 @@ from feagi.engine import FeagiEngine
 
 ## Documentation
 
-- [Full Documentation](https://docs.feagi.org)
-- [API Reference](https://docs.feagi.org/api)
-- [Tutorials](https://docs.feagi.org/tutorials)
+- [Documentation](https://github.com/feagi/feagi/tree/main/docs)
 
 ## License
 

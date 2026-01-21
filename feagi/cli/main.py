@@ -17,9 +17,24 @@ from feagi.engine import FeagiEngine
 
 def _build_parser() -> argparse.ArgumentParser:
     """Create the top-level CLI argument parser."""
+    from feagi.paths import get_feagi_paths
+    
+    paths = get_feagi_paths()
+    
+    epilog = (
+        f"\nFEAGI Directories:\n"
+        f"  Config:      {paths.config_dir}\n"
+        f"  Logs:        {paths.logs_dir}\n"
+        f"  Cache:       {paths.cache_dir}\n"
+        f"  Genomes:     {paths.genomes_dir}\n"
+        f"  Connectomes: {paths.connectomes_dir}\n"
+    )
+    
     parser = argparse.ArgumentParser(
         prog="feagi",
         description="FEAGI CLI utilities.",
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--version",
@@ -169,15 +184,6 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument(
         "--output",
         help="Custom output path for config file.",
-    )
-    
-    subparsers.add_parser(
-        "create-agent",
-        help="Scaffold a new agent (coming in Phase 4).",
-    )
-    subparsers.add_parser(
-        "build-package",
-        help="Build marketplace package (coming in Phase 4).",
     )
 
     return parser
@@ -497,9 +503,18 @@ def main(argv: list[str] | None = None) -> int:
     # Get version from package metadata
     try:
         from importlib.metadata import version
-        pkg_version = version("feagi")
+        # Try feagi-core first (the actual package), then feagi (meta-package)
+        try:
+            pkg_version = version("feagi-core")
+        except Exception:
+            pkg_version = version("feagi")
     except Exception:
-        pkg_version = "unknown"
+        # Fall back to module version
+        try:
+            import feagi
+            pkg_version = feagi.__version__
+        except Exception:
+            pkg_version = "unknown"
 
     # Handle --version flag
     if args.version:
@@ -541,6 +556,10 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_restart_command(args)
 
     # No command specified - show help
+    from feagi.paths import get_feagi_paths
+    
+    paths = get_feagi_paths()
+    
     print(f"FEAGI CLI v{pkg_version}")
     print("\nAvailable commands:")
     print("  feagi start          - Start FEAGI")
@@ -552,9 +571,13 @@ def main(argv: list[str] | None = None) -> int:
     print("  feagi bv status      - Check Brain Visualizer status")
     print("  feagi bv restart     - Restart Brain Visualizer")
     print("  feagi init           - Initialize FEAGI environment")
-    print("  feagi create-agent   - Scaffold new agent (Coming in Phase 4)")
-    print("  feagi build-package  - Build marketplace package (Coming in Phase 4)")
-    print("\nFor more information, visit https://docs.feagi.org")
+    print("\nFEAGI Directories:")
+    print(f"  Config:      {paths.config_dir}")
+    print(f"  Logs:        {paths.logs_dir}")
+    print(f"  Cache:       {paths.cache_dir}")
+    print(f"  Genomes:     {paths.genomes_dir}")
+    print(f"  Connectomes: {paths.connectomes_dir}")
+    print("\nFor more information: https://github.com/feagi/feagi/tree/main/docs")
     return 0
 
 

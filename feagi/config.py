@@ -14,7 +14,7 @@ logger = logging.getLogger("feagi.config")
 DEFAULT_CONFIG_CONTENT = """# FEAGI Configuration File
 # This file is auto-generated. Modify as needed for your deployment.
 #
-# For more information, see: https://docs.feagi.org/configuration
+# For more information, see: https://github.com/feagi/feagi/tree/main/docs
 
 [api]
 host = "0.0.0.0"

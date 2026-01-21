@@ -230,7 +230,7 @@ Security updates are released as:
 
 - **Security Email**: feagi@neuraville.com
 - **GitHub Issues**: For non-security bugs and feature requests
-- **Documentation**: https://docs.feagi.org
+- **Documentation**: https://github.com/feagi/feagi/tree/main/docs
 
 ## Security Acknowledgments
 
