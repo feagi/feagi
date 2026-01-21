@@ -188,9 +188,7 @@ await agent.run()
 ## Documentation
 
 - **[Deployment Guide](./DEPLOY.md)** - Complete installation, configuration, and platform-specific notes
-- [Getting Started Guide](https://docs.feagi.org/getting-started)
-- [Agent Development Tutorial](https://docs.feagi.org/agents)
-- [API Reference](https://docs.feagi.org/api)
+- [Documentation](https://github.com/feagi/feagi/tree/main/docs)
 - [Examples](./examples/)
 
 ---

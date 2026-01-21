@@ -692,7 +692,7 @@ ls -la ~/
 
 ## Getting Help
 
-- **Documentation**: [https://docs.feagi.org](https://docs.feagi.org)
+- **Documentation**: [https://github.com/feagi/feagi/tree/main/docs](https://github.com/feagi/feagi/tree/main/docs)
 - **Discord**: [Join our community](https://discord.gg/PTVC8fyGN8)
 - **Issues**: [GitHub Issues](https://github.com/feagi/feagi-python-sdk/issues)
 - **Homepage**: [feagi.org](https://feagi.org)
