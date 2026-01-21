@@ -64,8 +64,8 @@ auto_recovery_on_validation_failure = true  # Allow loading invalid genomes with
 [api]
 # REST API server configuration
 # REQUIRED: These values must be provided via environment variables or config override
-# Example: FEAGI_API_HOST=0.0.0.0 FEAGI_API_PORT=8000
-host = "0.0.0.0"  # Default for cross-platform compatibility, override with FEAGI_API_HOST for production
+# Example: FEAGI_API_HOST=127.0.0.1 FEAGI_API_PORT=8000
+host = "127.0.0.1"  # Localhost only - secure by default, no firewall prompts. Override with FEAGI_API_HOST for network deployments
 port = 8000         # Default API port, override with FEAGI_API_PORT for production
 workers = 1         # Can be overridden with $FEAGI_API_WORKERS
 reload = false      # Can be overridden with $FEAGI_API_RELOAD
@@ -119,7 +119,7 @@ inactive_client_timeout = 60000   # Consider clients inactive after this
 [websocket]
 # WebSocket transport settings (NEW in FEAGI 2.0)
 # Can coexist with ZMQ - agents choose which transport to use
-host = "0.0.0.0"           # Default for cross-platform compatibility, override with FEAGI_WS_HOST
+host = "127.0.0.1"           # Localhost only - secure by default, no firewall prompts. Override with FEAGI_WS_HOST for network deployments
 enabled = true             # Enable/disable WebSocket transport
 
 # WebSocket ports (all configurable, NO hardcoding)

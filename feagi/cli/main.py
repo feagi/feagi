@@ -461,11 +461,13 @@ def _handle_start_command(args: argparse.Namespace) -> int:
             api_port = 8000
             if engine.config_path:
                 try:
-                    from pathlib import Path as PathLib
-                    if PathLib(engine.config_path).exists():
-                        config = toml.load(engine.config_path)
-                        api_port = config.get("api", {}).get("port", 8000)
+                    # engine.config_path is already a Path object, use it directly
+                    # Convert to string for toml.load() which expects str or file-like
+                    config_path_str = str(engine.config_path)
+                    config = toml.load(config_path_str)
+                    api_port = config.get("api", {}).get("port", 8000)
                 except Exception:
+                    # If config loading fails, use default port
                     pass
             
             api_url = f"http://{api_host}:{api_port}"

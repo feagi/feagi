@@ -147,17 +147,14 @@ def _check_feagi_running(api_url: str) -> bool:
     Check if FEAGI is running and responding.
     
     Args:
-        api_url: FEAGI API URL (e.g., http://localhost:8000)
+        api_url: FEAGI API URL (e.g., http://127.0.0.1:8000)
     
     Returns:
         True if FEAGI is responding, False otherwise
     """
-    # Convert 0.0.0.0 bind address to localhost for health check
-    check_url = api_url.replace("://0.0.0.0", "://127.0.0.1")
-    
     try:
         response = requests.get(
-            f"{check_url}/v1/system/health_check",
+            f"{api_url}/v1/system/health_check",
             timeout=2.0
         )
         return response.status_code == 200
