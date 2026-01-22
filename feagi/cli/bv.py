@@ -76,12 +76,28 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
     """Resolve the Brain Visualizer binary from platform-specific package."""
     system = platform.system().lower()
     machine = platform.machine().lower()
-    
+
+    def _first_existing_path(candidates: Tuple[Path, ...]) -> Path | None:
+        """Return the first existing path from a candidate list."""
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _candidate_paths(
+        base_dir: Path, names: Tuple[str, ...], subdirs: Tuple[str, ...]
+    ) -> Tuple[Path, ...]:
+        """Build deterministic candidate paths under base and subdirs."""
+        paths = []
+        for subdir in subdirs:
+            root = base_dir / subdir if subdir else base_dir
+            for name in names:
+                paths.append(root / name)
+        return tuple(paths)
+
     # Determine platform-specific package name
     if system.startswith("linux"):
         package_name = "feagi_bv_linux"
-        app_name = None
-        binary_name = "BrainVisualizer"
     elif system == "darwin":
         if machine in ("arm64", "aarch64"):
             package_name = "feagi_bv_macos_arm64"
@@ -91,15 +107,11 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
             raise BrainVisualizerLaunchError(
                 f"Unsupported macOS architecture: {machine}"
             )
-        app_name = "BrainVisualizer-Remote.app"
-        binary_name = "Brain Visualizer"
-    elif system == "win32":
+    elif system.startswith("windows"):
         package_name = "feagi_bv_windows"
-        app_name = None
-        binary_name = "BrainVisualizer.exe"
     else:
         raise BrainVisualizerLaunchError(f"Unsupported platform: {system}")
-    
+
     # Try to find the platform-specific package
     spec = importlib.util.find_spec(package_name)
     if spec is None or not spec.submodule_search_locations:
@@ -111,22 +123,70 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
     package_dir = Path(spec.submodule_search_locations[0])
     bin_dir = package_dir / "bin"
 
-    if app_name:
-        # macOS: app bundle structure
-        app_dir = bin_dir / app_name
-        binary = app_dir / "Contents" / "MacOS" / binary_name
+    if system == "darwin":
+        app_names = (
+            "BrainVisualizer-Remote.app",
+            "BrainVisualizer-Remote-x86_64.app",
+            "BrainVisualizer-Remote-arm64.app",
+            "BrainVisualizer.app",
+            "BrainVisualizer-x86_64.app",
+            "BrainVisualizer-arm64.app",
+        )
+        binary_names = ("Brain Visualizer", "BrainVisualizer")
+        app_roots = ("", "macos")
+        candidates = []
+        for root in app_roots:
+            for app_name in app_names:
+                app_dir = bin_dir / root / app_name
+                for binary_name in binary_names:
+                    candidates.append(
+                        app_dir / "Contents" / "MacOS" / binary_name
+                    )
+
+        binary = _first_existing_path(tuple(candidates))
+        if binary is None:
+            archive_candidates = []
+            for root in app_roots:
+                archive_candidates.extend(
+                    sorted(
+                        (bin_dir / root).glob("BrainVisualizer-Remote*.zip")
+                    )
+                )
+            if archive_candidates:
+                archives = ", ".join(str(path) for path in archive_candidates)
+                raise BrainVisualizerLaunchError(
+                    "BV app bundle not found. Archives present: "
+                    f"{archives}. Extract the app bundle or reinstall."
+                )
+            raise BrainVisualizerLaunchError(
+                "BV app bundle not found. Expected macOS .app bundle under "
+                f"{bin_dir}."
+            )
+        working_dir = binary.parent
+        pck_file = None
+    elif system.startswith("linux"):
+        binary_names = ("BrainVisualizer", "BrainVisualizer-Remote")
+        candidates = _candidate_paths(bin_dir, binary_names, ("", "linux"))
+        binary = _first_existing_path(candidates)
+        if binary is None:
+            raise BrainVisualizerLaunchError(
+                "BV binary not found. Expected Linux binary under "
+                f"{bin_dir}."
+            )
         working_dir = binary.parent
         pck_file = None
     else:
-        # Linux/Windows: direct binary
-        binary = bin_dir / binary_name
-        working_dir = bin_dir
-        pck_file = (
-            bin_dir / "BrainVisualizer.pck" if system == "win32" else None
-        )
-    
-    if not binary.exists():
-        raise BrainVisualizerLaunchError(f"BV binary not found: {binary}")
+        binary_names = ("BrainVisualizer.exe", "BrainVisualizer-Remote.exe")
+        candidates = _candidate_paths(bin_dir, binary_names, ("", "windows"))
+        binary = _first_existing_path(candidates)
+        if binary is None:
+            raise BrainVisualizerLaunchError(
+                "BV binary not found. Expected Windows binary under "
+                f"{bin_dir}."
+            )
+        working_dir = binary.parent
+        pck_file = working_dir / "BrainVisualizer.pck"
+
     if pck_file is not None and not pck_file.exists():
         raise BrainVisualizerLaunchError(f"BV data file not found: {pck_file}")
 
