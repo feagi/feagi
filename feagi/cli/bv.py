@@ -75,21 +75,26 @@ def _extract_network_settings(
 def _resolve_bv_binary() -> Tuple[Path, Path]:
     """Resolve the Brain Visualizer binary from platform-specific package."""
     system = platform.system().lower()
+    machine = platform.machine().lower()
     
     # Determine platform-specific package name
     if system.startswith("linux"):
         package_name = "feagi_bv_linux"
-        platform_dir = "linux"
         app_name = None
         binary_name = "BrainVisualizer"
     elif system == "darwin":
-        package_name = "feagi_bv_macos"
-        platform_dir = "macos"
+        if machine in ("arm64", "aarch64"):
+            package_name = "feagi_bv_macos_arm64"
+        elif machine in ("x86_64", "amd64"):
+            package_name = "feagi_bv_macos_x86_64"
+        else:
+            raise BrainVisualizerLaunchError(
+                f"Unsupported macOS architecture: {machine}"
+            )
         app_name = "BrainVisualizer-Remote.app"
         binary_name = "Brain Visualizer"
     elif system == "win32":
         package_name = "feagi_bv_windows"
-        platform_dir = "windows"
         app_name = None
         binary_name = "BrainVisualizer.exe"
     else:
@@ -104,7 +109,7 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
         )
 
     package_dir = Path(spec.submodule_search_locations[0])
-    bin_dir = package_dir / "bin" / platform_dir
+    bin_dir = package_dir / "bin"
 
     if app_name:
         # macOS: app bundle structure
