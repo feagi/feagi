@@ -351,10 +351,10 @@ class FeagiEngine:
                 logger.info("Starting FEAGI in detached/daemon mode")
                 from feagi.paths import get_feagi_paths
                 paths = get_feagi_paths()
-                paths.ensure_logs_dir()
+                log_dir = paths.create_log_run_dir(component="feagi", retention=10)
                 
-                log_file = paths.logs_dir / "feagi.log"
-                error_file = paths.logs_dir / "feagi_error.log"
+                log_file = log_dir / "feagi.log"
+                error_file = log_dir / "feagi_error.log"
                 
                 # Use low-level file descriptors that persist
                 stdout_fd = os.open(

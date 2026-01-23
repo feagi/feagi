@@ -40,6 +40,37 @@ class BVProcessManager:
         self.paths = get_feagi_paths()
         self.pid_file = self.paths.cache_dir / "bv.pid"
         self.paths.ensure_cache_dir()
+        self._stdout_fd: Optional[int] = None
+        self._stderr_fd: Optional[int] = None
+
+    def _open_log_fds(self) -> tuple[int, int]:
+        """Open log file descriptors for BV stdout/stderr."""
+        log_dir = self.paths.create_log_run_dir(component="bv", retention=10)
+        stdout_path = log_dir / "bv.log"
+        stderr_path = log_dir / "bv_error.log"
+        stdout_fd = os.open(
+            str(stdout_path),
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o644,
+        )
+        stderr_fd = os.open(
+            str(stderr_path),
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o644,
+        )
+        return stdout_fd, stderr_fd
+
+    def _close_log_fds(self) -> None:
+        """Close any open log file descriptors."""
+        for fd_attr in ("_stdout_fd", "_stderr_fd"):
+            fd = getattr(self, fd_attr)
+            if fd is None:
+                continue
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            setattr(self, fd_attr, None)
     
     def start(
         self,
@@ -74,16 +105,31 @@ class BVProcessManager:
             self.pid_file.unlink()
         
         # Start process
+        stdout_fd = None
+        stderr_fd = None
         try:
+            stdout_fd, stderr_fd = self._open_log_fds()
+            self._stdout_fd = stdout_fd
+            self._stderr_fd = stderr_fd
             process = subprocess.Popen(
                 [str(binary)],
                 cwd=str(working_dir),
                 env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=stdout_fd,
+                stderr=stderr_fd,
                 start_new_session=True,  # Detach from parent
             )
         except Exception as exc:
+            if stdout_fd is not None:
+                try:
+                    os.close(stdout_fd)
+                except OSError:
+                    pass
+            if stderr_fd is not None:
+                try:
+                    os.close(stderr_fd)
+                except OSError:
+                    pass
             raise BVProcessError(
                 f"Failed to start Brain Visualizer: {exc}"
             ) from exc
@@ -137,6 +183,7 @@ class BVProcessManager:
         while time.time() - start_time < timeout:
             if not self._is_process_running(pid):
                 self._cleanup_pid_file()
+                self._close_log_fds()
                 return True
             time.sleep(0.1)
         
@@ -152,6 +199,7 @@ class BVProcessManager:
             ) from exc
         
         self._cleanup_pid_file()
+        self._close_log_fds()
         
         # Final verification
         if self._is_process_running(pid):
