@@ -433,7 +433,7 @@ class BrainInput:
         if not self._agent_registered:
             raise RuntimeError(
                 "Agent registration required before connecting.\n"
-                "Call brain_input.register_agent(agent_id='...', ...) first.\n"
+                "Call brain_input.register_agent(agent_id='<agent_descriptor_b64>', ...) first.\n"
                 "FEAGI 2.0 requires successful agent registration before any operations."
             )
         
@@ -641,7 +641,7 @@ class BrainInput:
         if not self._agent_registered:
             raise RuntimeError(
                 "Agent registration required before sending data.\n"
-                "Call brain_input.register_agent(agent_id='...', ...) first.\n"
+                "Call brain_input.register_agent(agent_id='<agent_descriptor_b64>', ...) first.\n"
                 "FEAGI 2.0 requires successful agent registration before any operations."
             )
         
@@ -772,7 +772,7 @@ class BrainInput:
         if not self._agent_registered:
             raise RuntimeError(
                 "Agent registration required before sending data.\n"
-                "Call brain_input.register_agent(agent_id='...', ...) first."
+                "Call brain_input.register_agent(agent_id='<agent_descriptor_b64>', ...) first."
             )
         
         if not self._connected:

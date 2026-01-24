@@ -13,10 +13,8 @@ This example shows:
 """
 
 import zmq
-import json
-import asyncio
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 
 class TransportOption:
@@ -119,7 +117,7 @@ def register_with_feagi(
 def connect_with_zmq(transport: TransportOption, agent_id: str):
     """Connect to FEAGI using ZMQ transport."""
     
-    print(f"🔌 Connecting via ZMQ...")
+    print("🔌 Connecting via ZMQ...")
     print(f"   Sensory: tcp://{transport.host}:{transport.ports['sensory']}")
     print(f"   Motor:   tcp://{transport.host}:{transport.ports['motor']}")
     
@@ -142,7 +140,7 @@ def connect_with_zmq(transport: TransportOption, agent_id: str):
 async def connect_with_websocket(transport: TransportOption, agent_id: str):
     """Connect to FEAGI using WebSocket transport."""
     
-    print(f"🔌 Connecting via WebSocket...")
+    print("🔌 Connecting via WebSocket...")
     print(f"   Sensory: ws://{transport.host}:{transport.ports['sensory']}/sensory")
     print(f"   Motor:   ws://{transport.host}:{transport.ports['motor']}/motor/{agent_id}")
     
@@ -176,7 +174,8 @@ def main():
     # Configuration
     feagi_host = "localhost"
     registration_port = 5563
-    agent_id = "example_robot_01"
+    # agent_id must be a base64 AgentDescriptor (48-byte payload)
+    agent_id = "<agent_descriptor_b64>"
     agent_type = "both"
     capabilities = {
         "sensory": {"rate_hz": 30.0},

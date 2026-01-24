@@ -71,7 +71,8 @@ When you connect to FEAGI, the connector automatically registers your agent:
 ```python
 client = FeagiClient(
     host="localhost", 
-    agent_id="my-agent",  # Optional, auto-generated if not provided
+    # agent_id must be a base64 AgentDescriptor (48-byte payload)
+    agent_id="<agent_descriptor_b64>",
     agent_type="vision"   # Agent type for categorization
 )
 
@@ -211,7 +212,8 @@ class FeagiAgent:
     def __init__(self, host="localhost"):
         self.client = FeagiClient(
             host=host,
-            agent_id="my-agent",
+            # agent_id must be a base64 AgentDescriptor (48-byte payload)
+            agent_id="<agent_descriptor_b64>",
             agent_type="example"
         )
         self.running = False

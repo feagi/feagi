@@ -56,7 +56,8 @@ from feagi_connector import FeagiClient
 from feagi_connector.protocols import FSMPChannel
 
 # Create client
-client = FeagiClient(host="localhost", agent_id="my-agent")
+# agent_id must be a base64 AgentDescriptor (48-byte payload)
+client = FeagiClient(host="localhost", agent_id="<agent_descriptor_b64>")
 
 # Connect
 await client.connect()

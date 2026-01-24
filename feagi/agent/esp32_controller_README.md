@@ -63,7 +63,8 @@ This assumes GPIO outputs are configured with sequential neuron IDs. For advance
 from feagi.agent.esp32 import Esp32SerialController
 
 controller = Esp32SerialController(
-    agent_id="esp32-01",
+    # agent_id must be a base64 AgentDescriptor (48-byte payload)
+    agent_id="<agent_descriptor_b64>",
     serial_port="/dev/ttyUSB0",  # or None for auto-detect
     baud_rate=115200,
     feagi_host="localhost"
@@ -76,19 +77,19 @@ controller.run()  # Blocks until Ctrl+C
 
 ```bash
 # Auto-detect ESP32 port
-python -m feagi.agent.esp32 --agent-id esp32-01
+python -m feagi.agent.esp32 --agent-id <agent_descriptor_b64>
 
 # Specify serial port
-python -m feagi.agent.esp32 --agent-id esp32-01 --serial-port /dev/ttyUSB0
+python -m feagi.agent.esp32 --agent-id <agent_descriptor_b64> --serial-port /dev/ttyUSB0
 
 # Custom FEAGI host
-python -m feagi.agent.esp32 --agent-id esp32-01 --feagi-host 192.168.1.100
+python -m feagi.agent.esp32 --agent-id <agent_descriptor_b64> --feagi-host 192.168.1.100
 ```
 
 ### Using the Example Script
 
 ```bash
-python examples/esp32_controller_example.py --agent-id esp32-01
+python examples/esp32_controller_example.py --agent-id <agent_descriptor_b64>
 ```
 
 ## Configuration
@@ -105,7 +106,8 @@ If multiple ESP32 devices are connected, specify the port manually:
 
 ```python
 controller = Esp32SerialController(
-    agent_id="esp32-01",
+    # agent_id must be a base64 AgentDescriptor (48-byte payload)
+    agent_id="<agent_descriptor_b64>",
     serial_port="/dev/ttyUSB0",  # Explicit port
     auto_detect_port=False
 )

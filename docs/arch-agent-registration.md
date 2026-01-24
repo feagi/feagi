@@ -678,7 +678,7 @@ def test_polling_schedule():
 ```python
 async def test_enhanced_registration_flow():
     request = EnhancedAgentRegistrationRequest(
-        agent_id="test_agent",
+        agent_id="<agent_descriptor_b64>",
         capability_rates=[
             CapabilityRateSpec(CapabilityType.SENSORY, 10.0)
         ]

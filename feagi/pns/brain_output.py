@@ -314,7 +314,9 @@ class BrainOutput:
             raise RuntimeError("Cache not initialized. Call configure() first.")
         
         if not self._agent_id:
-            raise RuntimeError("Agent ID not set. Call configure(agent_id='...') first.")
+            raise RuntimeError(
+                "Agent ID not set. Call configure(agent_id='<agent_descriptor_b64>') first."
+            )
         if self._feagi_host is None or self._feagi_port is None or self._feagi_api_port is None:
             raise RuntimeError(
                 "brain_output.configure(...) must be called with explicit FEAGI host/ports "

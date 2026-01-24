@@ -14,7 +14,8 @@ Usage:
     from feagi.agent.esp32 import Esp32SerialController
     
     controller = Esp32SerialController(
-        agent_id="esp32-controller-01",
+        # agent_id must be a base64 AgentDescriptor (48-byte payload)
+        agent_id="<agent_descriptor_b64>",
         serial_port="/dev/ttyUSB0",
         baud_rate=115200,
         feagi_host="localhost"
@@ -55,7 +56,8 @@ class Esp32SerialController:
     Example:
         ```python
         controller = Esp32SerialController(
-            agent_id="esp32-01",
+            # agent_id must be a base64 AgentDescriptor (48-byte payload)
+            agent_id="<agent_descriptor_b64>",
             serial_port="/dev/ttyUSB0",
             feagi_host="localhost"
         )

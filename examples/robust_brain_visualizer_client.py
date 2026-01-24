@@ -15,9 +15,8 @@ import asyncio
 import logging
 import signal
 import sys
-import time
-from typing import Optional, Dict, Any
-import json
+from typing import Optional
+
 import requests
 from datetime import datetime
 
@@ -39,7 +38,8 @@ class RobustBrainVisualizerClient:
         self, 
         feagi_host: str = "localhost",
         feagi_port: int = 8000,
-        agent_id: str = "brain_visualizer",
+        # agent_id must be a base64 AgentDescriptor (48-byte payload)
+        agent_id: str = "<agent_descriptor_b64>",
         heartbeat_interval: float = 15.0  # Send heartbeat every 15 seconds
     ):
         self.feagi_host = feagi_host
@@ -195,7 +195,7 @@ class RobustBrainVisualizerClient:
         self.running = True
         self.heartbeat_task = asyncio.create_task(self.heartbeat_loop())
         
-        logger.info(f"🚀 Brain visualizer client started successfully")
+        logger.info("🚀 Brain visualizer client started successfully")
         return True
     
     async def stop(self) -> None:
@@ -276,7 +276,7 @@ async def main():
     client = RobustBrainVisualizerClient(
         feagi_host="localhost",
         feagi_port=8000,
-        agent_id="brain_visualizer",
+        agent_id="<agent_descriptor_b64>",
         heartbeat_interval=15.0
     )
     

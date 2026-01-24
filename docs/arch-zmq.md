@@ -408,7 +408,7 @@ curl -X POST "http://localhost:8000/v1/system/enable_motor_fq_sampler"
 ```python
 # Zero manual intervention - automatic coordination
 agent_client.register(
-    agent_id="my_visualizer",
+    agent_id="<agent_descriptor_b64>",
     capabilities={"visualization": True}
 )
 # Visualization FQ Sampler automatically enabled
