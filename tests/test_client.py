@@ -23,6 +23,8 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from feagi_connector import FeagiClient
 from feagi_connector.protocols import FSMPChannel
 
+TEST_AGENT_DESCRIPTOR_B64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
 
 @pytest.fixture
 def mock_command_client():
@@ -69,7 +71,7 @@ def feagi_client(mock_command_client, mock_sensory_client, mock_viz_client):
          patch("feagi_connector.client.FeagiVizClient", return_value=mock_viz_client):
         client = FeagiClient(
             host="test-host",
-            agent_id="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            agent_id=TEST_AGENT_DESCRIPTOR_B64,
         )
         yield client
 
