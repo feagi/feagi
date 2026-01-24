@@ -6,7 +6,10 @@ Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
+import base64
+import binascii
 import logging
+import os
 import sys
 
 if TYPE_CHECKING:
@@ -88,7 +91,7 @@ class BrainOutput:
         self._monitors: List['Monitor'] = []
     
     def _init_cache(self):
-        """Initialize Rust ConnectorAgent (lazy)"""
+        """Initialize Rust ConnectorAgent (lazy)."""
         if self._cache is not None:
             return
         
@@ -97,7 +100,8 @@ class BrainOutput:
             # Use ConnectorAgent which provides motor methods
             # NOTE: frpl.connector_core.caching.MotorDeviceCache() does not exist in current API
             # Using ConnectorAgent instead - encoding methods still need to be added to rust-py-libs
-            self._cache = frpl.connector_core.ConnectorAgent()
+            agent_descriptor_b64 = self._resolve_agent_descriptor_b64()
+            self._cache = frpl.connector_core.ConnectorAgent(agent_descriptor_b64)
             self._cache_available = True
             logger.info("✅ Rust ConnectorAgent initialized")
         except (ImportError, AttributeError) as e:
@@ -107,11 +111,46 @@ class BrainOutput:
                 "Rust SDK (feagi_rust_py_libs) is required for brain_output.\n"
                 "Install with: pip install feagi_rust_py_libs"
             ) from e
-    
+
+    def _resolve_agent_descriptor_b64(self) -> str:
+        """
+        Resolve the base64 AgentDescriptor required by the Rust ConnectorAgent.
+
+        Priority:
+        1) self._agent_id (must already be base64 AgentDescriptor)
+        2) FEAGI_AGENT_DESCRIPTOR_B64 environment variable
+        """
+        if self._agent_id:
+            return self._validate_agent_descriptor_b64(self._agent_id)
+
+        env_b64 = os.environ.get("FEAGI_AGENT_DESCRIPTOR_B64")
+        if env_b64:
+            return self._validate_agent_descriptor_b64(env_b64)
+
+        raise RuntimeError(
+            "Missing AgentDescriptor base64. Provide a base64 AgentDescriptor as agent_id "
+            "or set FEAGI_AGENT_DESCRIPTOR_B64 before registering outputs."
+        )
+
+    def _validate_agent_descriptor_b64(self, value: str) -> str:
+        """
+        Validate that a string is a base64-encoded AgentDescriptor.
+
+        AgentDescriptor is 48 bytes (4 + 20 + 20 + 4). This is enforced strictly.
+        """
+        try:
+            raw = base64.b64decode(value, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise RuntimeError(
+                "agent_id must be a base64 AgentDescriptor (48 bytes)."
+            ) from exc
+        if len(raw) != 48:
+            raise RuntimeError("agent_id must decode to 48 bytes (AgentDescriptor).")
+        return value
+
     def _register_with_feagi(self):
         """Register agent with FEAGI HTTP API including motor subscriptions"""
         import requests
-        import base64
 
         if self._feagi_host is None or self._feagi_api_port is None:
             raise RuntimeError(
@@ -236,7 +275,7 @@ class BrainOutput:
         Configure connection to FEAGI.
         
         Args:
-            agent_id: Unique agent identifier (required for registration)
+            agent_id: Base64-encoded AgentDescriptor (required for registration)
             feagi_host: FEAGI server hostname or IP
             feagi_port: Motor output port (default: 5564)
             feagi_api_port: FEAGI API port (default: 8000)
@@ -255,8 +294,8 @@ class BrainOutput:
         if feagi_http_timeout_s <= 0:
             raise ValueError("feagi_http_timeout_s must be > 0 (no defaults in safety mode).")
 
-        self._init_cache()
         self._agent_id = agent_id
+        self._init_cache()
         self._feagi_host = feagi_host
         self._feagi_port = feagi_port
         self._feagi_api_port = feagi_api_port

@@ -31,7 +31,8 @@ async def main():
     # Create a client
     client = FeagiClient(
         host="localhost",
-        agent_id="my-agent",
+        # agent_id must be a base64 AgentDescriptor (48-byte payload)
+        agent_id="<agent_descriptor_b64>",
         agent_type="example"
     )
     
