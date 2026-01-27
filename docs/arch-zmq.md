@@ -69,14 +69,22 @@ FEAGI implements **Option 4: Separate Dedicated Streams** for optimal performanc
 }
 ```
 
-**Client Example**:
+**Client Example (Rust SDK via Python bindings)**:
 ```python
-import zmq
-context = zmq.Context()
-socket = context.socket(zmq.REQ)
-socket.connect("tcp://localhost:5555")
-socket.send_string('{"command": "get_status"}')
-response = socket.recv_string()
+import os
+from feagi.pns.client import AgentType, FeagiAgentClient
+
+client = FeagiAgentClient(os.environ["FEAGI_AGENT_DESCRIPTOR_B64"], AgentType.SENSORY)
+client.configure(
+    feagi_host=os.environ["FEAGI_HOST"],
+    registration_port=int(os.environ["FEAGI_REGISTRATION_PORT"]),
+    sensory_port=int(os.environ["FEAGI_SENSORY_PORT"]),
+    motor_port=int(os.environ["FEAGI_MOTOR_PORT"]),
+    heartbeat_interval=float(os.environ["FEAGI_HEARTBEAT_INTERVAL_S"]),
+    connection_timeout_ms=int(os.environ["FEAGI_CONNECTION_TIMEOUT_MS"]),
+    registration_retries=int(os.environ["FEAGI_REGISTRATION_RETRIES"]),
+)
+client.connect()
 ```
 
 ### **REST Stream (Port 5563) - Primary API Interface**
@@ -561,50 +569,7 @@ The visualization stream integrates with the REST API for heartbeat management:
 area.properties['fq_sample_rate'] = 30.0  # 30Hz for this specific area
 area.properties['fq_sample_rate'] = 0.0   # Disable sampling for this area
 
-# Enhanced client connection with heartbeat
-import zmq
-import requests
-import threading
-import time
-
-class FeagiVisualizationClient:
-    def __init__(self, feagi_host="localhost", client_id="my_viz_client"):
-        self.feagi_host = feagi_host
-        self.client_id = client_id
-        self.running = False
-
-        # Set up ZMQ connection for data
-        self.context = zmq.Context()
-        self.data_socket = self.context.socket(zmq.SUB)
-        self.data_socket.connect(f"tcp://{feagi_host}:5562")
-        self.data_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-    def start(self):
-        """Start the visualization client with heartbeat."""
-        self.running = True
-
-        # Start heartbeat thread
-        self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
-        self.heartbeat_thread.start()
-
-        # Process data
-        self._process_data()
-
-    def _heartbeat_worker(self):
-        """Send periodic heartbeats to maintain connection."""
-        while self.running:
-            try:
-                response = requests.post(
-                    f"http://{self.feagi_host}:8000/v1/visualization/heartbeat",
-                    json={"client_id": self.client_id},
-                    timeout=5.0
-                )
-                if response.status_code == 200:
-                    print(f"Heartbeat sent: {self.client_id}")
-            except Exception as e:
-                print(f"Heartbeat error: {e}")
-
-            time.sleep(5)  # Send every 5 seconds
+Use the Rust SDK (`feagi-rust-py-libs`) or `feagi-io` to subscribe to the visualization stream and send heartbeats; Python ZMQ bindings are not required.
 ```
 
 ### **Motor Stream (Port 5564) - New Differentiated Real-Time Motor Control**
@@ -653,24 +618,10 @@ is_opu = (
 ```
 
 **Client Configuration Examples**:
+
+Use the Rust SDK (`feagi-rust-py-libs`) or `feagi-io` to configure motor subscriptions and heartbeats; Python ZMQ bindings are not required.
+
 ```python
-# Motor control client setup
-import zmq
-context = zmq.Context()
-socket = context.socket(zmq.SUB)
-socket.connect("tcp://localhost:5564")
-socket.setsockopt(zmq.SUBSCRIBE, b"motor")  # Subscribe to motor commands
-
-# Register as motor client for subscriber detection
-control_socket = context.socket(zmq.DEALER)
-control_socket.connect("tcp://localhost:5561")
-heartbeat_message = {
-    "message_type": "heartbeat",
-    "agent_id": "motor_controller_robot_01",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(heartbeat_message)
-
 # Example OPU area configuration in genome
 motor_cortex = {
     "id": "motor_cortex",
@@ -1054,156 +1005,11 @@ tcp LISTEN 127.0.0.1:5564   # Motor
 
 ### Protocol Validation Testing
 
-```python
-# Test REST stream
-import zmq, json
-ctx = zmq.Context()
-sock = ctx.socket(zmq.DEALER)
-sock.connect('tcp://localhost:5563')
-sock.send_multipart([b'', json.dumps({
-    'method': 'GET',
-    'route': '/v1/system/health_check'
-}).encode()])
-response = json.loads(sock.recv_multipart()[1])
-```
+Use the Rust SDK or `feagi-io` to validate REST and control streams; Python ZMQ bindings are not required.
 
 ### Enhanced FQ Sampler Testing
 
-**Test Visualization Stream FQ Sampler**:
-```python
-import zmq
-import time
-
-# Test visualization stream with automatic FQ sampler activation
-ctx = zmq.Context()
-
-# Subscribe to visualization data
-viz_socket = ctx.socket(zmq.SUB)
-viz_socket.connect('tcp://localhost:5562')
-viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-# Register as visualization client to trigger FQ sampler
-control_socket = ctx.socket(zmq.DEALER)
-control_socket.connect('tcp://localhost:5561')
-
-# Send registration heartbeat
-heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "test_visualization_client",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(heartbeat)
-
-# Should see FQ sampler activation in FEAGI logs:
-# "🔔 Enabling FQ sampler - visualization clients connected"
-
-# Receive visualization data (should include all cortical areas)
-try:
-    topic, data = viz_socket.recv_multipart(zmq.NOBLOCK)
-    print(f"Received visualization data: {len(data)} bytes")
-except zmq.Again:
-    print("No visualization data available")
-```
-
-**Test Motor Stream FQ Sampler**:
-```python
-import zmq
-import time
-
-# Test motor stream with automatic FQ sampler activation
-ctx = zmq.Context()
-
-# Subscribe to motor data
-motor_socket = ctx.socket(zmq.SUB)
-motor_socket.connect('tcp://localhost:5564')
-motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
-
-# Register as motor client to trigger FQ sampler
-control_socket = ctx.socket(zmq.DEALER)
-control_socket.connect('tcp://localhost:5561')
-
-# Send registration heartbeat
-heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "test_motor_controller",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(heartbeat)
-
-# Should see FQ sampler activation in FEAGI logs:
-# "🔔 Enabling FQ sampler for motor - motor clients connected"
-
-# Receive motor data (should include only OPU areas)
-try:
-    topic, data = motor_socket.recv_multipart(zmq.NOBLOCK)
-    print(f"Received motor data: {len(data)} bytes")
-except zmq.Again:
-    print("No motor data available")
-```
-
-**Test Differentiated Behavior**:
-```python
-# Test that visualization and motor streams receive different data
-# This test verifies the differentiated FQ sampler behavior
-
-import zmq
-import time
-from feagi_bytes import ByteStructureDecoder
-
-ctx = zmq.Context()
-
-# Set up both streams
-viz_socket = ctx.socket(zmq.SUB)
-viz_socket.connect('tcp://localhost:5562')
-viz_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-motor_socket = ctx.socket(zmq.SUB)
-motor_socket.connect('tcp://localhost:5564')
-motor_socket.setsockopt(zmq.SUBSCRIBE, b"motor")
-
-# Register for both streams
-control_socket = ctx.socket(zmq.DEALER)
-control_socket.connect('tcp://localhost:5561')
-
-# Register visualization client
-viz_heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "test_viz_differentiation",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(viz_heartbeat)
-
-# Register motor client
-motor_heartbeat = {
-    "message_type": "heartbeat",
-    "agent_id": "test_motor_differentiation",
-    "timestamp": time.time() * 1000
-}
-control_socket.send_json(motor_heartbeat)
-
-# Collect data from both streams
-decoder = ByteStructureDecoder()
-
-try:
-    # Get visualization data
-    viz_topic, viz_data = viz_socket.recv_multipart(zmq.NOBLOCK)
-    viz_decoded = decoder.decode_neuron_flat(viz_data)
-    viz_areas = set(viz_decoded['cortical_ids'])
-    print(f"Visualization stream areas: {len(viz_areas)} areas")
-
-    # Get motor data
-    motor_topic, motor_data = motor_socket.recv_multipart(zmq.NOBLOCK)
-    motor_decoded = decoder.decode_neuron_flat(motor_data)
-    motor_areas = set(motor_decoded['cortical_ids'])
-    print(f"Motor stream areas: {len(motor_areas)} areas")
-
-    # Verify differentiated behavior
-    print(f"Motor areas are subset of viz areas: {motor_areas.issubset(viz_areas)}")
-    print(f"All motor areas contain 'motor', 'opu', or 'output': {all(any(keyword in area.lower() for keyword in ['motor', 'opu', 'output']) for area in motor_areas)}")
-
-except zmq.Again:
-    print("No data available for testing")
-```
+Use the Rust SDK or `feagi-io` to validate visualization/motor sampling behavior. Python ZMQ bindings are not required.
 
 ## Migration Guide
 

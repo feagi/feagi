@@ -221,7 +221,6 @@ maturin develop --release
 
 All requirements are pre-installed in the virtual environment:
 - `numpy >= 1.20.0`
-- `pyzmq >= 24.0.0`
 - `aiohttp >= 3.9.0`
 - `toml >= 0.10.2`
 - `feagi_rust_py_libs` (built from source)

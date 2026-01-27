@@ -183,5 +183,5 @@ This controller is designed to work with the ESP32 firmware built by the FEAGI D
 
 - `pyserial>=3.5` - Serial port communication
 - `feagi-rust-py-libs` - FEAGI ZMQ client (Rust-backed)
-- `pyzmq>=24.0.0` - ZMQ Python bindings (fallback if Rust SDK unavailable)
+- ZMQ transport is handled by the Rust SDK (no Python ZMQ bindings required)
 

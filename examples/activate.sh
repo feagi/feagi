@@ -12,7 +12,7 @@ echo ""
 echo "Available packages:"
 echo "  - feagi_connector_2 (next-gen connector)"
 echo "  - feagi_rust_py_libs (Rust performance libs)"
-echo "  - numpy, pyzmq, aiohttp, toml"
+echo "  - numpy, aiohttp, toml"
 echo ""
 echo "To deactivate, run: deactivate"
 

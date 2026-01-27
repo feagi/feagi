@@ -454,15 +454,34 @@ class BrainInput:
                 )
 
             transport_info = getattr(self._registration_response, "transport_info", None)
-            if not isinstance(transport_info, dict) or "zmq_ports" not in transport_info:
+            if not isinstance(transport_info, dict) or "transports" not in transport_info:
                 raise RuntimeError(
-                    "Registration response did not include ZMQ ports (safety mode: "
+                    "Registration response did not include transport endpoints (safety mode: "
                     "endpoints must come from registration response)."
                 )
 
-            zmq_ports = transport_info.get("zmq_ports")
+            transports = transport_info.get("transports")
+            if not isinstance(transports, list):
+                raise RuntimeError("Invalid transport_info['transports'] format")
+
+            zmq_transport = None
+            for transport in transports:
+                if not isinstance(transport, dict):
+                    continue
+                if transport.get("transport_type") == "zmq" and transport.get(
+                    "enabled", True
+                ):
+                    zmq_transport = transport
+                    break
+
+            if not zmq_transport:
+                raise RuntimeError(
+                    "Registration response did not include an enabled ZMQ transport."
+                )
+
+            zmq_ports = zmq_transport.get("ports")
             if not isinstance(zmq_ports, dict):
-                raise RuntimeError("Invalid transport_info['zmq_ports'] format")
+                raise RuntimeError("Invalid ZMQ transport ports format")
 
             registration_port = zmq_ports.get("registration")
             sensory_port = zmq_ports.get("sensory")

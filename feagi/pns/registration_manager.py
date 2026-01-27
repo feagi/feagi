@@ -473,13 +473,14 @@ class RegistrationManager:
                     self._feagi_api_urls[request.agent_id] = feagi_api_url
                     self._agent_metadata[request.agent_id] = dict(request.metadata or {})
                     
-                    # Extract transport info from API response (contains actual ZMQ ports)
+                    # Extract transport info from API response (authoritative endpoints)
                     transport_info_from_api = {}
                     if "transports" in api_response:
                         transport_info_from_api["transports"] = api_response["transports"]
-                    if "zmq_ports" in api_response:
-                        transport_info_from_api["zmq_ports"] = api_response["zmq_ports"]
-                        logger.info(f"   ZMQ ports from API: {api_response.get('zmq_ports', {})}")
+                    if "recommended_transport" in api_response:
+                        transport_info_from_api["recommended_transport"] = api_response[
+                            "recommended_transport"
+                        ]
                     
                     # Now also register in local Rust registry for backward compatibility
                     # (This is for internal consistency, not the primary registration)

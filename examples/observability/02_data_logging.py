@@ -4,6 +4,7 @@ Example 2: Data Logging
 Demonstrates how to log sensory and motor data in structured formats.
 """
 
+import os
 from feagi.pns.inputs import Camera
 from feagi.pns.outputs import ServoMotor
 from feagi.pns import brain_input, brain_output
@@ -11,6 +12,21 @@ from feagi.pns.observability import DataLogger
 
 import numpy as np
 import time
+
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def parse_env_int(name: str) -> int:
+    return int(require_env(name))
+
+
+def parse_env_float(name: str) -> float:
+    return float(require_env(name))
 
 
 def main():
@@ -26,8 +42,27 @@ def main():
     
     # === Configure connection ===
     print("\n🔧 Configuring connection...")
-    brain_input.configure(feagi_host="localhost")
-    brain_output.configure(feagi_host="localhost")
+    agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
+    feagi_host = require_env("FEAGI_HOST")
+    feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
+    feagi_sensory_port = parse_env_int("FEAGI_SENSORY_PORT")
+    feagi_motor_port = parse_env_int("FEAGI_MOTOR_PORT")
+    feagi_connection_timeout_ms = parse_env_int("FEAGI_CONNECTION_TIMEOUT_MS")
+    feagi_registration_retries = parse_env_int("FEAGI_REGISTRATION_RETRIES")
+    feagi_heartbeat_interval_s = parse_env_float("FEAGI_HEARTBEAT_INTERVAL_S")
+
+    brain_input.configure(feagi_host=feagi_host, feagi_port=feagi_sensory_port, transport="zmq")
+    brain_output.configure(
+        agent_id=agent_id,
+        feagi_host=feagi_host,
+        feagi_registration_port=feagi_registration_port,
+        feagi_sensory_port=feagi_sensory_port,
+        feagi_motor_port=feagi_motor_port,
+        transport="zmq",
+        feagi_connection_timeout_ms=feagi_connection_timeout_ms,
+        feagi_registration_retries=feagi_registration_retries,
+        feagi_heartbeat_interval_s=feagi_heartbeat_interval_s,
+    )
     
     brain_input.connect()
     brain_output.connect()

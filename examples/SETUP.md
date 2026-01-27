@@ -8,7 +8,6 @@ The virtual environment has been pre-configured with all necessary dependencies:
 
 ### Core Dependencies
 - `numpy>=1.20.0` - Array processing
-- `pyzmq>=24.0.0` - ZeroMQ messaging
 - `aiohttp>=3.9.0` - Async HTTP client
 - `toml>=0.10.2` - Configuration file parser
 - `requests>=2.31.0` - HTTP requests

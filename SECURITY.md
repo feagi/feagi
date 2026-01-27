@@ -98,7 +98,6 @@ FEAGI Python SDK depends on several third-party libraries. We:
 - Provide security updates for critical vulnerabilities
 
 **Key Dependencies:**
-- `pyzmq>=24.0.0` - Network communication
 - `aiohttp>=3.9.0` - Async HTTP client
 - `numpy>=1.20.0` - Numerical computations
 - `feagi-rust-py-libs` - Rust bindings for performance
