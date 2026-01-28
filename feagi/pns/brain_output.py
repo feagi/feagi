@@ -69,6 +69,7 @@ class BrainOutput:
         
         # Channel index counter for motors (all motors use group=0, differentiated by channel)
         self._next_motor_channel = 0
+        self._next_motor_channel_by_group: Dict[int, int] = {}
         
         # Motor decoder tracking
         self._motor_total_channels = 0
@@ -91,6 +92,7 @@ class BrainOutput:
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
+        self._motor_outputs_by_group_channel: Dict[tuple[int, int], 'BaseOutput'] = {}
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -162,16 +164,17 @@ class BrainOutput:
             else:
                 # Construct cortical ID matching Rust cache registration
                 from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+                group_id = int(getattr(output, "group_id", 0) or 0)
                 if isinstance(output, ServoMotor):
                     # PositionalServo with SignedPercentage, Absolute, Linear, group=0
                     # Bytes: [111, 112, 115, 101, 4, 0, 0, 0]
                     # Byte 4 = 4 (SignedPercentage), Byte 5 = 0, Byte 6 = 0, Byte 7 = 0 (group)
-                    cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, 0])  # "opse" + data_type_config=4 + group=0
+                    cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
                     # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
                     # For now, use default "omot" format
-                    cid_bytes = b"omot\x00\x00\x00\x00"
+                    cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
         # If no specific IDs, subscribe to common positional servo area with SignedPercentage
@@ -192,37 +195,51 @@ class BrainOutput:
         """Register motor decoder with Rust cache (called once with total channel count)"""
         import feagi_rust_py_libs as frpl
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
-        
-        # Determine motor type from first motor (assume all motors are same type for now)
-        motor_type = None
-        encoding = "absolute"
+        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        z_neuron_resolution = 10
+
+        servo_counts_by_group: Dict[int, int] = {}
+        rotary_counts_by_group: Dict[int, int] = {}
+        for output in self._outputs:
+            if not isinstance(output, (ServoMotor, RotaryMotor)):
+                continue
+            group_id = int(getattr(output, "group_id", 0) or 0)
+            if isinstance(output, ServoMotor):
+                servo_counts_by_group[group_id] = servo_counts_by_group.get(group_id, 0) + 1
+            else:
+                rotary_counts_by_group[group_id] = rotary_counts_by_group.get(group_id, 0) + 1
+
+        for group_id, count in sorted(servo_counts_by_group.items()):
+            if count <= 0:
+                continue
+            self._cache.motor_positional_servo_register(
+                group_id,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            )
+
+        for group_id, count in sorted(rotary_counts_by_group.items()):
+            if count <= 0:
+                continue
+            self._cache.motor_rotary_motor_register(
+                group_id,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            )
+
         for output in self._outputs:
             if isinstance(output, (ServoMotor, RotaryMotor)):
-                if isinstance(output, ServoMotor):
-                    motor_type = frpl.data_structures.genomic.MotorCorticalType.PositionalServo
-                else:
-                    motor_type = frpl.data_structures.genomic.MotorCorticalType.RotaryMotor
-                encoding = output.encoding
-                break
-        
-        if motor_type is None:
-            return  # No motors registered
-        
-        # Register decoder with total channel count
-        self._cache.register(
-            motor_unit=motor_type,
-            group=0,  # All motors share group=0
-            channels=self._motor_total_channels,
-            z_resolution=100,
-            frame_change_handling=0 if encoding == "absolute" else 1,
-            percentage_positioning=0  # Linear
-        )
-        
-        # Now register all motor callbacks
-        for output in self._outputs:
-            if isinstance(output, (ServoMotor, RotaryMotor)):
-                # Re-call _register_with_cache with decoder_registered=True
-                output._register_with_cache(self._cache, output.group_id, output.channel, decoder_registered=True)
+                output._register_with_cache(
+                    self._cache,
+                    output.group_id,
+                    output.channel,
+                    decoder_registered=True,
+                )
     
     def configure(
         self,
@@ -384,11 +401,20 @@ class BrainOutput:
         
         if is_motor:
             # Motors: Use group=0, assign unique channel index
-            group_id = 0
-            channel_index = self._next_motor_channel
-            self._next_motor_channel += 1
+            group_id = int(getattr(output_instance, "preferred_group_id", 0) or 0)
+            preferred_channel_index = getattr(output_instance, "preferred_channel_index", None)
+            if preferred_channel_index is None:
+                channel_index = self._next_motor_channel_by_group.get(group_id, 0)
+                self._next_motor_channel_by_group[group_id] = channel_index + 1
+            else:
+                channel_index = int(preferred_channel_index)
+                next_index = self._next_motor_channel_by_group.get(group_id, 0)
+                if channel_index >= next_index:
+                    self._next_motor_channel_by_group[group_id] = channel_index + 1
             output_instance.channel = channel_index
-            self._motor_outputs_by_channel[channel_index] = output_instance
+            if group_id == 0:
+                self._motor_outputs_by_channel[channel_index] = output_instance
+            self._motor_outputs_by_group_channel[(group_id, channel_index)] = output_instance
             
             # Track total motor count for decoder registration
             self._motor_total_channels += 1
@@ -477,16 +503,33 @@ class BrainOutput:
             if not isinstance(motor_map, dict):
                 raise RuntimeError("Motor data format invalid (expected dict).")
 
-            for channel, output in self._motor_outputs_by_channel.items():
-                value = motor_map.get(str(channel))
+            for key, value in motor_map.items():
                 if value is None:
-                    value = motor_map.get(channel)
-                if value is None:
+                    continue
+                key_str = str(key)
+                if ":" in key_str:
+                    group_str, channel_str = key_str.split(":", 1)
+                    try:
+                        group_id = int(group_str)
+                        channel_index = int(channel_str)
+                    except ValueError:
+                        continue
+                else:
+                    group_id = 0
+                    try:
+                        channel_index = int(key_str)
+                    except ValueError:
+                        continue
+
+                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
+                if output is None and group_id == 0:
+                    output = self._motor_outputs_by_channel.get(channel_index)
+                if output is None:
                     continue
                 try:
                     output._on_motor_command(float(value))
                 except Exception as e:
-                    logger.debug(f"Error updating motor output {channel}: {e}")
+                    logger.debug(f"Error updating motor output {key_str}: {e}")
             
             # Note: _read_from_cache() is no longer needed as callbacks handle updates
             # The motor values are already updated via callbacks during process_neurons()
