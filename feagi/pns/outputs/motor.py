@@ -48,15 +48,15 @@ class ServoMotor(BaseOutput):
         range: Tuple[float, float] = (0, 180),
         encoding: MotorEncoding = "absolute",
         gain: float = 1.0,
-        group_id: int = 0,
+        unit_id: int = 0,
         channel_index: Optional[int] = None,
     ):
-        super().__init__(group_id)
+        super().__init__(unit_id)
         self.min_angle, self.max_angle = range
         self.encoding = encoding
         self.channel = 0
         self.gain = gain  # Amplification factor for motor commands
-        self.preferred_group_id = group_id
+        self.preferred_group_id = unit_id
         self.preferred_channel_index = channel_index
         
         # Current angle (from FEAGI)
@@ -68,7 +68,7 @@ class ServoMotor(BaseOutput):
         range: Tuple[float, float] = (0, 180),
         encoding: MotorEncoding = "absolute",
         gain: float = 1.0,
-        group_id: int = 0,
+        unit_id: int = 0,
         channel_index: Optional[int] = None,
     ) -> 'ServoMotor':
         """
@@ -79,7 +79,7 @@ class ServoMotor(BaseOutput):
             encoding: "absolute" or "incremental"
             gain: Amplification factor for motor commands (default: 1.0)
                   Use >1.0 to amplify weak signals, <1.0 to dampen strong signals
-            group_id: Cortical unit index (motor group) for this servo
+            unit_id: Cortical unit index (motor group) for this servo
             channel_index: Optional channel override within the motor group
         
         Returns:
@@ -87,7 +87,7 @@ class ServoMotor(BaseOutput):
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding, gain, group_id, channel_index)
+        servo = cls(range, encoding, gain, unit_id, channel_index)
         brain_output.register_output(servo)
         return servo
     
@@ -177,14 +177,14 @@ class RotaryMotor(BaseOutput):
         self,
         encoding: MotorEncoding = "absolute",
         bidirectional: bool = True,
-        group_id: int = 0,
+        unit_id: int = 0,
         channel_index: Optional[int] = None,
     ):
-        super().__init__(group_id)
+        super().__init__(unit_id)
         self.encoding = encoding
         self.bidirectional = bidirectional
         self.channel = 0
-        self.preferred_group_id = group_id
+        self.preferred_group_id = unit_id
         self.preferred_channel_index = channel_index
         
         # Current speed (from FEAGI)
@@ -196,7 +196,7 @@ class RotaryMotor(BaseOutput):
         cls,
         encoding: MotorEncoding = "absolute",
         bidirectional: bool = True,
-        group_id: int = 0,
+        unit_id: int = 0,
         channel_index: Optional[int] = None,
     ) -> 'RotaryMotor':
         """
@@ -205,7 +205,7 @@ class RotaryMotor(BaseOutput):
         Args:
             encoding: "absolute" or "incremental"
             bidirectional: Whether motor can reverse
-            group_id: Cortical unit index (motor group) for this motor
+            unit_id: Cortical unit index (motor group) for this motor
             channel_index: Optional channel override within the motor group
         
         Returns:
@@ -213,7 +213,7 @@ class RotaryMotor(BaseOutput):
         """
         from feagi.pns import brain_output
         
-        motor = cls(encoding, bidirectional, group_id, channel_index)
+        motor = cls(encoding, bidirectional, unit_id, channel_index)
         brain_output.register_output(motor)
         return motor
     
