@@ -24,7 +24,7 @@ Example:
     client = FeagiAgentClient("my_camera", AgentType.SENSORY)
     client.configure(
         feagi_host="localhost",
-        vision_capability=("camera", 640, 480, 3, "i_vision"),
+        vision_unit=("camera", 640, 480, 3, "vision", 0),
         heartbeat_interval=5.0
     )
     client.connect()
@@ -116,7 +116,7 @@ class FeagiAgentClient:
         # Configure
         client.configure(
             feagi_host="localhost",
-            vision_capability=("camera", 640, 480, 3, "i_vision"),
+            vision_unit=("camera", 640, 480, 3, "vision", 0),
             heartbeat_interval=5.0
         )
         
@@ -174,8 +174,9 @@ class FeagiAgentClient:
         registration_port: int = 30001,
         sensory_port: int = 5555,
         motor_port: int = 5564,
-        vision_capability: Optional[Tuple[str, int, int, int, str]] = None,
-        motor_capability: Optional[Tuple[str, int, List[str]]] = None,
+        vision_unit: Optional[Tuple[str, int, int, int, str, int]] = None,
+        motor_unit: Optional[Tuple[str, int, str, int]] = None,
+        motor_units: Optional[Tuple[str, int, List[Tuple[str, int]]]] = None,
         custom_capabilities: Optional[Dict[str, Any]] = None,
         heartbeat_interval: float = 5.0,
         connection_timeout_ms: int = 5000,
@@ -192,10 +193,12 @@ class FeagiAgentClient:
             registration_port: Registration/heartbeat port (default: 30001).
             sensory_port: Sensory data input port (default: 5555).
             motor_port: Motor data output port (default: 5564).
-            vision_capability: Vision capability tuple
-                (modality, width, height, channels, cortical_area).
-            motor_capability: Motor capability tuple (modality, output_count,
-                cortical_areas).
+            vision_unit: Vision capability tuple using semantic unit + group
+                (modality, width, height, channels, unit, group).
+            motor_unit: Motor capability tuple using semantic unit + group
+                (modality, output_count, unit, group).
+            motor_units: Motor capability tuple with multiple unit/group pairs
+                (modality, output_count, [(unit, group), ...]).
             custom_capabilities: Dictionary of custom capabilities.
             heartbeat_interval: Heartbeat interval in seconds (0 to disable).
             connection_timeout_ms: Connection timeout in milliseconds.
@@ -252,33 +255,37 @@ class FeagiAgentClient:
             )
         
         # Add capabilities
-        if vision_capability:
+        if vision_unit:
             (
                 modality,
                 width,
                 height,
                 channels,
-                cortical_area,
-            ) = vision_capability
-            self._config.with_vision_capability(
+                unit,
+                group,
+            ) = vision_unit
+            self._config.with_vision_unit(
                 modality,
                 width,
                 height,
                 channels,
-                cortical_area,
+                unit,
+                group,
             )
 
             # Store for XYZP conversion
             self._vision_width = width
             self._vision_height = height
-            self._cortical_area = cortical_area
+            self._vision_unit = unit
+            self._vision_group = group
             
             logger.debug(
-                "Added vision capability: %sx%sx%s -> %s",
+                "Added vision unit capability: %sx%sx%s -> %s:%s",
                 width,
                 height,
                 channels,
-                cortical_area,
+                unit,
+                group,
             )
         
         # Store network config for direct ZMQ access and logging
@@ -286,17 +293,24 @@ class FeagiAgentClient:
         self._registration_port = registration_port
         self._sensory_port = sensory_port
         
-        if motor_capability:
-            modality, output_count, cortical_areas = motor_capability
-            self._config.with_motor_capability(
-                modality,
-                output_count,
-                cortical_areas,
-            )
+        if motor_unit and motor_units:
+            raise ValueError("Provide only one of motor_unit or motor_units.")
+        if motor_unit:
+            modality, output_count, unit, group = motor_unit
+            self._config.with_motor_unit(modality, output_count, unit, group)
             logger.debug(
-                "Added motor capability: %s outputs <- %s",
+                "Added motor unit capability: %s outputs <- %s:%s",
                 output_count,
-                cortical_areas,
+                unit,
+                group,
+            )
+        if motor_units:
+            modality, output_count, source_units = motor_units
+            self._config.with_motor_units(modality, output_count, source_units)
+            logger.debug(
+                "Added motor unit capabilities: %s outputs <- %s",
+                output_count,
+                source_units,
             )
         
         if custom_capabilities:
@@ -747,7 +761,7 @@ def create_agent(
             "my_camera",
             AgentType.SENSORY,
             feagi_host="localhost",
-            vision_capability=("camera", 640, 480, 3, "i_vision")
+            vision_unit=("camera", 640, 480, 3, "vision", 0)
         )
         client.connect()
         ```

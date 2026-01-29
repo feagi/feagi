@@ -184,6 +184,18 @@ class BrainOutput:
             cortical_ids = {base64.b64encode(cid_bytes).decode()}
 
         return list(cortical_ids)
+
+    def _collect_motor_unit_specs(self) -> List[tuple[str, int]]:
+        """Collect motor unit specs (unit, group) for registration."""
+        from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+        unit_specs: set[tuple[str, int]] = set()
+        for output in self._outputs:
+            if isinstance(output, ServoMotor):
+                unit_specs.add(("positional_servo", int(getattr(output, "group_id", 0) or 0)))
+            elif isinstance(output, RotaryMotor):
+                unit_specs.add(("rotary_motor", int(getattr(output, "group_id", 0) or 0)))
+        return sorted(unit_specs)
     
     def _allocate_group_id(self) -> int:
         """Allocate next cortical group ID"""
@@ -357,6 +369,11 @@ class BrainOutput:
                 raise RuntimeError(
                     "No motor outputs registered (cannot connect without motor outputs)."
                 )
+            motor_units = self._collect_motor_unit_specs()
+            if not motor_units:
+                raise RuntimeError(
+                    "Motor units are required for FEAGI 2.0 registration."
+                )
 
             client = FeagiAgentClient(self._agent_id, AgentType.MOTOR)
             client.configure(
@@ -364,7 +381,7 @@ class BrainOutput:
                 registration_port=self._feagi_registration_port,
                 sensory_port=self._feagi_sensory_port,
                 motor_port=self._feagi_motor_port,
-                motor_capability=("motor", output_count, motor_cortical_ids),
+                motor_units=("motor", output_count, motor_units),
                 heartbeat_interval=self._feagi_heartbeat_interval_s,
                 connection_timeout_ms=self._feagi_connection_timeout_ms,
                 registration_retries=self._feagi_registration_retries,

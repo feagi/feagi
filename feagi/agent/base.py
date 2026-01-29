@@ -98,10 +98,12 @@ class BaseAgent(ABC):
         """
         from feagi.pns import FeagiAgentClient, AgentType
         
-        # Determine agent type based on capabilities (feagi-sensorimotor format: "input"/"output")
-        # Support both old format ("motor"/"sensory") and new format ("input"/"output") for backward compatibility
-        has_motor = self.capabilities.get("motor") is not None or self.capabilities.get("output") is not None
-        has_vision = self.capabilities.get("vision") is not None or self.capabilities.get("input") is not None
+        # Determine agent type based on FEAGI 2.0 unit/group capability format
+        motor_unit = self.capabilities.get("motor_unit")
+        motor_units = self.capabilities.get("motor_units")
+        vision_unit = self.capabilities.get("vision_unit")
+        has_motor = motor_unit is not None or motor_units is not None
+        has_vision = vision_unit is not None
         
         if has_motor and has_vision:
             agent_type = AgentType.BOTH
@@ -110,29 +112,39 @@ class BaseAgent(ABC):
         elif has_vision:
             agent_type = AgentType.SENSORY
         else:
-            raise ValueError("Agent must have at least motor or vision capabilities")
+            raise ValueError(
+                "Agent must define vision_unit and/or motor_unit(s) capabilities"
+            )
         
         self.client = FeagiAgentClient(self.agent_id, agent_type)
         
-        # Convert capabilities dict to client config format
-        # Support both "motor" (old) and "output" (feagi-sensorimotor) formats
+        # Convert capabilities dict to client config format (FEAGI 2.0)
         motor_cap = None
-        motor_config = self.capabilities.get("motor") or self.capabilities.get("output")
-        if motor_config:
-            if isinstance(motor_config, list):
-                # New format: {"output": ["cortical_id1", "cortical_id2"]}
-                motor_count = len(motor_config)
-                cortical_ids_b64 = motor_config
-            else:
-                # Old format: {"motor": {"count": 2, "cortical_ids": [...]}}
-                motor_count = motor_config.get("count", 2)
-                cortical_ids_b64 = motor_config.get("cortical_ids", [])
-                if not cortical_ids_b64:
-                    # Fallback to generic names
-                    cortical_ids_b64 = [f"m{i}" for i in range(motor_count)]
-            
-            motor_cap = ("motor", motor_count, cortical_ids_b64)
-            print(f"🎮 [SDK DEBUG] Motor capability: count={motor_count}, cortical_ids={cortical_ids_b64}")
+        motor_caps = None
+        if motor_unit:
+            motor_cap = (
+                motor_unit["modality"],
+                motor_unit["output_count"],
+                motor_unit["unit"],
+                motor_unit["group"],
+            )
+        if motor_units:
+            motor_caps = (
+                motor_units["modality"],
+                motor_units["output_count"],
+                motor_units["source_units"],
+            )
+
+        vision_cap = None
+        if vision_unit:
+            vision_cap = (
+                vision_unit["modality"],
+                vision_unit["width"],
+                vision_unit["height"],
+                vision_unit["channels"],
+                vision_unit["unit"],
+                vision_unit["group"],
+            )
         
         # Add custom capabilities for sensors
         custom_caps = {}
@@ -144,7 +156,9 @@ class BaseAgent(ABC):
         self.client.configure(
             feagi_host=self.feagi_host,
             motor_port=5564,  # TODO: Get from FEAGI config (currently using transport.zmq_motor_port)
-            motor_capability=motor_cap,
+            vision_unit=vision_cap,
+            motor_unit=motor_cap,
+            motor_units=motor_caps,
             custom_capabilities=custom_caps if custom_caps else None
         )
         self.client.connect()  # Synchronous, not async!
