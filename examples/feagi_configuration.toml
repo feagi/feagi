@@ -220,7 +220,7 @@ a_minus = 0.012                # Depression amplitude
 # Memory formation configuration
 lookback_steps = 50            # Number of timesteps to analyze for patterns
 pattern_duration = 10          # Duration of temporal patterns to detect
-min_activation_count = 3       # Minimum activations required to form memory
+min_activation_count = 1       # Minimum activations required to form memory
 default_temporal_depth = 3     # Default temporal depth (per-area can override)
 pattern_cache_size = 10000     # Maximum patterns to cache for performance
 initial_lifespan = 20          # Initial lifespan for new memory neurons (bursts)

@@ -1180,7 +1180,7 @@
       "type": "functions",
       "class": "core"
     },
-    "memory": {
+    "episodic_memory": {
       "parameters": {},
       "type": "functions",
       "class": "core"
