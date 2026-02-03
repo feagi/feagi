@@ -352,6 +352,30 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
 
     engine = FeagiEngine()
     engine.load_config(config_path)
+
+    config = engine.config
+    if config is None:
+        print("Failed to load FEAGI config.", file=sys.stderr)
+        return 1
+    timeouts_config = config.get("timeouts")
+    if not isinstance(timeouts_config, dict):
+        print("Config must define a [timeouts] section.", file=sys.stderr)
+        return 1
+    service_startup_timeout = timeouts_config.get("service_startup")
+    if service_startup_timeout is None:
+        print(
+            "Config must define timeouts.service_startup.",
+            file=sys.stderr
+        )
+        return 1
+    try:
+        service_startup_seconds = float(service_startup_timeout)
+    except (TypeError, ValueError):
+        print(
+            "Config timeouts.service_startup must be a numeric value.",
+            file=sys.stderr
+        )
+        return 1
     
     if hasattr(args, 'genome') and args.genome:
         engine.load_genome(args.genome)
@@ -439,7 +463,7 @@ def _handle_start_command(args: argparse.Namespace) -> int:
     
     # Verify process is still running after a brief delay
     import time
-    time.sleep(0.5)
+    time.sleep(service_startup_seconds)
     if not manager.is_running():
         print(
             "FEAGI process died immediately after start. "
@@ -454,30 +478,32 @@ def _handle_start_command(args: argparse.Namespace) -> int:
         print("No genome specified, loading barebones genome...")
         try:
             import requests
-            import toml
             
             # Get API config
-            api_host = "127.0.0.1"
-            api_port = 8000
-            if engine.config_path:
-                try:
-                    # engine.config_path is already a Path object, use it directly
-                    # Convert to string for toml.load() which expects str or file-like
-                    config_path_str = str(engine.config_path)
-                    config = toml.load(config_path_str)
-                    api_port = config.get("api", {}).get("port", 8000)
-                except Exception:
-                    # If config loading fails, use default port
-                    pass
+            api_config = config.get("api")
+            if not isinstance(api_config, dict):
+                raise ValueError("Config must define an [api] section.")
+            api_host = api_config.get("host")
+            api_port = api_config.get("port")
+            if not api_host:
+                raise ValueError("Config must define api.host.")
+            if api_port is None:
+                raise ValueError("Config must define api.port.")
+            try:
+                api_port_int = int(api_port)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "Config api.port must be a numeric value."
+                ) from exc
             
-            api_url = f"http://{api_host}:{api_port}"
+            api_url = f"http://{api_host}:{api_port_int}"
             
             # Wait for API to be ready
-            time.sleep(1.5)
+            time.sleep(service_startup_seconds)
             
             response = requests.post(
                 f"{api_url}/v1/genome/upload/barebones",
-                timeout=10.0
+                timeout=service_startup_seconds
             )
             if response.status_code == 200:
                 print("Barebones genome loaded successfully")

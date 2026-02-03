@@ -51,6 +51,10 @@ level = "info"
 # Enable file logging
 file_logging = true
 
+[timeouts]
+# Timeout settings in seconds
+service_startup = 3.0
+
 [connectome]
 # Maximum neuron space allocation
 neuron_space = 1000000

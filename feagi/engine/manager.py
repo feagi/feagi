@@ -58,6 +58,7 @@ class FeagiEngine:
         self.working_dir = Path(working_dir) if working_dir else Path.cwd()
         self.process: Optional[subprocess.Popen] = None
         self.config_path: Optional[Path] = None
+        self.config: Optional[dict[str, object]] = None
         self.genome_path: Optional[Path] = None
         self.connectome_path: Optional[Path] = None
         
@@ -199,9 +200,11 @@ class FeagiEngine:
         logger.info(f"Loaded config: {self.config_path}")
         
         # Parse config to extract ports (optional, for convenience)
+        self.config = None
         try:
             import toml
             config = toml.load(self.config_path)
+            self.config = config
             
             # Extract ports if available
             if "api" in config:
