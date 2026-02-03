@@ -353,16 +353,6 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
     engine = FeagiEngine()
     engine.load_config(config_path)
     config = engine.config
-    try:
-        service_startup_seconds = float(config["timeouts"]["service_startup"])
-    except (TypeError, ValueError, KeyError):
-        print(
-            "Config must define timeouts.service_startup as a numeric value.",
-            file=sys.stderr
-        )
-        return 1
-
-    config = engine.config
     if config is None:
         print("Failed to load FEAGI config.", file=sys.stderr)
         return 1
@@ -402,7 +392,7 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
     
     # Verify process is still running
     import time
-    time.sleep(0.5)
+    time.sleep(service_startup_seconds)
     if not manager.is_running():
         print(
             "FEAGI process died immediately after start. "
