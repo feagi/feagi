@@ -186,6 +186,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Custom output path for config file.",
     )
 
+    config_parser = subparsers.add_parser(
+        "config",
+        help="FEAGI configuration utilities.",
+    )
+    config_subparsers = config_parser.add_subparsers(
+        dest="config_command",
+        required=True
+    )
+    config_show = config_subparsers.add_parser(
+        "show",
+        help="Show the active FEAGI configuration file.",
+    )
+    config_show.add_argument(
+        "--config",
+        default=None,
+        help="Path to FEAGI configuration TOML file (default: uses ~/.feagi/config/feagi_configuration.toml).",
+    )
+
     return parser
 
 
@@ -274,6 +292,34 @@ def _handle_init_command(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"Failed to initialize FEAGI environment: {exc}", file=sys.stderr)
         return 1
+
+
+def _handle_config_command(args: argparse.Namespace) -> int:
+    """Handle FEAGI config subcommands."""
+    from feagi.config import ensure_default_config
+    from pathlib import Path
+    
+    if args.config_command != "show":
+        raise ValueError(f"Unsupported config command: {args.config_command}")
+    
+    config_path = args.config
+    if config_path is None:
+        config_path = str(ensure_default_config())
+    
+    config_file = Path(config_path)
+    if not config_file.exists():
+        print(f"Config file not found: {config_file}", file=sys.stderr)
+        return 1
+    
+    try:
+        contents = config_file.read_text()
+    except Exception as exc:
+        print(f"Failed to read config file: {exc}", file=sys.stderr)
+        return 1
+    
+    print(f"Config file: {config_file}")
+    print(contents)
+    return 0
 
 
 def _handle_stop_command(args: argparse.Namespace) -> int:
@@ -385,6 +431,76 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
             file=sys.stderr
         )
         return 1
+
+    config = engine.config
+    if config is None:
+        print("Failed to load FEAGI config.", file=sys.stderr)
+        return 1
+    timeouts_config = config.get("timeouts")
+    if not isinstance(timeouts_config, dict):
+        print("Config must define a [timeouts] section.", file=sys.stderr)
+        return 1
+    service_startup_timeout = timeouts_config.get("service_startup")
+    if service_startup_timeout is None:
+        print(
+            "Config must define timeouts.service_startup.",
+            file=sys.stderr
+        )
+        return 1
+    try:
+        service_startup_seconds = float(service_startup_timeout)
+    except (TypeError, ValueError):
+        print(
+            "Config timeouts.service_startup must be a numeric value.",
+            file=sys.stderr
+        )
+        return 1
+    config = engine.config
+    if config is None:
+        print("Failed to load FEAGI config.", file=sys.stderr)
+        return 1
+    timeouts_config = config.get("timeouts")
+    if not isinstance(timeouts_config, dict):
+        print("Config must define a [timeouts] section.", file=sys.stderr)
+        return 1
+    service_startup_timeout = timeouts_config.get("service_startup")
+    if service_startup_timeout is None:
+        print(
+            "Config must define timeouts.service_startup.",
+            file=sys.stderr
+        )
+        return 1
+    try:
+        service_startup_seconds = float(service_startup_timeout)
+    except (TypeError, ValueError):
+        print(
+            "Config timeouts.service_startup must be a numeric value.",
+            file=sys.stderr
+        )
+        return 1
+    config = engine.config
+    if config is None:
+        print("Failed to load FEAGI config.", file=sys.stderr)
+        return 1
+    timeouts_config = config.get("timeouts")
+    if not isinstance(timeouts_config, dict):
+        print("Config must define a [timeouts] section.", file=sys.stderr)
+        return 1
+    service_startup_timeout = timeouts_config.get("service_startup")
+    if service_startup_timeout is None:
+        print(
+            "Config must define timeouts.service_startup.",
+            file=sys.stderr
+        )
+        return 1
+    try:
+        service_startup_seconds = float(service_startup_timeout)
+    except (TypeError, ValueError):
+        print(
+            "Config timeouts.service_startup must be a numeric value.",
+            file=sys.stderr
+        )
+        return 1
     
     if hasattr(args, 'genome') and args.genome:
         engine.load_genome(args.genome)
@@ -402,7 +518,7 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
     
     # Verify process is still running
     import time
-    time.sleep(0.5)
+    time.sleep(service_startup_seconds)
     if not manager.is_running():
         print(
             "FEAGI process died immediately after start. "
@@ -447,6 +563,30 @@ def _handle_start_command(args: argparse.Namespace) -> int:
 
     engine = FeagiEngine()
     engine.load_config(config_path)
+
+    config = engine.config
+    if config is None:
+        print("Failed to load FEAGI config.", file=sys.stderr)
+        return 1
+    timeouts_config = config.get("timeouts")
+    if not isinstance(timeouts_config, dict):
+        print("Config must define a [timeouts] section.", file=sys.stderr)
+        return 1
+    service_startup_timeout = timeouts_config.get("service_startup")
+    if service_startup_timeout is None:
+        print(
+            "Config must define timeouts.service_startup.",
+            file=sys.stderr
+        )
+        return 1
+    try:
+        service_startup_seconds = float(service_startup_timeout)
+    except (TypeError, ValueError):
+        print(
+            "Config timeouts.service_startup must be a numeric value.",
+            file=sys.stderr
+        )
+        return 1
     
     # Load genome/connectome if provided
     has_genome = False
@@ -610,6 +750,8 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_status_command(args)
     if args.command == "restart":
         return _handle_restart_command(args)
+    if args.command == "config":
+        return _handle_config_command(args)
 
     # No command specified - show help
     from feagi.paths import get_feagi_paths

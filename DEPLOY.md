@@ -219,11 +219,11 @@ Default `feagi_configuration.toml`:
 
 ```toml
 [api]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8000
 
 [websocket]
-host = "0.0.0.0"
+host = "127.0.0.1"
 visualization_port = 8080
 sensory_port = 5558
 motor_port = 5564
@@ -403,6 +403,24 @@ pip install feagi[bv]
 ---
 
 ## Advanced Deployment
+
+### Network Binding (0.0.0.0 vs 127.0.0.1)
+
+By default, FEAGI binds to `127.0.0.1` for local-only development to avoid
+OS firewall prompts and unintentional external access. For container or
+remote client access, bind to all interfaces:
+
+```toml
+[api]
+host = "0.0.0.0"  # Accept connections from any IP
+port = 8000
+
+[websocket]
+host = "0.0.0.0"  # Required for remote BV/agent connections
+```
+
+When using `0.0.0.0`, ensure your firewall rules allow only the intended
+ports and networks.
 
 ### Custom Configuration Location
 
