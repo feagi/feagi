@@ -12,11 +12,14 @@ This example shows:
 4. Connecting with chosen transport
 """
 
-import zmq
 import json
-import asyncio
+import os
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+from urllib import error as url_error
+from urllib import request as url_request
+
+from feagi.pns.client import AgentType, FeagiAgentClient
 
 
 class TransportOption:
@@ -38,7 +41,6 @@ class RegistrationInfo:
     def __init__(self, response_body: Dict):
         self.status = response_body.get("status", "unknown")
         self.message = response_body.get("message")
-        self.zmq_ports = response_body.get("zmq_ports", {})
         self.transports = [
             TransportOption(t) 
             for t in response_body.get("transports", [])
@@ -77,72 +79,97 @@ class RegistrationInfo:
 
 def register_with_feagi(
     feagi_host: str,
-    registration_port: int,
+    feagi_port: int,
     agent_id: str,
     agent_type: str,
-    capabilities: Dict
+    capabilities: Dict,
+    agent_data_port: int,
+    agent_version: str,
+    controller_version: str,
 ) -> RegistrationInfo:
-    """Register agent with FEAGI and get transport options."""
-    
+    """Register agent with FEAGI over HTTP and get transport options."""
+
     print(f"📝 Registering agent '{agent_id}' with FEAGI...")
-    
-    context = zmq.Context()
-    socket = context.socket(zmq.REQ)
-    socket.connect(f"tcp://{feagi_host}:{registration_port}")
-    
-    request = {
-        "method": "POST",
-        "path": "/v1/agent/register",
-        "body": {
-            "agent_id": agent_id,
-            "agent_type": agent_type,
-            "capabilities": capabilities
-        }
+
+    payload = {
+        "agent_id": agent_id,
+        "agent_type": agent_type,
+        "agent_data_port": agent_data_port,
+        "agent_version": agent_version,
+        "controller_version": controller_version,
+        "capabilities": capabilities,
     }
-    
-    socket.send_json(request)
-    response = socket.recv_json()
-    socket.close()
-    
-    # Check status
-    status_code = response.get("status", 500)
-    if status_code != 200:
-        error_msg = response.get("body", {}).get("error", "Unknown error")
+
+    url = f"http://{feagi_host}:{feagi_port}/v1/agent/register"
+    body = json.dumps(payload).encode("utf-8")
+    req = url_request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with url_request.urlopen(req, timeout=10) as response:
+            response_body = json.loads(response.read().decode("utf-8"))
+    except url_error.HTTPError as err:
+        raise Exception(f"Registration failed: HTTP {err.code}") from err
+    except url_error.URLError as err:
+        raise Exception(f"Registration failed: {err}") from err
+
+    if response_body.get("status") != "success":
+        error_msg = response_body.get("message", "Unknown error")
         raise Exception(f"Registration failed: {error_msg}")
-    
-    body = response.get("body", {})
-    print(f"✅ Registration successful: {body.get('message', '')}\n")
-    
-    return RegistrationInfo(body)
+
+    print(f"✅ Registration successful: {response_body.get('message', '')}\n")
+
+    return RegistrationInfo(response_body)
 
 
-def connect_with_zmq(transport: TransportOption, agent_id: str):
-    """Connect to FEAGI using ZMQ transport."""
-    
-    print(f"🔌 Connecting via ZMQ...")
-    print(f"   Sensory: tcp://{transport.host}:{transport.ports['sensory']}")
-    print(f"   Motor:   tcp://{transport.host}:{transport.ports['motor']}")
-    
-    context = zmq.Context()
-    
-    # Sensory socket (PUSH)
-    sensory = context.socket(zmq.PUSH)
-    sensory.connect(f"tcp://{transport.host}:{transport.ports['sensory']}")
-    
-    # Motor socket (SUB)
-    motor = context.socket(zmq.SUB)
-    motor.connect(f"tcp://{transport.host}:{transport.ports['motor']}")
-    motor.subscribe(b"")  # Subscribe to all
-    
-    print("✅ ZMQ sockets connected\n")
-    
-    return sensory, motor
+def connect_with_zmq(
+    transport: TransportOption,
+    agent_id: str,
+    agent_type: str,
+    capabilities: Dict,
+    heartbeat_interval_s: float,
+    connection_timeout_ms: int,
+    registration_retries: int,
+) -> FeagiAgentClient:
+    """Connect to FEAGI using ZMQ transport via Rust SDK."""
+
+    print("🔌 Connecting via ZMQ (Rust SDK)...")
+    print(f"   Registration: tcp://{transport.host}:{transport.ports['registration']}")
+    print(f"   Sensory:      tcp://{transport.host}:{transport.ports['sensory']}")
+    print(f"   Motor:        tcp://{transport.host}:{transport.ports['motor']}")
+
+    agent_type_map = {
+        "sensory": AgentType.SENSORY,
+        "motor": AgentType.MOTOR,
+        "both": AgentType.BOTH,
+    }
+    rust_agent_type = agent_type_map.get(agent_type, AgentType.BOTH)
+
+    client = FeagiAgentClient(agent_id, rust_agent_type)
+    client.configure(
+        feagi_host=transport.host,
+        registration_port=int(transport.ports["registration"]),
+        sensory_port=int(transport.ports["sensory"]),
+        motor_port=int(transport.ports["motor"]),
+        custom_capabilities=capabilities,
+        heartbeat_interval=float(heartbeat_interval_s),
+        connection_timeout_ms=int(connection_timeout_ms),
+        registration_retries=int(registration_retries),
+    )
+    client.connect()
+
+    print("✅ ZMQ client connected\n")
+    return client
 
 
 async def connect_with_websocket(transport: TransportOption, agent_id: str):
     """Connect to FEAGI using WebSocket transport."""
     
-    print(f"🔌 Connecting via WebSocket...")
+    print("🔌 Connecting via WebSocket...")
     print(f"   Sensory: ws://{transport.host}:{transport.ports['sensory']}/sensory")
     print(f"   Motor:   ws://{transport.host}:{transport.ports['motor']}/motor/{agent_id}")
     
@@ -167,30 +194,55 @@ async def connect_with_websocket(transport: TransportOption, agent_id: str):
     return ws_sensory, ws_motor
 
 
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def parse_env_int(name: str) -> int:
+    value = require_env(name)
+    return int(value)
+
+
+def parse_env_float(name: str) -> float:
+    value = require_env(name)
+    return float(value)
+
+
 def main():
     print("=" * 70)
     print("FEAGI Multi-Transport Agent Example")
     print("=" * 70)
     print()
     
-    # Configuration
-    feagi_host = "localhost"
-    registration_port = 5563
-    agent_id = "example_robot_01"
-    agent_type = "both"
-    capabilities = {
-        "sensory": {"rate_hz": 30.0},
-        "motor": {"enabled": True, "output_count": 6}
-    }
+    # Configuration (explicit, no defaults)
+    feagi_host = require_env("FEAGI_API_HOST")
+    feagi_port = parse_env_int("FEAGI_API_PORT")
+    agent_data_port = parse_env_int("AGENT_DATA_PORT")
+    agent_version = require_env("AGENT_VERSION")
+    controller_version = require_env("CONTROLLER_VERSION")
+    heartbeat_interval_s = parse_env_float("FEAGI_HEARTBEAT_INTERVAL_S")
+    connection_timeout_ms = parse_env_int("FEAGI_CONNECTION_TIMEOUT_MS")
+    registration_retries = parse_env_int("FEAGI_REGISTRATION_RETRIES")
+
+    # agent_id must be a base64 AgentDescriptor (48-byte payload)
+    agent_id = require_env("AGENT_DESCRIPTOR_B64")
+    agent_type = require_env("AGENT_TYPE")
+    capabilities = json.loads(require_env("AGENT_CAPABILITIES_JSON"))
     
     try:
         # Step 1: Register with FEAGI
         reg_info = register_with_feagi(
             feagi_host,
-            registration_port,
+            feagi_port,
             agent_id,
             agent_type,
-            capabilities
+            capabilities,
+            agent_data_port,
+            agent_version,
+            controller_version,
         )
         
         # Step 2: Display available transports
@@ -233,10 +285,17 @@ def main():
             
             # Actually connect with ZMQ (if FEAGI is running)
             try:
-                sensory, motor = connect_with_zmq(zmq_transport, agent_id)
+                client = connect_with_zmq(
+                    zmq_transport,
+                    agent_id,
+                    agent_type,
+                    capabilities,
+                    heartbeat_interval_s,
+                    connection_timeout_ms,
+                    registration_retries,
+                )
                 print("   🎉 Successfully connected via ZMQ!")
-                sensory.close()
-                motor.close()
+                client.disconnect()
             except Exception as e:
                 print(f"   ⚠️  Could not connect: {e}")
         else:
@@ -254,9 +313,9 @@ def main():
         
     except Exception as e:
         print(f"❌ Error: {e}")
-        print("\n💡 Make sure FEAGI is running with:")
-        print("   - ZMQ registration on port 5563")
-        print("   - WebSocket enabled in configuration")
+        print("\n💡 Verify FEAGI is running and environment is set:")
+        print("   - FEAGI_API_HOST / FEAGI_API_PORT")
+        print("   - AGENT_DESCRIPTOR_B64 / AGENT_TYPE / AGENT_CAPABILITIES_JSON")
         return 1
     
     print("=" * 70)

@@ -158,7 +158,7 @@ feagi/
 ## Dependencies
 
 ### Current
-- numpy, pyzmq, aiohttp, requests, toml
+- numpy, aiohttp, requests, toml
 
 ### New
 - pydantic (type validation)

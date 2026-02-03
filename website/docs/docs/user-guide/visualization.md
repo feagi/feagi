@@ -46,98 +46,11 @@ Monitor detailed neural activity in specific brain regions:
 
 ### Enhanced Client Connection
 
-The new visualization system requires proper client registration for optimal performance:
+The new visualization system requires proper client registration for optimal performance. Use the Rust SDK (via `feagi-rust-py-libs`) or `feagi-io` to subscribe to the visualization stream; no Python ZMQ bindings are required. Ensure your client:
 
-```python
-import zmq
-import requests
-import threading
-import time
-
-class FeagiVisualizationClient:
-    def __init__(self, feagi_host="localhost", client_id="my_viz_client"):
-        self.feagi_host = feagi_host
-        self.client_id = client_id
-        self.running = False
-
-        # Set up ZMQ connection for data
-        self.context = zmq.Context()
-        self.data_socket = self.context.socket(zmq.SUB)
-        self.data_socket.connect(f"tcp://{feagi_host}:5562")
-        self.data_socket.setsockopt(zmq.SUBSCRIBE, b"activity")
-
-    def start(self):
-        """Start the visualization client with heartbeat."""
-        self.running = True
-
-        # Start heartbeat thread
-        self.heartbeat_thread = threading.Thread(target=self._heartbeat_worker, daemon=True)
-        self.heartbeat_thread.start()
-
-        # Start data processing
-        self._process_data()
-
-    def stop(self):
-        """Stop the client and cleanup."""
-        self.running = False
-        if hasattr(self, 'heartbeat_thread'):
-            self.heartbeat_thread.join(timeout=1.0)
-        self.context.term()
-
-    def _heartbeat_worker(self):
-        """Send periodic heartbeats to maintain connection."""
-        while self.running:
-            try:
-                response = requests.post(
-                    f"http://{self.feagi_host}:8000/v1/visualization/heartbeat",
-                    json={"client_id": self.client_id},
-                    timeout=5.0
-                )
-                if response.status_code == 200:
-                    print(f"Heartbeat sent: {self.client_id}")
-                else:
-                    print(f"Heartbeat failed: {response.status_code}")
-            except Exception as e:
-                print(f"Heartbeat error: {e}")
-
-            time.sleep(5)  # Send every 5 seconds
-
-    def _process_data(self):
-        """Process incoming visualization data."""
-        while self.running:
-            try:
-                # Set timeout for responsive shutdown
-                if self.data_socket.poll(timeout=1000):  # 1 second timeout
-                    topic, data = self.data_socket.recv_multipart(zmq.NOBLOCK)
-                    if topic == b"activity":
-                        self._handle_neural_activity(data)
-            except zmq.Again:
-                continue  # Timeout, check running flag
-            except Exception as e:
-                print(f"Data processing error: {e}")
-
-    def _handle_neural_activity(self, data):
-        """Handle incoming neural activity data."""
-        # Decode using feagi_bytes library
-        try:
-            from feagi_bytes import ByteStructureDecoder
-            decoder = ByteStructureDecoder()
-            decoded = decoder.decode_neuron_flat(data)
-
-            print(f"Received activity from {len(set(decoded['cortical_ids']))} cortical areas")
-            print(f"Total neurons: {len(decoded['x_coords'])}")
-
-        except ImportError:
-            print(f"Received {len(data)} bytes of neural data (feagi_bytes not available)")
-
-# Usage example
-if __name__ == "__main__":
-    client = FeagiVisualizationClient(client_id="tutorial_client")
-    try:
-        client.start()
-    except KeyboardInterrupt:
-        client.stop()
-```
+1. Registers via the REST API.
+2. Subscribes to the visualization stream endpoint provided in the `transports` section.
+3. Sends periodic heartbeats to keep the stream active.
 
 ### Client Lifecycle Management
 

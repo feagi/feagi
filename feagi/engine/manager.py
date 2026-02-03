@@ -58,6 +58,7 @@ class FeagiEngine:
         self.working_dir = Path(working_dir) if working_dir else Path.cwd()
         self.process: Optional[subprocess.Popen] = None
         self.config_path: Optional[Path] = None
+        self.config: Optional[dict[str, object]] = None
         self.genome_path: Optional[Path] = None
         self.connectome_path: Optional[Path] = None
         
@@ -199,9 +200,11 @@ class FeagiEngine:
         logger.info(f"Loaded config: {self.config_path}")
         
         # Parse config to extract ports (optional, for convenience)
+        self.config = None
         try:
             import toml
             config = toml.load(self.config_path)
+            self.config = config
             
             # Extract ports if available
             if "api" in config:
@@ -351,10 +354,10 @@ class FeagiEngine:
                 logger.info("Starting FEAGI in detached/daemon mode")
                 from feagi.paths import get_feagi_paths
                 paths = get_feagi_paths()
-                paths.ensure_logs_dir()
+                log_dir = paths.create_log_run_dir(component="feagi", retention=10)
                 
-                log_file = paths.logs_dir / "feagi.log"
-                error_file = paths.logs_dir / "feagi_error.log"
+                log_file = log_dir / "feagi.log"
+                error_file = log_dir / "feagi_error.log"
                 
                 # Use low-level file descriptors that persist
                 stdout_fd = os.open(

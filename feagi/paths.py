@@ -45,6 +45,8 @@ Example:
 """
 
 import platform
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -108,6 +110,54 @@ class FeagiPaths:
         """
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         return self.logs_dir
+
+    def create_log_run_dir(self, component: str, retention: int) -> Path:
+        """
+        Create a per-run log directory with component subfolder.
+
+        Args:
+            component: Component name (e.g., "feagi", "bv").
+            retention: Number of most recent runs to keep.
+
+        Returns:
+            Path to the component-specific run directory.
+        """
+        self.ensure_logs_dir()
+        component_dir = self.logs_dir / component
+        component_dir.mkdir(parents=True, exist_ok=True)
+        self._prune_log_runs(component_dir, retention)
+        return self._create_unique_run_dir(component_dir)
+
+    def _create_unique_run_dir(self, parent_dir: Path) -> Path:
+        """Create a unique run directory under a parent folder."""
+        timestamp = datetime.now().strftime("run_%Y%m%d_%H%M%S")
+        candidate = parent_dir / timestamp
+        if not candidate.exists():
+            candidate.mkdir(parents=True, exist_ok=True)
+            return candidate
+        counter = 1
+        while True:
+            candidate = parent_dir / f"{timestamp}_{counter}"
+            if not candidate.exists():
+                candidate.mkdir(parents=True, exist_ok=True)
+                return candidate
+            counter += 1
+
+    def _prune_log_runs(self, parent_dir: Path, retention: int) -> None:
+        """Remove log run directories beyond retention count."""
+        run_dirs = sorted(
+            [
+                path
+                for path in parent_dir.iterdir()
+                if path.is_dir() and path.name.startswith("run_")
+            ],
+            key=lambda path: path.name,
+        )
+        excess = len(run_dirs) - retention
+        if excess <= 0:
+            return
+        for path in run_dirs[:excess]:
+            shutil.rmtree(path, ignore_errors=True)
     
     def ensure_cache_dir(self) -> Path:
         """

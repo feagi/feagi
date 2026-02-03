@@ -248,25 +248,9 @@ In embedded mode, all API communication goes through the ZMQ REST stream (port 5
 
 ```python
 # Agent registration in embedded mode
-import zmq
-import json
-
-context = zmq.Context()
-socket = context.socket(zmq.DEALER)
-socket.connect("tcp://localhost:5563")
-
-# Register agent via ZMQ REST
-request = {
-    "method": "POST",
-    "route": "/v1/agents/register",
-    "body": {
-        "agent_id": "embedded_agent",
-        "agent_type": "embedded_device"
-    }
-}
-socket.send_multipart([b"", json.dumps(request).encode()])
-response = socket.recv_multipart()
-print(json.loads(response[1]))
+#
+# Use the Rust SDK / feagi-io ZMQ client (zeromq) to send a REST-style request
+# to the embedded ZMQ REST endpoint (e.g., tcp://<host>:5563).
 ```
 
 ### ZMQ Control Stream

@@ -17,12 +17,37 @@ Copyright 2016-2025 Neuraville Inc. All Rights Reserved.
 """
 
 from typing import Dict, List, Tuple, Optional
+import base64
+import binascii
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def decode_motor_xyzp(xyzp_data: dict, cortical_ids: Optional[List[str]] = None) -> Dict[str, float]:
+def _parse_cortical_unit_index_from_b64(cortical_id: str) -> Optional[int]:
+    """
+    Parse cortical unit index (group) from base64 CorticalID.
+
+    Args:
+        cortical_id: Base64-encoded cortical ID string
+
+    Returns:
+        Unit index if parse succeeds, otherwise None.
+    """
+    try:
+        raw = base64.b64decode(cortical_id, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    if len(raw) != 8:
+        return None
+    return int(raw[7])
+
+
+def decode_motor_xyzp(
+    xyzp_data: dict,
+    cortical_ids: Optional[List[str]] = None,
+    include_groups: bool = False,
+) -> Dict[str, float]:
     """
     Decode motor output from XYZP SoA format to motor index → power mapping.
     
@@ -33,16 +58,27 @@ def decode_motor_xyzp(xyzp_data: dict, cortical_ids: Optional[List[str]] = None)
     Args:
         xyzp_data: Raw XYZP SoA data from FEAGI
         cortical_ids: Optional list of cortical IDs to decode (None = all motor areas)
+        include_groups: If True, emit keys as "{group}:{channel}" when possible
     
     Returns:
-        Dict mapping motor index (as string) → power value
+        Dict mapping motor index (as string) → power value, optionally grouped
         
     Example:
         >>> xyzp = {"omot\\x04\\x00\\x00\\x00": {"x": [0, 1], "y": [0, 0], "z": [0, 0], "p": [50.0, -30.0]}}
         >>> decode_motor_xyzp(xyzp)
         {'0': 50.0, '1': -30.0}
     """
-    motors = {}
+    motors: Dict[str, float] = {}
+    cortical_group_map: Dict[str, Optional[int]] = {}
+    groups_found = set()
+
+    for cortical_id in xyzp_data:
+        group_id = _parse_cortical_unit_index_from_b64(cortical_id)
+        cortical_group_map[cortical_id] = group_id
+        if group_id is not None:
+            groups_found.add(group_id)
+
+    use_group_keys = include_groups or len(groups_found) > 1
     
     for cortical_id, neuron_data in xyzp_data.items():
         # Filter by cortical_ids if provided
@@ -59,8 +95,12 @@ def decode_motor_xyzp(xyzp_data: dict, cortical_ids: Optional[List[str]] = None)
             
             # Map X coordinate (motor index) to P value (motor power)
             # Use string keys for controller compatibility
+            group_id = cortical_group_map.get(cortical_id)
             for motor_idx, power in zip(x_coords, p_values):
-                motors[str(int(motor_idx))] = float(power)
+                channel_key = str(int(motor_idx))
+                if use_group_keys and group_id is not None:
+                    channel_key = f"{group_id}:{channel_key}"
+                motors[channel_key] = float(power)
         
         except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Error decoding motor data from {cortical_id}: {e}")

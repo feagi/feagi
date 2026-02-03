@@ -4,7 +4,7 @@ Motor Outputs
 Servo motors, rotary motors (DC), stepper motors, etc.
 """
 
-from typing import Tuple, Literal
+from typing import Tuple, Literal, Optional
 from feagi.pns.outputs.base import BaseOutput
 
 # Type hints
@@ -47,13 +47,17 @@ class ServoMotor(BaseOutput):
         self,
         range: Tuple[float, float] = (0, 180),
         encoding: MotorEncoding = "absolute",
-        gain: float = 1.0
+        gain: float = 1.0,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ):
-        super().__init__()
+        super().__init__(unit_id)
         self.min_angle, self.max_angle = range
         self.encoding = encoding
         self.channel = 0
         self.gain = gain  # Amplification factor for motor commands
+        self.preferred_group_id = unit_id
+        self.preferred_channel_index = channel_index
         
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
@@ -63,7 +67,9 @@ class ServoMotor(BaseOutput):
         cls,
         range: Tuple[float, float] = (0, 180),
         encoding: MotorEncoding = "absolute",
-        gain: float = 1.0
+        gain: float = 1.0,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ) -> 'ServoMotor':
         """
         Register a new servo motor output.
@@ -73,13 +79,15 @@ class ServoMotor(BaseOutput):
             encoding: "absolute" or "incremental"
             gain: Amplification factor for motor commands (default: 1.0)
                   Use >1.0 to amplify weak signals, <1.0 to dampen strong signals
+            unit_id: Cortical unit index (motor group) for this servo
+            channel_index: Optional channel override within the motor group
         
         Returns:
             ServoMotor instance
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding, gain)
+        servo = cls(range, encoding, gain, unit_id, channel_index)
         brain_output.register_output(servo)
         return servo
     
@@ -104,9 +112,9 @@ class ServoMotor(BaseOutput):
             # Only register callback if decoder has been registered
             if decoder_registered:
                 # Register callback to receive motor commands from FEAGI
-                signal_id = cache.register_callback(
+                cache.register_callback(
                     motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
-                    group=0,  # All motors share group=0
+                    group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command
                 )
@@ -168,12 +176,16 @@ class RotaryMotor(BaseOutput):
     def __init__(
         self,
         encoding: MotorEncoding = "absolute",
-        bidirectional: bool = True
+        bidirectional: bool = True,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ):
-        super().__init__()
+        super().__init__(unit_id)
         self.encoding = encoding
         self.bidirectional = bidirectional
         self.channel = 0
+        self.preferred_group_id = unit_id
+        self.preferred_channel_index = channel_index
         
         # Current speed (from FEAGI)
         # Range: -1.0 to 1.0 if bidirectional, 0.0 to 1.0 if not
@@ -183,7 +195,9 @@ class RotaryMotor(BaseOutput):
     def register(
         cls,
         encoding: MotorEncoding = "absolute",
-        bidirectional: bool = True
+        bidirectional: bool = True,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ) -> 'RotaryMotor':
         """
         Register a new rotary motor output.
@@ -191,13 +205,15 @@ class RotaryMotor(BaseOutput):
         Args:
             encoding: "absolute" or "incremental"
             bidirectional: Whether motor can reverse
+            unit_id: Cortical unit index (motor group) for this motor
+            channel_index: Optional channel override within the motor group
         
         Returns:
             RotaryMotor instance
         """
         from feagi.pns import brain_output
         
-        motor = cls(encoding, bidirectional)
+        motor = cls(encoding, bidirectional, unit_id, channel_index)
         brain_output.register_output(motor)
         return motor
     
@@ -222,9 +238,9 @@ class RotaryMotor(BaseOutput):
             # Only register callback if decoder has been registered
             if decoder_registered:
                 # Register callback to receive motor commands from FEAGI
-                signal_id = cache.register_callback(
+                cache.register_callback(
                     motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
-                    group=0,  # All motors share group=0
+                    group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command
                 )

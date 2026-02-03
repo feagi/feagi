@@ -47,8 +47,9 @@ feagi_host = config["feagi"]["host"]
 registration_port = config["feagi"]["registration_port"]
 
 # Create FEAGI client with config values
+# NOTE: agent_id must be a base64 AgentDescriptor (48-byte payload).
 client = FeagiAgentClient(
-    agent_id="my-agent",
+    agent_id="<agent_descriptor_b64>",
     feagi_host=feagi_host,
     registration_port=registration_port,
     agent_type=AgentType.Sensory

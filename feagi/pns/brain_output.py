@@ -6,7 +6,10 @@ Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
 from typing import List, Optional, TYPE_CHECKING, Dict, Any
+import base64
+import binascii
 import logging
+import os
 import sys
 
 if TYPE_CHECKING:
@@ -58,8 +61,7 @@ class BrainOutput:
         self._outputs: List['BaseOutput'] = []
         
         # Transport (ZMQ/WebSocket)
-        self._zmq_context = None  # MUST keep context alive!
-        self._transport = None
+        self._client = None
         self._connected = False
         
         # Auto-incrementing group IDs
@@ -67,6 +69,7 @@ class BrainOutput:
         
         # Channel index counter for motors (all motors use group=0, differentiated by channel)
         self._next_motor_channel = 0
+        self._next_motor_channel_by_group: Dict[int, int] = {}
         
         # Motor decoder tracking
         self._motor_total_channels = 0
@@ -79,16 +82,23 @@ class BrainOutput:
         self._agent_id = None
         # @safety: No implicit defaults. Commercial deployments must be explicitly configured.
         self._feagi_host: Optional[str] = None
-        self._feagi_port: Optional[int] = None
-        self._feagi_api_port: Optional[int] = None
+        self._feagi_registration_port: Optional[int] = None
+        self._feagi_sensory_port: Optional[int] = None
+        self._feagi_motor_port: Optional[int] = None
         self._transport_type: Optional[str] = None
-        self._feagi_http_timeout_s: Optional[float] = None
+        self._feagi_connection_timeout_ms: Optional[int] = None
+        self._feagi_registration_retries: Optional[int] = None
+        self._feagi_heartbeat_interval_s: Optional[float] = None
+
+        # Motor output mapping (channel -> output instance)
+        self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
+        self._motor_outputs_by_group_channel: Dict[tuple[int, int], 'BaseOutput'] = {}
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
     
     def _init_cache(self):
-        """Initialize Rust ConnectorAgent (lazy)"""
+        """Initialize Rust ConnectorAgent (lazy)."""
         if self._cache is not None:
             return
         
@@ -97,7 +107,8 @@ class BrainOutput:
             # Use ConnectorAgent which provides motor methods
             # NOTE: frpl.connector_core.caching.MotorDeviceCache() does not exist in current API
             # Using ConnectorAgent instead - encoding methods still need to be added to rust-py-libs
-            self._cache = frpl.connector_core.ConnectorAgent()
+            agent_descriptor_b64 = self._resolve_agent_descriptor_b64()
+            self._cache = frpl.connector_core.ConnectorAgent(agent_descriptor_b64)
             self._cache_available = True
             logger.info("✅ Rust ConnectorAgent initialized")
         except (ImportError, AttributeError) as e:
@@ -107,22 +118,45 @@ class BrainOutput:
                 "Rust SDK (feagi_rust_py_libs) is required for brain_output.\n"
                 "Install with: pip install feagi_rust_py_libs"
             ) from e
-    
-    def _register_with_feagi(self):
-        """Register agent with FEAGI HTTP API including motor subscriptions"""
-        import requests
-        import base64
 
-        if self._feagi_host is None or self._feagi_api_port is None:
+    def _resolve_agent_descriptor_b64(self) -> str:
+        """
+        Resolve the base64 AgentDescriptor required by the Rust ConnectorAgent.
+
+        Priority:
+        1) self._agent_id (must already be base64 AgentDescriptor)
+        2) FEAGI_AGENT_DESCRIPTOR_B64 environment variable
+        """
+        if self._agent_id:
+            return self._validate_agent_descriptor_b64(self._agent_id)
+
+        env_b64 = os.environ.get("FEAGI_AGENT_DESCRIPTOR_B64")
+        if env_b64:
+            return self._validate_agent_descriptor_b64(env_b64)
+
+        raise RuntimeError(
+            "Missing AgentDescriptor base64. Provide a base64 AgentDescriptor as agent_id "
+            "or set FEAGI_AGENT_DESCRIPTOR_B64 before registering outputs."
+        )
+
+    def _validate_agent_descriptor_b64(self, value: str) -> str:
+        """
+        Validate that a string is a base64-encoded AgentDescriptor.
+
+        AgentDescriptor is 48 bytes (4 + 20 + 20 + 4). This is enforced strictly.
+        """
+        try:
+            raw = base64.b64decode(value, validate=True)
+        except (ValueError, binascii.Error) as exc:
             raise RuntimeError(
-                "FEAGI host/api port must be configured before registration (no defaults in safety mode)."
-            )
-        if self._feagi_http_timeout_s is None or self._feagi_http_timeout_s <= 0:
-            raise RuntimeError(
-                "HTTP timeout must be explicitly configured (no defaults in safety mode)."
-            )
-        
-        # Collect all unique cortical IDs from registered outputs
+                "agent_id must be a base64 AgentDescriptor (48 bytes)."
+            ) from exc
+        if len(raw) != 48:
+            raise RuntimeError("agent_id must decode to 48 bytes (AgentDescriptor).")
+        return value
+
+    def _collect_motor_cortical_ids(self) -> List[str]:
+        """Collect motor cortical IDs for registration."""
         cortical_ids = set()
         for output in self._outputs:
             if hasattr(output, '_get_cortical_id'):
@@ -130,55 +164,38 @@ class BrainOutput:
             else:
                 # Construct cortical ID matching Rust cache registration
                 from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+                group_id = int(getattr(output, "group_id", 0) or 0)
                 if isinstance(output, ServoMotor):
                     # PositionalServo with SignedPercentage, Absolute, Linear, group=0
                     # Bytes: [111, 112, 115, 101, 4, 0, 0, 0]
                     # Byte 4 = 4 (SignedPercentage), Byte 5 = 0, Byte 6 = 0, Byte 7 = 0 (group)
-                    cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, 0])  # "opse" + data_type_config=4 + group=0
+                    cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
                     # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
                     # For now, use default "omot" format
-                    cid_bytes = b"omot\x00\x00\x00\x00"
+                    cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
-        
+
         # If no specific IDs, subscribe to common positional servo area with SignedPercentage
         if not cortical_ids:
             # Default: PositionalServo with SignedPercentage (data_type_config=4)
             cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, 0])
             cortical_ids = {base64.b64encode(cid_bytes).decode()}
-        
-        # Build registration request matching /v1/agent/register schema
-        request_payload = {
-            "agent_id": self._agent_id,
-            "agent_type": "motor",  # Motor-only agent
-            "agent_data_port": 0,  # Not applicable for motor-only agents
-            "agent_version": "2.0.1",
-            "controller_version": "2.0.1",
-            "capabilities": {
-                "output": list(cortical_ids)  # feagi-sensorimotor format: array of cortical IDs
-            },
-            "chosen_transport": "zmq"
-        }
-        
-        # Call registration endpoint
-        try:
-            url = f"http://{self._feagi_host}:{self._feagi_api_port}/v1/agent/register"
-            logger.info(f"📝 POST {url}")
-            logger.info(f"📝 Registering with cortical IDs: {list(cortical_ids)}")
-            
-            response = requests.post(url, json=request_payload, timeout=self._feagi_http_timeout_s)
-            response.raise_for_status()
-            
-            result = response.json()
-            logger.info(f"✅ Agent registered: {result.get('message', 'OK')}")
-            
-            # Log subscription confirmation
-            logger.info(f"✅ Motor subscriptions registered for {len(cortical_ids)} cortical areas")
-            
-        except Exception as e:
-            logger.error(f"❌ Registration failed: {e}")
-            raise RuntimeError(f"Failed to register with FEAGI: {e}") from e
+
+        return list(cortical_ids)
+
+    def _collect_motor_unit_specs(self) -> List[tuple[str, int]]:
+        """Collect motor unit specs (unit, group) for registration."""
+        from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+        unit_specs: set[tuple[str, int]] = set()
+        for output in self._outputs:
+            if isinstance(output, ServoMotor):
+                unit_specs.add(("positional_servo", int(getattr(output, "group_id", 0) or 0)))
+            elif isinstance(output, RotaryMotor):
+                unit_specs.add(("rotary_motor", int(getattr(output, "group_id", 0) or 0)))
+        return sorted(unit_specs)
     
     def _allocate_group_id(self) -> int:
         """Allocate next cortical group ID"""
@@ -190,80 +207,114 @@ class BrainOutput:
         """Register motor decoder with Rust cache (called once with total channel count)"""
         import feagi_rust_py_libs as frpl
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
-        
-        # Determine motor type from first motor (assume all motors are same type for now)
-        motor_type = None
-        encoding = "absolute"
+        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        z_neuron_resolution = 10
+
+        servo_counts_by_group: Dict[int, int] = {}
+        rotary_counts_by_group: Dict[int, int] = {}
+        for output in self._outputs:
+            if not isinstance(output, (ServoMotor, RotaryMotor)):
+                continue
+            group_id = int(getattr(output, "group_id", 0) or 0)
+            if isinstance(output, ServoMotor):
+                servo_counts_by_group[group_id] = servo_counts_by_group.get(group_id, 0) + 1
+            else:
+                rotary_counts_by_group[group_id] = rotary_counts_by_group.get(group_id, 0) + 1
+
+        for group_id, count in sorted(servo_counts_by_group.items()):
+            if count <= 0:
+                continue
+            self._cache.motor_positional_servo_register(
+                group_id,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            )
+
+        for group_id, count in sorted(rotary_counts_by_group.items()):
+            if count <= 0:
+                continue
+            self._cache.motor_rotary_motor_register(
+                group_id,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            )
+
         for output in self._outputs:
             if isinstance(output, (ServoMotor, RotaryMotor)):
-                if isinstance(output, ServoMotor):
-                    motor_type = frpl.data_structures.genomic.MotorCorticalType.PositionalServo
-                else:
-                    motor_type = frpl.data_structures.genomic.MotorCorticalType.RotaryMotor
-                encoding = output.encoding
-                break
-        
-        if motor_type is None:
-            return  # No motors registered
-        
-        # Register decoder with total channel count
-        self._cache.register(
-            motor_unit=motor_type,
-            group=0,  # All motors share group=0
-            channels=self._motor_total_channels,
-            z_resolution=100,
-            frame_change_handling=0 if encoding == "absolute" else 1,
-            percentage_positioning=0  # Linear
-        )
-        
-        # Now register all motor callbacks
-        for output in self._outputs:
-            if isinstance(output, (ServoMotor, RotaryMotor)):
-                # Re-call _register_with_cache with decoder_registered=True
-                output._register_with_cache(self._cache, output.group_id, output.channel, decoder_registered=True)
+                output._register_with_cache(
+                    self._cache,
+                    output.group_id,
+                    output.channel,
+                    decoder_registered=True,
+                )
     
     def configure(
         self,
         agent_id: str,
         *,
         feagi_host: str,
-        feagi_port: int,
-        feagi_api_port: int,
+        feagi_registration_port: int,
+        feagi_sensory_port: int,
+        feagi_motor_port: int,
         transport: str,
-        feagi_http_timeout_s: float,
+        feagi_connection_timeout_ms: int,
+        feagi_registration_retries: int,
+        feagi_heartbeat_interval_s: float,
     ):
         """
         Configure connection to FEAGI.
         
         Args:
-            agent_id: Unique agent identifier (required for registration)
+            agent_id: Base64-encoded AgentDescriptor (required for registration)
             feagi_host: FEAGI server hostname or IP
-            feagi_port: Motor output port (default: 5564)
-            feagi_api_port: FEAGI API port (default: 8000)
+            feagi_registration_port: ZMQ registration/heartbeat port
+            feagi_sensory_port: ZMQ sensory port (required by SDK config)
+            feagi_motor_port: ZMQ motor output port
             transport: Transport type - "zmq" or "websocket"
         """
         if not agent_id:
             raise ValueError("agent_id must be provided (no defaults in safety mode).")
         if not feagi_host:
             raise ValueError("feagi_host must be provided (no defaults in safety mode).")
-        if feagi_port <= 0:
-            raise ValueError("feagi_port must be a positive integer (no defaults in safety mode).")
-        if feagi_api_port <= 0:
-            raise ValueError("feagi_api_port must be a positive integer (no defaults in safety mode).")
+        if feagi_registration_port <= 0:
+            raise ValueError("feagi_registration_port must be a positive integer (no defaults in safety mode).")
+        if feagi_sensory_port <= 0:
+            raise ValueError("feagi_sensory_port must be a positive integer (no defaults in safety mode).")
+        if feagi_motor_port <= 0:
+            raise ValueError("feagi_motor_port must be a positive integer (no defaults in safety mode).")
         if not transport:
             raise ValueError("transport must be provided (no defaults in safety mode).")
-        if feagi_http_timeout_s <= 0:
-            raise ValueError("feagi_http_timeout_s must be > 0 (no defaults in safety mode).")
+        if feagi_connection_timeout_ms <= 0:
+            raise ValueError("feagi_connection_timeout_ms must be > 0 (no defaults in safety mode).")
+        if feagi_registration_retries <= 0:
+            raise ValueError("feagi_registration_retries must be > 0 (no defaults in safety mode).")
+        if feagi_heartbeat_interval_s <= 0:
+            raise ValueError("feagi_heartbeat_interval_s must be > 0 (no defaults in safety mode).")
 
-        self._init_cache()
         self._agent_id = agent_id
+        self._init_cache()
         self._feagi_host = feagi_host
-        self._feagi_port = feagi_port
-        self._feagi_api_port = feagi_api_port
+        self._feagi_registration_port = feagi_registration_port
+        self._feagi_sensory_port = feagi_sensory_port
+        self._feagi_motor_port = feagi_motor_port
         self._transport_type = transport
-        self._feagi_http_timeout_s = feagi_http_timeout_s
+        self._feagi_connection_timeout_ms = feagi_connection_timeout_ms
+        self._feagi_registration_retries = feagi_registration_retries
+        self._feagi_heartbeat_interval_s = feagi_heartbeat_interval_s
         
-        logger.info(f"📡 Configured: agent={agent_id}, {transport}://{feagi_host}:{feagi_port}")
+        logger.info(
+            "📡 Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
+            agent_id,
+            transport,
+            feagi_host,
+            feagi_registration_port,
+            feagi_motor_port,
+        )
     
     def connect(self):
         """
@@ -275,8 +326,15 @@ class BrainOutput:
             raise RuntimeError("Cache not initialized. Call configure() first.")
         
         if not self._agent_id:
-            raise RuntimeError("Agent ID not set. Call configure(agent_id='...') first.")
-        if self._feagi_host is None or self._feagi_port is None or self._feagi_api_port is None:
+            raise RuntimeError(
+                "Agent ID not set. Call configure(agent_id='<agent_descriptor_b64>') first."
+            )
+        if (
+            self._feagi_host is None
+            or self._feagi_registration_port is None
+            or self._feagi_sensory_port is None
+            or self._feagi_motor_port is None
+        ):
             raise RuntimeError(
                 "brain_output.configure(...) must be called with explicit FEAGI host/ports "
                 "before connect() (no defaults in safety mode)."
@@ -286,9 +344,13 @@ class BrainOutput:
                 "brain_output.configure(...) must be called with explicit transport "
                 "before connect() (no defaults in safety mode)."
             )
-        if self._feagi_http_timeout_s is None:
+        if (
+            self._feagi_connection_timeout_ms is None
+            or self._feagi_registration_retries is None
+            or self._feagi_heartbeat_interval_s is None
+        ):
             raise RuntimeError(
-                "brain_output.configure(...) must be called with explicit feagi_http_timeout_s "
+                "brain_output.configure(...) must be called with explicit ZMQ timing "
                 "before connect() (no defaults in safety mode)."
             )
         
@@ -297,21 +359,35 @@ class BrainOutput:
             self._register_motor_decoder()
             self._motor_decoder_registered = True
         
-        # Step 1: Register with FEAGI PNS
-        self._register_with_feagi()
-        
-        # Step 2: Initialize transport
+        # Step 1: Initialize transport
         if self._transport_type == "zmq":
-            import zmq
-            self._zmq_context = zmq.Context()  # Store as instance variable to prevent garbage collection!
-            self._transport = self._zmq_context.socket(zmq.SUB)
-            # Subscribe to agent-specific messages (FEAGI sends multipart: [agent_id, data])
-            self._transport.setsockopt(zmq.SUBSCRIBE, self._agent_id.encode())
-            # Also subscribe to empty prefix to catch any messages (backup)
-            self._transport.setsockopt(zmq.SUBSCRIBE, b"")
-            # RCVTIMEO removed - using NOBLOCK flag instead
-            endpoint = f"tcp://{self._feagi_host}:{self._feagi_port}"
-            self._transport.connect(endpoint)
+            from feagi.pns.client import AgentType, FeagiAgentClient
+
+            motor_cortical_ids = self._collect_motor_cortical_ids()
+            output_count = self._motor_total_channels or len(motor_cortical_ids)
+            if output_count <= 0:
+                raise RuntimeError(
+                    "No motor outputs registered (cannot connect without motor outputs)."
+                )
+            motor_units = self._collect_motor_unit_specs()
+            if not motor_units:
+                raise RuntimeError(
+                    "Motor units are required for FEAGI 2.0 registration."
+                )
+
+            client = FeagiAgentClient(self._agent_id, AgentType.MOTOR)
+            client.configure(
+                feagi_host=self._feagi_host,
+                registration_port=self._feagi_registration_port,
+                sensory_port=self._feagi_sensory_port,
+                motor_port=self._feagi_motor_port,
+                motor_units=("motor", output_count, motor_units),
+                heartbeat_interval=self._feagi_heartbeat_interval_s,
+                connection_timeout_ms=self._feagi_connection_timeout_ms,
+                registration_retries=self._feagi_registration_retries,
+            )
+            client.connect()
+            self._client = client
         else:
             raise NotImplementedError(f"Transport type '{self._transport_type}' not yet implemented")
         
@@ -319,18 +395,12 @@ class BrainOutput:
     
     def disconnect(self):
         """Disconnect from FEAGI"""
-        if self._transport:
+        if self._client:
             try:
-                self._transport.close()
+                self._client.disconnect()
             except Exception as e:
-                logger.warning(f"Error closing transport: {e}")
-            self._transport = None
-        if self._zmq_context:
-            try:
-                self._zmq_context.term()
-            except Exception as e:
-                logger.warning(f"Error terminating ZMQ context: {e}")
-            self._zmq_context = None
+                logger.warning(f"Error disconnecting client: {e}")
+            self._client = None
         self._connected = False
     
     def register_output(self, output_instance: 'BaseOutput'):
@@ -348,10 +418,20 @@ class BrainOutput:
         
         if is_motor:
             # Motors: Use group=0, assign unique channel index
-            group_id = 0
-            channel_index = self._next_motor_channel
-            self._next_motor_channel += 1
+            group_id = int(getattr(output_instance, "preferred_group_id", 0) or 0)
+            preferred_channel_index = getattr(output_instance, "preferred_channel_index", None)
+            if preferred_channel_index is None:
+                channel_index = self._next_motor_channel_by_group.get(group_id, 0)
+                self._next_motor_channel_by_group[group_id] = channel_index + 1
+            else:
+                channel_index = int(preferred_channel_index)
+                next_index = self._next_motor_channel_by_group.get(group_id, 0)
+                if channel_index >= next_index:
+                    self._next_motor_channel_by_group[group_id] = channel_index + 1
             output_instance.channel = channel_index
+            if group_id == 0:
+                self._motor_outputs_by_channel[channel_index] = output_instance
+            self._motor_outputs_by_group_channel[(group_id, channel_index)] = output_instance
             
             # Track total motor count for decoder registration
             self._motor_total_channels += 1
@@ -429,42 +509,44 @@ class BrainOutput:
         # All timing and monitoring removed for performance
         
         try:
-            # Receive from transport
-            motor_bytes = b""
-            
-            if self._transport:
-                try:
-                    # Non-blocking receive (will raise zmq.Again if no data)
-                    # FEAGI sends multipart messages: [agent_id, data]
-                    import zmq
-                    parts = self._transport.recv_multipart(flags=zmq.NOBLOCK)
-                    if len(parts) >= 2:
-                        # Part 0: agent_id (topic), Part 1: motor data
-                        motor_bytes = parts[1]
-                    elif len(parts) == 1:
-                        # Fallback: single part message (old format?)
-                        motor_bytes = parts[0]
-                    else:
-                        # Empty message, skip
-                        motor_bytes = b""
-                except zmq.Again:
-                    # No data available right now - this is normal for non-blocking recv
-                    pass
-                except Exception as e:
-                    logger.error(f"Error receiving data: {e}")
-                    raise
-            
-            # Decode and process motor bytes
-            if motor_bytes:
-                # CRITICAL: Check if this is motor data (version 2) or something else
-                if len(motor_bytes) > 0 and motor_bytes[0] == 0x02:
-                    # Process valid motor data (with error handling to prevent blocking)
+            if not self._client:
+                raise RuntimeError("Client not initialized. Call connect() first.")
+
+            motor_data = self._client.receive_motor_data()
+            if not motor_data:
+                return
+
+            motor_map = motor_data.get("motor")
+            if not isinstance(motor_map, dict):
+                raise RuntimeError("Motor data format invalid (expected dict).")
+
+            for key, value in motor_map.items():
+                if value is None:
+                    continue
+                key_str = str(key)
+                if ":" in key_str:
+                    group_str, channel_str = key_str.split(":", 1)
                     try:
-                        self._cache.process_neurons(list(motor_bytes))
-                    except Exception as e:
-                        # Log error but don't crash - prevents blocking
-                        logger.debug(f"Error processing neurons: {e}")
-                        pass
+                        group_id = int(group_str)
+                        channel_index = int(channel_str)
+                    except ValueError:
+                        continue
+                else:
+                    group_id = 0
+                    try:
+                        channel_index = int(key_str)
+                    except ValueError:
+                        continue
+
+                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
+                if output is None and group_id == 0:
+                    output = self._motor_outputs_by_channel.get(channel_index)
+                if output is None:
+                    continue
+                try:
+                    output._on_motor_command(float(value))
+                except Exception as e:
+                    logger.debug(f"Error updating motor output {key_str}: {e}")
             
             # Note: _read_from_cache() is no longer needed as callbacks handle updates
             # The motor values are already updated via callbacks during process_neurons()

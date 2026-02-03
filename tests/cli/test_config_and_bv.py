@@ -7,7 +7,6 @@ Verifies that:
 3. Config is the single source of truth
 """
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -52,6 +51,17 @@ class TestConfigGeneration:
         assert "visualization_port" in config["websocket"], (
             "WebSocket section must have visualization_port"
         )
+
+    def test_default_config_has_timeouts(self, tmp_path):
+        """Verify default config includes startup timeout settings."""
+        config_path = generate_default_config(tmp_path / "test_config.toml", force=True)
+        config = toml.load(config_path)
+
+        assert "timeouts" in config, "Config must have [timeouts] section"
+        assert "service_startup" in config["timeouts"], (
+            "Config must define timeouts.service_startup"
+        )
+        assert isinstance(config["timeouts"]["service_startup"], (int, float))
 
 
 class TestBVConfigReading:

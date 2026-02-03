@@ -352,7 +352,7 @@ While this SDK enables programmatic access and custom integrations, Neurorobotic
 
 - **Discord**: [Join our community](https://discord.gg/PTVC8fyGN8)
 - **Issues**: [Report bugs](https://github.com/feagi/feagi-python-sdk/issues)
-- **Neurorobotics Studio**: [Cloud platform](https://neurorobotics.studio)
+- **Neurorobotics Studio**: [Cloud platform](https://brainsforrobots.com)
 - **Homepage**: [feagi.org](https://feagi.org)
 
 ---
