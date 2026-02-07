@@ -69,9 +69,9 @@ if _rust_sdk_available:
     # Initialize Rust logging (safe to call multiple times)
     try:
         rust_sdk.init_rust_logging()
-        print("[PYTHON-SDK] ✅ Rust logging initialized", flush=True)
+        print("[PYTHON-SDK] [OK] Rust logging initialized", flush=True)
     except Exception as e:
-        print(f"[PYTHON-SDK] ❌ Failed to init Rust logging: {e}", flush=True)
+        print(f"[PYTHON-SDK] [FAIL] Failed to init Rust logging: {e}", flush=True)
         logging.getLogger("feagi.pns.client").warning(
             "Failed to init Rust logging: %s",
             e,
@@ -471,7 +471,7 @@ class FeagiAgentClient:
             logger.debug("Attempting registration with FEAGI...")
             try:
                 self._client.connect()
-                logger.debug("✓ Registration successful")
+                logger.debug("[OK] Registration successful")
             except Exception as reg_error:
                 # Enhanced error message for registration failures
                 error_str = str(reg_error).lower()
@@ -661,7 +661,7 @@ class FeagiAgentClient:
             # FEAGI will clean up via heartbeat timeout
             self._client = None
             logger.info(
-                "✓ Disconnected %s (cleanup via heartbeat timeout)",
+                "[OK] Disconnected %s (cleanup via heartbeat timeout)",
                 self.agent_id,
             )
     

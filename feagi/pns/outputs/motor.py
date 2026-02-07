@@ -145,7 +145,7 @@ class ServoMotor(BaseOutput):
                 self._debug_counter = 0
             self._debug_counter += 1
             if self._debug_counter % 10 == 0:
-                print(f"🎯 Motor[0]: raw={raw_value:.4f}, gain={self.gain}, scaled={value:.4f}, angle={self._current_angle:.4f} rad (range=[{self.min_angle:.4f}, {self.max_angle:.4f}] rad)", flush=True)
+                print(f"[MOTOR] Motor[0]: raw={raw_value:.4f}, gain={self.gain}, scaled={value:.4f}, angle={self._current_angle:.4f} rad (range=[{self.min_angle:.4f}, {self.max_angle:.4f}] rad)", flush=True)
     
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""

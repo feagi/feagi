@@ -394,7 +394,7 @@ class FeagiEngine:
                     bufsize=1,  # Line buffered
                 )
             
-            logger.info(f"✓ FEAGI started (PID: {self.process.pid})")
+            logger.info(f"[OK] FEAGI started (PID: {self.process.pid})")
             
         except Exception as e:
             logger.error(f"Failed to start FEAGI: {e}")
@@ -406,10 +406,10 @@ class FeagiEngine:
             logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/feagi/status")
             
             if self._wait_for_ready(timeout):
-                logger.info("✓ FEAGI is ready!")
+                logger.info("[OK] FEAGI is ready!")
                 return True
             else:
-                logger.error("✗ FEAGI failed to become ready")
+                logger.error("[FAIL] FEAGI failed to become ready")
                 self.stop()
                 return False
         
@@ -452,7 +452,7 @@ class FeagiEngine:
                     timeout=2
                 )
                 if response.status_code == 200:
-                    logger.info("✓ REST API is ready")
+                    logger.info("[OK] REST API is ready")
                     return True
             except requests.exceptions.ConnectionError:
                 # Still starting up
@@ -487,7 +487,7 @@ class FeagiEngine:
             # Wait for process to exit
             try:
                 self.process.wait(timeout=timeout)
-                logger.info("✓ FEAGI stopped gracefully")
+                logger.info("[OK] FEAGI stopped gracefully")
                 self.process = None
                 return True
             except subprocess.TimeoutExpired:
@@ -496,7 +496,7 @@ class FeagiEngine:
                 # Force kill (SIGKILL)
                 self.process.kill()
                 self.process.wait(timeout=5)
-                logger.info("✓ FEAGI stopped (forced)")
+                logger.info("[OK] FEAGI stopped (forced)")
                 self.process = None
                 return True
         

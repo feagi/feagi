@@ -102,14 +102,14 @@ class BrainInput:
                 # Try top-level function first (available in latest version)
                 if hasattr(frpl, 'init_rust_logging'):
                     frpl.init_rust_logging()
-                    logger.debug("✅ Rust tracing logging initialized")
+                    logger.debug("[OK] Rust tracing logging initialized")
                 # Fallback to connector_core module
                 elif (
                     hasattr(frpl, "connector_core")
                     and hasattr(frpl.connector_core, "init_rust_logging")
                 ):
                     frpl.connector_core.init_rust_logging()
-                    logger.debug("✅ Rust tracing logging initialized via connector_core")
+                    logger.debug("[OK] Rust tracing logging initialized via connector_core")
                 # Fallback to feagi_agent_sdk
                 # (may be commented out in some builds)
                 elif (
@@ -117,7 +117,7 @@ class BrainInput:
                     and hasattr(frpl.feagi_agent_sdk, "init_rust_logging")
                 ):
                     frpl.feagi_agent_sdk.init_rust_logging()
-                    logger.debug("✅ Rust tracing logging initialized via feagi_agent_sdk")
+                    logger.debug("[OK] Rust tracing logging initialized via feagi_agent_sdk")
             except Exception as log_init_err:
                 logger.debug(
                     "Could not initialize Rust logging (non-fatal): %s",
@@ -130,9 +130,9 @@ class BrainInput:
             agent_descriptor_b64 = self._resolve_agent_descriptor_b64()
             self._cache = frpl.connector_core.ConnectorAgent(agent_descriptor_b64)
             self._cache_available = True
-            logger.info("✅ Rust ConnectorAgent initialized")
+            logger.info("[OK] Rust ConnectorAgent initialized")
         except (ImportError, AttributeError) as e:
-            logger.error(f"❌ Failed to initialize Rust ConnectorAgent: {e}")
+            logger.error(f"[FAIL] Failed to initialize Rust ConnectorAgent: {e}")
             logger.error("   Install with: pip install feagi_rust_py_libs")
             raise ImportError(
                 "Rust SDK (feagi_rust_py_libs) is required for brain_input.\n"
@@ -300,7 +300,7 @@ class BrainInput:
                 if input_list and isinstance(input_list[0], str) and len(input_list[0]) > 8:
                     # Likely base64 cortical IDs - this format is deprecated
                     raise ValueError(
-                        "❌ DEPRECATED CAPABILITIES FORMAT DETECTED!\n"
+                        "[FAIL] DEPRECATED CAPABILITIES FORMAT DETECTED!\n"
                         "The format {'input': ['cortical_id']} is no longer supported.\n"
                         "Please use structured capabilities like VSG:\n"
                         "  {'vision': {'modality': '...', 'target_cortical_area': 'isvi', ...}}\n"
@@ -395,7 +395,7 @@ class BrainInput:
                 ipu_areas = response.cortical_areas.get("required_ipu_areas", [])
                 opu_areas = response.cortical_areas.get("required_opu_areas", [])
                 
-                logger.info(f"✅ Agent '{agent_id}' registered successfully")
+                logger.info(f"[OK] Agent '{agent_id}' registered successfully")
                 logger.info(f"   IPU areas: {len(ipu_areas)} required")
                 logger.info(f"   OPU areas: {len(opu_areas)} required")
                 
@@ -404,13 +404,13 @@ class BrainInput:
                     status = area.get("status", "unknown")
                     area_name = area.get("area_name", "unknown")
                     if status == "Created":
-                        logger.info(f"   ✅ IPU area '{area_name}' was auto-created")
+                        logger.info(f"   [OK] IPU area '{area_name}' was auto-created")
                     elif status == "Existing":
-                        logger.info(f"   ✅ IPU area '{area_name}' exists")
+                        logger.info(f"   [OK] IPU area '{area_name}' exists")
                     elif status == "Missing":
-                        logger.warning(f"   ⚠️ IPU area '{area_name}' is missing (auto-create disabled?)")
+                        logger.warning(f"   [WARN] IPU area '{area_name}' is missing (auto-create disabled?)")
                     elif status == "Error":
-                        logger.error(f"   ❌ IPU area '{area_name}' creation failed: {area.get('message', 'unknown error')}")
+                        logger.error(f"   [FAIL] IPU area '{area_name}' creation failed: {area.get('message', 'unknown error')}")
             
             return True
             
@@ -573,7 +573,7 @@ class BrainInput:
         self._transport = None
         self._zmq_context = None
         self._connected = False
-        logger.info("🔌 Disconnected from FEAGI")
+        logger.info("[DISCONN] Disconnected from FEAGI")
     
     def register_input(self, input_instance: 'BaseInput', group_id: Optional[int] = None):
         """
@@ -601,7 +601,7 @@ class BrainInput:
         # Add to registry
         self._inputs.append(input_instance)
         
-        logger.debug(f"✅ Registered input: {input_instance.__class__.__name__} (group={group_id})")
+        logger.debug(f"[OK] Registered input: {input_instance.__class__.__name__} (group={group_id})")
         
         # Note: Agent registration should be called after all inputs are registered
         # so that the registration includes complete capability information
@@ -688,7 +688,7 @@ class BrainInput:
                 try:
                     input_instance._write_to_cache(self._cache)
                 except Exception as e:
-                    logger.error(f"❌ [BRAIN-INPUT] Error writing {input_instance.__class__.__name__} to cache: {e}", exc_info=True)
+                    logger.error(f"[FAIL] [BRAIN-INPUT] Error writing {input_instance.__class__.__name__} to cache: {e}", exc_info=True)
                     raise
             
             # Encode cached data to bytes
@@ -705,7 +705,7 @@ class BrainInput:
             except AttributeError:
                 raise
             except Exception as e:
-                logger.error(f"❌ [BRAIN-INPUT] Error encoding cached data to bytes: {e}", exc_info=True)
+                logger.error(f"[FAIL] [BRAIN-INPUT] Error encoding cached data to bytes: {e}", exc_info=True)
                 raise
             
             # Get encoded bytes (Rust)
@@ -724,12 +724,12 @@ class BrainInput:
             except AttributeError:
                 raise
             except Exception as e:
-                logger.error(f"❌ [BRAIN-INPUT] Error reading sensor bytes: {e}", exc_info=True)
+                logger.error(f"[FAIL] [BRAIN-INPUT] Error reading sensor bytes: {e}", exc_info=True)
                 raise
             
             # Check if we have data
             if not serialized:
-                logger.warning("⚠️ [BRAIN-INPUT] No sensor data to send (serialized data is empty)")
+                logger.warning("[WARN] [BRAIN-INPUT] No sensor data to send (serialized data is empty)")
                 return
             
             # Send via transport
@@ -800,7 +800,7 @@ class BrainInput:
             )
         
         if not binary_data:
-            logger.warning("⚠️ [BRAIN-INPUT] No data to send (binary_data is empty)")
+            logger.warning("[WARN] [BRAIN-INPUT] No data to send (binary_data is empty)")
             return
         
         # Send via transport
