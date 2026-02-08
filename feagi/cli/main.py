@@ -398,6 +398,15 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
 
     engine = FeagiEngine()
     engine.load_config(config_path)
+    config = engine.config
+    try:
+        service_startup_seconds = float(config["timeouts"]["service_startup"])
+    except (TypeError, ValueError, KeyError):
+        print(
+            "Config must define timeouts.service_startup as a numeric value.",
+            file=sys.stderr
+        )
+        return 1
 
     config = engine.config
     if config is None:
