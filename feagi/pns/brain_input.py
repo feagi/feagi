@@ -226,7 +226,7 @@ class BrainInput:
         self._heartbeat_interval_s = heartbeat_interval_s
         self._heartbeat_join_timeout_s = heartbeat_join_timeout_s
         
-        logger.info(f"📡 Configured: {transport}://{feagi_host}:{feagi_port} (API: {feagi_host}:{api_port})")
+        logger.info("[CFG] Configured: %s://%s:%s (API: %s:%s)", transport, feagi_host, feagi_port, feagi_host, api_port)
     
     def register_agent(
         self,

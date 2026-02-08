@@ -310,7 +310,7 @@ class BrainOutput:
         self._feagi_heartbeat_interval_s = feagi_heartbeat_interval_s
         
         logger.info(
-            "📡 Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
+            "[CFG] Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
             agent_id,
             transport,
             feagi_host,
