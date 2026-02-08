@@ -1,0 +1,1 @@
+A basic genome that for the pioneer2 (C:\Program Files\Webots\projects\robots\adept\pioneer2\worlds). It uses the distance sensors on the front of the robot to detect when it is close to the wall and turns to the right if it is. Otherwise, it will move in a straight line.
