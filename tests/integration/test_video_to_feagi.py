@@ -134,7 +134,7 @@ class TestVideoToFEAGI:
         print(f"{'='*60}\n")
         
         # Step 1: Open video file
-        print(f"📹 Opening video: {video_path}")
+        print(f"[VIDEO] Opening video: {video_path}")
         cap = cv2.VideoCapture(str(video_path))
         
         if not cap.isOpened():
@@ -151,7 +151,7 @@ class TestVideoToFEAGI:
         print(f"   Total frames: {total_frames}")
         
         # Step 2: Register Camera input using new SDK
-        print("\n📥 Registering Camera input with FEAGI SDK 3.0...")
+        print("\n[REG] Registering Camera input with FEAGI SDK 3.0...")
         
         camera = Camera.register(
             resolution=(width, height),
@@ -159,10 +159,10 @@ class TestVideoToFEAGI:
             position="center"
         )
         
-        print(f"   ✓ Camera registered: {width}x{height}, encoding=absolute, position=center")
+        print(f"   [OK] Camera registered: {width}x{height}, encoding=absolute, position=center")
         
         # Step 3: Configure connection to FEAGI
-        print("\n🔧 Configuring connection to FEAGI...")
+        print("\n[CFG] Configuring connection to FEAGI...")
         
         brain_input.configure(
             feagi_host=feagi_config["host"],
@@ -179,16 +179,16 @@ class TestVideoToFEAGI:
         print("   Transport: ZMQ")
         
         # Step 4: Connect to FEAGI
-        print("\n🔗 Connecting to FEAGI...")
+        print("\n[CONN] Connecting to FEAGI...")
         
         try:
             brain_input.connect()
-            print("   ✓ Connected successfully!")
+            print("   [OK] Connected successfully!")
         except Exception as e:
             pytest.fail(f"Failed to connect to FEAGI: {e}")
         
         # Step 5: Stream frames to FEAGI
-        print("\n🎬 Streaming frames to FEAGI...")
+        print("\n[STREAM] Streaming frames to FEAGI...")
         print("   (Sending first 100 frames for testing)\n")
         
         frames_sent = 0
@@ -224,7 +224,7 @@ class TestVideoToFEAGI:
                 time.sleep(1.0 / fps)
             
         except KeyboardInterrupt:
-            print("\n\n⚠️  Test interrupted by user")
+            print("\n\n[WARN]  Test interrupted by user")
         
         except Exception as e:
             pytest.fail(f"Error during frame streaming: {e}")
@@ -239,13 +239,13 @@ class TestVideoToFEAGI:
         actual_fps = frames_sent / elapsed_time if elapsed_time > 0 else 0
         
         print(f"\n{'='*60}")
-        print("📊 Test Results:")
+        print("[STATS] Test Results:")
         print(f"{'='*60}")
         print(f"   Frames sent: {frames_sent}/{frames_to_send}")
         print(f"   Time elapsed: {elapsed_time:.2f}s")
         print(f"   Actual FPS: {actual_fps:.1f}")
         print(f"   Target FPS: {fps:.1f}")
-        print(f"   Status: {'✅ PASS' if frames_sent == frames_to_send else '⚠️  INCOMPLETE'}")
+        print(f"   Status: {'[OK] PASS' if frames_sent == frames_to_send else '[WARN]  INCOMPLETE'}")
         print(f"{'='*60}\n")
         
         # Assert success
@@ -284,7 +284,7 @@ if __name__ == "__main__":
             break
     
     if not video_path:
-        print("❌ Error: Video file not found!")
+        print("[FAIL] Error: Video file not found!")
         print(f"   Tried: {[str(p) for p in possible_paths]}")
         print("\n   Please place vt_all.mov in examples/ directory")
         exit(1)
@@ -303,10 +303,10 @@ if __name__ == "__main__":
             break
     
     if not config_path:
-        print("❌ No feagi_configuration.toml found!")
+        print("[FAIL] No feagi_configuration.toml found!")
         exit(1)
     
-    print(f"\n📝 Using config: {config_path}")
+    print(f"\n[CONFIG] Using config: {config_path}")
     
     # Create and start engine
     engine = FeagiEngine()
@@ -323,35 +323,35 @@ if __name__ == "__main__":
             break
     
     if genome_path:
-        print(f"📝 Using genome: {genome_path}")
+        print(f"[CONFIG] Using genome: {genome_path}")
         engine.load_genome(str(genome_path))
     
-    print("\n🚀 Starting FEAGI engine...")
+    print("\n[START] Starting FEAGI engine...")
     # Start without health check for now (REST API might take time to initialize)
     if not engine.start(wait_for_ready=False):
-        print("❌ Failed to start FEAGI!")
+        print("[FAIL] Failed to start FEAGI!")
         exit(1)
     
     # Give FEAGI time to initialize
-    print("⏳ Waiting for FEAGI to initialize (10s)...")
+    print("[WAIT] Waiting for FEAGI to initialize (10s)...")
     time.sleep(10)
     
-    print("✅ FEAGI is running!\n")
+    print("[OK] FEAGI is running!\n")
     
     feagi_engine = engine
     
     # Run test
     try:
         test.test_video_stream_to_feagi(feagi_config, video_path, feagi_engine)
-        print("\n✅ Test completed successfully!\n")
+        print("\n[OK] Test completed successfully!\n")
     except Exception as e:
-        print(f"\n❌ Test failed: {e}\n")
+        print(f"\n[FAIL] Test failed: {e}\n")
         import traceback
         traceback.print_exc()
         exit(1)
     finally:
         # Stop FEAGI
-        print("\n🛑 Stopping FEAGI...")
+        print("\n[STOP] Stopping FEAGI...")
         engine.stop()
-        print("✅ FEAGI stopped\n")
+        print("[OK] FEAGI stopped\n")
 

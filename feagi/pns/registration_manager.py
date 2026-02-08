@@ -25,7 +25,7 @@ except ImportError:
     PyAgentRegistry = None
     RUST_REGISTRY_AVAILABLE = False
     logger.warning(
-        "⚠️ feagi_rust module not available. HTTP API registration will work, "
+        "[WARN] feagi_rust module not available. HTTP API registration will work, "
         "but local Rust registry operations will be disabled."
     )
 
@@ -82,7 +82,7 @@ class AgentRegistrationResponse:
 
 class RegistrationManager:
     """
-    🦀 Rust-backed Registration Manager
+    [RUST] Rust-backed Registration Manager
     
     Storage: PyAgentRegistry (Rust) - THE ONLY agent storage
     Orchestration: Python (FQ samplers, state, capability rates)
@@ -94,13 +94,13 @@ class RegistrationManager:
         self._state_manager = state_manager
         self._process_manager = process_manager
 
-        # 🦀 Rust agent registry - Lazy loaded to handle startup order
+        # [RUST] Rust agent registry - Lazy loaded to handle startup order
         # PNS might not be initialized yet when this runs, so we load on first access
         self._rust_registry = None
         self._registry_initialized = False
         self._shutting_down = False  # Flag to prevent lazy-load during shutdown
         
-        logger.info("🦀 Registration Manager initialized (registry will lazy-load from PNS)")
+        logger.info("[RUST] Registration Manager initialized (registry will lazy-load from PNS)")
 
         # Capability tracking for FQ sampler decisions (NOT agent storage!)
         self._capability_counts = {
@@ -132,7 +132,7 @@ class RegistrationManager:
         self._feagi_api_urls: Dict[str, str] = {}  # Store API URL per agent
         self._agent_metadata: Dict[str, Dict[str, Any]] = {}  # Store metadata per agent (timeouts, endpoints, etc.)
 
-        logger.info("🦀 Rust-backed Registration Manager fully initialized")
+        logger.info("[RUST] Rust-backed Registration Manager fully initialized")
 
     def shutdown(self):
         """Signal shutdown to prevent lazy-load deadlocks."""
@@ -193,7 +193,7 @@ class RegistrationManager:
         if not self._registry_initialized:
             import time
             start = time.time()
-            logger.debug("⏱️  [TIMING] Registry lazy-load started")
+            logger.debug("[TIMING]  [TIMING] Registry lazy-load started")
             with self._lock:
                 if not self._registry_initialized:  # Double-check locking
                     try:
@@ -206,16 +206,16 @@ class RegistrationManager:
                             t1 = time.time()
                             self._rust_registry = self._process_manager._pns.get_shared_registry()
                             t2 = time.time()
-                            logger.info(f"🦀 ✓ Using shared agent registry from Rust PNS (single source of truth) - took {(t2-t1)*1000:.1f}ms")
+                            logger.info(f"[RUST] [OK] Using shared agent registry from Rust PNS (single source of truth) - took {(t2-t1)*1000:.1f}ms")
                         else:
                             # Safety mode: no implicit fallbacks.
                             self._rust_registry = None
                         self._registry_initialized = True
                     except Exception as e:
-                        logger.error(f"❌ Failed to initialize Rust registry: {e}")
+                        logger.error(f"[FAIL] Failed to initialize Rust registry: {e}")
                         raise
             elapsed = time.time() - start
-            logger.debug(f"⏱️  [TIMING] Registry lazy-load completed in {elapsed*1000:.1f}ms")
+            logger.debug(f"[TIMING]  [TIMING] Registry lazy-load completed in {elapsed*1000:.1f}ms")
         return self._rust_registry
 
     def register_agent(
@@ -224,7 +224,7 @@ class RegistrationManager:
         """Register agent using Rust registry"""
         with self._lock:
             logger.info(
-                f"🤖 REGISTRATION REQUEST: {request.agent_id} (type: {request.agent_type})"
+                f"[REG] REGISTRATION REQUEST: {request.agent_id} (type: {request.agent_type})"
             )
 
             try:
@@ -255,16 +255,16 @@ class RegistrationManager:
                     try:
                         existing_agent_json = registry.get_agent_json(request.agent_id)
                         existing_agent = json.loads(existing_agent_json)
-                        logger.warning(f"⚠️ Agent '{request.agent_id}' re-registering")
+                        logger.warning(f"[WARN] Agent '{request.agent_id}' re-registering")
                         
                         # Subtract old capability counts (flatten Rust struct to get all caps)
                         old_rust_caps = existing_agent.get("capabilities", {})
                         old_caps = self._flatten_rust_capabilities(old_rust_caps)
                         self._update_capability_counts(old_caps, increment=False)
                     except Exception:
-                        logger.info(f"✅ New agent '{request.agent_id}' registering")
+                        logger.info(f"[OK] New agent '{request.agent_id}' registering")
                 else:
-                    logger.info(f"✅ New agent '{request.agent_id}' registering (HTTP-only mode)")
+                    logger.info(f"[OK] New agent '{request.agent_id}' registering (HTTP-only mode)")
 
                 # 4. Extract capability rates BEFORE sanitization
                 capability_rates_to_register = []
@@ -466,7 +466,7 @@ class RegistrationManager:
                             error_code="REGISTRATION_REJECTED",
                         )
                     
-                    logger.info(f"✅ Agent registered via HTTP API: {request.agent_id}")
+                    logger.info(f"[OK] Agent registered via HTTP API: {request.agent_id}")
                     logger.info(f"   Cortical areas: {len(cortical_areas.get('required_ipu_areas', []))} IPU, {len(cortical_areas.get('required_opu_areas', []))} OPU")
                     
                     # Store API URL for heartbeat
@@ -498,7 +498,7 @@ class RegistrationManager:
                             )
                             result = json.loads(result_json)
                             if result.get("success"):
-                                logger.info(f"🦀 Agent also stored in local Rust registry: {request.agent_id}")
+                                logger.info(f"[RUST] Agent also stored in local Rust registry: {request.agent_id}")
                         except Exception as e:
                             logger.warning(f"Failed to store in local Rust registry (non-fatal): {e}")
                     else:
@@ -554,7 +554,7 @@ class RegistrationManager:
                 registry = self._get_registry()
                 total_agents = registry.agent_count() if registry else "N/A (HTTP-only mode)"
                 logger.info(
-                    f"✅ Agent registered: {request.agent_id} "
+                    f"[OK] Agent registered: {request.agent_id} "
                     f"(total: {total_agents})"
                 )
 
@@ -584,7 +584,7 @@ class RegistrationManager:
                 )
 
             except Exception as e:
-                logger.error(f"❌ Registration failed for {request.agent_id}: {e}", exc_info=True)
+                logger.error(f"[FAIL] Registration failed for {request.agent_id}: {e}", exc_info=True)
                 return AgentRegistrationResponse(
                     success=False,
                     message=f"Registration failed: {str(e)}",
@@ -596,7 +596,7 @@ class RegistrationManager:
     def deregister_agent(self, agent_id: str) -> AgentRegistrationResponse:
         """Deregister agent from Rust registry"""
         with self._lock:
-            logger.info(f"🔌 DEREGISTRATION REQUEST: {agent_id}")
+            logger.info(f"[DEREG] DEREGISTRATION REQUEST: {agent_id}")
 
             try:
                 # Check if shutting down and skip registry access
@@ -620,7 +620,7 @@ class RegistrationManager:
                 # Update capability counts
                 self._update_capability_counts(caps, increment=False)
 
-                # 🦀 Remove from Rust registry
+                # [RUST] Remove from Rust registry
                 result_json = registry.deregister_agent_direct(agent_id)
                 result = json.loads(result_json)
                 
@@ -642,7 +642,7 @@ class RegistrationManager:
                 # Notify listeners
                 self._notify_state_change("agent_deregistered", agent_id)
 
-                logger.info(f"✅ Agent deregistered: {agent_id}")
+                logger.info(f"[OK] Agent deregistered: {agent_id}")
 
                 return AgentRegistrationResponse(
                     success=True,
@@ -653,7 +653,7 @@ class RegistrationManager:
                 )
 
             except Exception as e:
-                logger.error(f"❌ Deregistration failed for {agent_id}: {e}")
+                logger.error(f"[FAIL] Deregistration failed for {agent_id}: {e}")
                 return AgentRegistrationResponse(
                     success=False,
                     message=f"Deregistration failed: {str(e)}",
@@ -691,16 +691,16 @@ class RegistrationManager:
                 headers={"Content-Type": "application/json"}
             )
             if response.status_code == 200:
-                logger.debug(f"💓 [HEARTBEAT] Sent heartbeat for agent '{agent_id}'")
+                logger.debug(f"[HB] [HEARTBEAT] Sent heartbeat for agent '{agent_id}'")
                 return True
             else:
-                logger.warning(f"💓 [HEARTBEAT] Heartbeat failed for '{agent_id}': HTTP {response.status_code}")
+                logger.warning(f"[HB] [HEARTBEAT] Heartbeat failed for '{agent_id}': HTTP {response.status_code}")
                 return False
         except ImportError:
-            logger.warning("💓 [HEARTBEAT] 'requests' library not available. Cannot send heartbeat via HTTP API.")
+            logger.warning("[HB] [HEARTBEAT] 'requests' library not available. Cannot send heartbeat via HTTP API.")
             return False
         except Exception as e:
-            logger.warning(f"💓 [HEARTBEAT] Heartbeat failed for '{agent_id}': {e}")
+            logger.warning(f"[HB] [HEARTBEAT] Heartbeat failed for '{agent_id}': {e}")
             return False
     
     def start_heartbeat(self, agent_id: str, feagi_host: str, feagi_api_port: int):
@@ -730,7 +730,7 @@ class RegistrationManager:
                     # Send heartbeat via HTTP API
                     self.heartbeat_agent(agent_id, feagi_api_url)
                 except Exception as e:
-                    logger.error(f"💓 [HEARTBEAT] Error in heartbeat loop for '{agent_id}': {e}", exc_info=True)
+                    logger.error(f"[HB] [HEARTBEAT] Error in heartbeat loop for '{agent_id}': {e}", exc_info=True)
                     # Continue heartbeat loop even on error
                     time.sleep(heartbeat_interval)
         
@@ -741,7 +741,7 @@ class RegistrationManager:
         )
         heartbeat_thread.start()
         self._heartbeat_threads[agent_id] = heartbeat_thread
-        logger.info(f"💓 [HEARTBEAT] Started heartbeat thread for agent '{agent_id}' (interval: {heartbeat_interval}s, API: {feagi_api_url})")
+        logger.info(f"[HB] [HEARTBEAT] Started heartbeat thread for agent '{agent_id}' (interval: {heartbeat_interval}s, API: {feagi_api_url})")
     
     def stop_heartbeat(self, agent_id: str):
         """Stop background heartbeat thread for an agent"""
@@ -761,7 +761,7 @@ class RegistrationManager:
                 del self._feagi_api_urls[agent_id]
             if agent_id in self._agent_metadata:
                 del self._agent_metadata[agent_id]
-            logger.debug(f"💓 [HEARTBEAT] Stopped heartbeat thread for agent '{agent_id}'")
+            logger.debug(f"[HB] [HEARTBEAT] Stopped heartbeat thread for agent '{agent_id}'")
 
     def get_agent_properties(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Get agent properties from Rust registry"""
@@ -798,7 +798,7 @@ class RegistrationManager:
             t1 = time.time()
             registry = self._get_registry()
             t2 = time.time()
-            logger.debug(f"⏱️  [TIMING] _get_registry() took {(t2-t1)*1000:.1f}ms")
+            logger.debug(f"[TIMING]  [TIMING] _get_registry() took {(t2-t1)*1000:.1f}ms")
             
             # Handle shutdown gracefully
             if registry is None:
@@ -806,11 +806,11 @@ class RegistrationManager:
             
             agents_json = registry.get_all_agents_json()
             t3 = time.time()
-            logger.debug(f"⏱️  [TIMING] get_all_agents_json() took {(t3-t2)*1000:.1f}ms")
+            logger.debug(f"[TIMING]  [TIMING] get_all_agents_json() took {(t3-t2)*1000:.1f}ms")
             
             agents_list = json.loads(agents_json)
             t4 = time.time()
-            logger.debug(f"⏱️  [TIMING] json.loads() took {(t4-t3)*1000:.1f}ms")
+            logger.debug(f"[TIMING]  [TIMING] json.loads() took {(t4-t3)*1000:.1f}ms")
             
             # Extract and flatten capabilities for backward compatibility
             for agent in agents_list:
@@ -837,7 +837,7 @@ class RegistrationManager:
                 "fq_sampler_states": self._fq_sampler_states.copy(),
             }
             elapsed = time.time() - start
-            logger.debug(f"⏱️  [TIMING] list_agents() TOTAL: {elapsed*1000:.1f}ms")
+            logger.debug(f"[TIMING]  [TIMING] list_agents() TOTAL: {elapsed*1000:.1f}ms")
             return result
         except Exception as e:
             logger.error(f"Failed to list agents: {e}")
@@ -1073,9 +1073,9 @@ def set_registration_manager(manager: Optional[RegistrationManager]) -> None:
     with _registration_manager_lock:
         _registration_manager_instance = manager
         if manager:
-            logger.info("🦀 Global Rust-backed Registration Manager set")
+            logger.info("[RUST] Global Rust-backed Registration Manager set")
         else:
-            logger.info("🔄 Registration Manager cleared")
+            logger.info("[RESET] Registration Manager cleared")
 
 
 def create_registration_manager(
@@ -1086,14 +1086,14 @@ def create_registration_manager(
 
     with _registration_manager_lock:
         if _registration_manager_instance is not None:
-            logger.warning("🦀 Registration Manager already exists - returning existing")
+            logger.warning("[RUST] Registration Manager already exists - returning existing")
             return _registration_manager_instance
 
         _registration_manager_instance = RegistrationManager(
             state_manager=state_manager, process_manager=process_manager
         )
 
-        logger.info("🦀 Global Rust-backed Registration Manager created and initialized")
+        logger.info("[RUST] Global Rust-backed Registration Manager created and initialized")
         return _registration_manager_instance
 
 
@@ -1102,4 +1102,4 @@ def reset_registration_manager() -> None:
     global _registration_manager_instance
     with _registration_manager_lock:
         _registration_manager_instance = None
-        logger.info("🔄 Registration Manager reset")
+        logger.info("[RESET] Registration Manager reset")

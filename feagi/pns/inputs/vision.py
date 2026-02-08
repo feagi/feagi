@@ -247,17 +247,17 @@ class Camera(BaseInput):
         # - Peripheral segments (0-3, 5-8): channel_dimensions_default: [32, 32, 1] -> 32x32
         if self.central_resolution:
             center_width, center_height = self.central_resolution
-            logger.info(f"📐 Using provided central resolution: {center_width}x{center_height}")
+            logger.info(f"[RES] Using provided central resolution: {center_width}x{center_height}")
         else:
             center_width, center_height = 128, 128  # From unit topology segment 4 default
-            logger.info(f"📐 Using default central resolution: {center_width}x{center_height}")
+            logger.info(f"[RES] Using default central resolution: {center_width}x{center_height}")
         
         if self.peripheral_resolution:
             peripheral_width, peripheral_height = self.peripheral_resolution
-            logger.info(f"📐 Using provided peripheral resolution: {peripheral_width}x{peripheral_height}")
+            logger.info(f"[RES] Using provided peripheral resolution: {peripheral_width}x{peripheral_height}")
         else:
             peripheral_width, peripheral_height = 32, 32  # From unit topology segments 0-3, 5-8 default
-            logger.info(f"📐 Using default peripheral resolution: {peripheral_width}x{peripheral_height}")
+            logger.info(f"[RES] Using default peripheral resolution: {peripheral_width}x{peripheral_height}")
         
         # Create resolutions using correct dimensions
         center_res = cc_desc.ImageXYResolution(center_width, center_height)
@@ -269,7 +269,7 @@ class Camera(BaseInput):
             peripheral_res
         )
         
-        logger.info(f"📐 Segmented vision registration: center={center_width}x{center_height}, peripheral={peripheral_width}x{peripheral_height}")
+        logger.info(f"[RES] Segmented vision registration: center={center_width}x{center_height}, peripheral={peripheral_width}x{peripheral_height}")
         
         # Create SegmentedImageFrameProperties (from examples)
         # Get channel_layout attribute - it's 'channel_layout', not 'color_channel_layout'
@@ -367,18 +367,18 @@ class Camera(BaseInput):
             current_index += 1
             self._segmentator_stage_index = current_index
             
-            logger.info(f"✅ Added processing stages to segmented vision pipeline (group_id={group_id})")
+            logger.info(f"[OK] Added processing stages to segmented vision pipeline (group_id={group_id})")
             logger.info(f"   Stage {self._image_processor_stage_index}: ImageFrameProcessor (brightness/contrast)")
             logger.info(f"   Stage {self._diff_stage_index}: ImageQuickDiffStage")
             logger.info(f"   Stage {self._segmentator_stage_index}: ImageFrameSegmentatorStage")
         except Exception as e:
-            logger.warning(f"⚠️ Could not add processing stages: {e}")
+            logger.warning(f"[WARN] Could not add processing stages: {e}")
             logger.warning(f"   Segmented vision will work without processing stages")
         
         # Log registration details
         # NOTE: Segmented vision creates 9 cortical IDs (one per segment) with Absolute encoding
         # FEAGI's registration endpoint will auto-create all 9 areas when it detects segmented_vision
-        logger.info(f"✅ Registered segmented vision for group_id={group_id} (encoding={self.encoding}, position={self.position})")
+        logger.info(f"[OK] Registered segmented vision for group_id={group_id} (encoding={self.encoding}, position={self.position})")
         logger.info(f"   FrameChangeHandling: {frame_change_handling} (will generate 9 cortical IDs for segments)")
         logger.info(f"   FEAGI will auto-create all required cortical areas during agent registration")
     
@@ -389,7 +389,7 @@ class Camera(BaseInput):
         logger = logging.getLogger(__name__)
         
         if self._current_frame is None:
-            logger.debug("⚠️ [CAMERA] No frame to write yet (_current_frame is None)")
+            logger.debug("[WARN] [CAMERA] No frame to write yet (_current_frame is None)")
             return  # No frame to write yet
         
         t_total_start = time.perf_counter()
@@ -424,10 +424,10 @@ class Camera(BaseInput):
             
             # Performance logging removed for hot path
         except ImportError as e:
-            logger.error("❌ [CAMERA] feagi_rust_py_libs import failed", exc_info=True)
+            logger.error("[FAIL] [CAMERA] feagi_rust_py_libs import failed", exc_info=True)
             raise ImportError("feagi_rust_py_libs required") from e
         except Exception as e:
-            logger.error(f"❌ [CAMERA] Error writing frame to cache: {e}", exc_info=True)
+            logger.error(f"[FAIL] [CAMERA] Error writing frame to cache: {e}", exc_info=True)
             raise
     
     def update_gaze(self, eccentricity_x: float, eccentricity_y: float, modulation: float):
@@ -456,7 +456,7 @@ class Camera(BaseInput):
                 self._init_rust_properties()
             
             if self._segmented_properties is None:
-                logger.warning("⚠️ [CAMERA] Segmented properties not available. Gaze update only works for segmented vision.")
+                logger.warning("[WARN] [CAMERA] Segmented properties not available. Gaze update only works for segmented vision.")
                 return
             
             # Create Percentage2D for eccentricity
@@ -487,12 +487,12 @@ class Camera(BaseInput):
             # brain_input._cache is the ConnectorAgent itself
             cache = brain_input._cache
             if cache is None:
-                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update gaze.")
+                logger.warning("[WARN] [CAMERA] Cache not initialized. Cannot update gaze.")
                 return
             
             # Get the segmentator stage index (set during registration)
             if self._segmentator_stage_index is None:
-                logger.error("❌ [CAMERA] Segmentator stage index not set. Was registration completed?")
+                logger.error("[FAIL] [CAMERA] Segmentator stage index not set. Was registration completed?")
                 return
             
             # Try sensor_segmented_vision_update_single_stage_properties first
@@ -504,7 +504,7 @@ class Camera(BaseInput):
                     self._segmentator_stage_index,
                     py_stage_props
                 )
-                logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
+                logger.info(f"[OK] [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
             else:
                 # Fallback: try image_camera_with_peripheral_update_single_stage_properties
                 method_name = 'sensor_image_camera_with_peripheral_update_single_stage_properties'
@@ -515,11 +515,11 @@ class Camera(BaseInput):
                         self._segmentator_stage_index,
                         py_stage_props
                     )
-                    logger.info(f"✅ [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
+                    logger.info(f"[OK] [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
                 else:
-                    logger.warning(f"⚠️ [CAMERA] Gaze update methods not available. Update methods may need to be enabled in rust-py-libs.")
+                    logger.warning(f"[WARN] [CAMERA] Gaze update methods not available. Update methods may need to be enabled in rust-py-libs.")
         except Exception as e:
-            logger.error(f"❌ [CAMERA] Error updating gaze: {e}", exc_info=True)
+            logger.error(f"[FAIL] [CAMERA] Error updating gaze: {e}", exc_info=True)
             # Don't raise - allow streaming to continue even if gaze update fails
     
     def update_diff_threshold(self, threshold: int):
@@ -565,12 +565,12 @@ class Camera(BaseInput):
             # brain_input._cache is the ConnectorAgent itself
             cache = brain_input._cache
             if cache is None:
-                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update diff threshold.")
+                logger.warning("[WARN] [CAMERA] Cache not initialized. Cannot update diff threshold.")
                 return
             
             # Get the diff stage index (set during registration)
             if self._diff_stage_index is None:
-                logger.error("❌ [CAMERA] Diff stage index not set. Was registration completed?")
+                logger.error("[FAIL] [CAMERA] Diff stage index not set. Was registration completed?")
                 return
             
             # Try sensor_segmented_vision_update_single_stage_properties first (works for segmented)
@@ -582,7 +582,7 @@ class Camera(BaseInput):
                     self._diff_stage_index,
                     py_stage_props
                 )
-                logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
+                logger.info(f"[OK] [CAMERA] Updated diff threshold: {threshold}")
             else:
                 # Fallback: try simple_vision_update_single_stage_properties (for simple vision)
                 method_name = 'sensor_simple_vision_update_single_stage_properties'
@@ -593,11 +593,11 @@ class Camera(BaseInput):
                         self._diff_stage_index,
                         py_stage_props
                     )
-                    logger.info(f"✅ [CAMERA] Updated diff threshold: {threshold}")
+                    logger.info(f"[OK] [CAMERA] Updated diff threshold: {threshold}")
                 else:
-                    logger.warning(f"⚠️ [CAMERA] Diff threshold update methods not available.")
+                    logger.warning(f"[WARN] [CAMERA] Diff threshold update methods not available.")
         except Exception as e:
-            logger.error(f"❌ [CAMERA] Error updating diff threshold: {e}", exc_info=True)
+            logger.error(f"[FAIL] [CAMERA] Error updating diff threshold: {e}", exc_info=True)
             # Don't raise - allow streaming to continue even if diff threshold update fails
     
     def update_brightness(self, brightness: int):
@@ -617,13 +617,13 @@ class Camera(BaseInput):
             
             # Get the ImageFrameProcessor stage index (set during registration)
             if self._image_processor_stage_index is None:
-                logger.error("❌ [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
+                logger.error("[FAIL] [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
                 return
             
             # Get the cache
             cache = brain_input._cache
             if cache is None:
-                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update brightness.")
+                logger.warning("[WARN] [CAMERA] Cache not initialized. Cannot update brightness.")
                 return
             
             # Get the EXISTING stage properties to preserve contrast settings
@@ -637,7 +637,7 @@ class Camera(BaseInput):
             # Get the existing transformer definition
             # The stage properties should be an ImageFrameProcessor variant
             if not hasattr(existing_stage, 'variant_name') or existing_stage.variant_name() != 'ImageFrameProcessor':
-                logger.error(f"❌ [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
+                logger.error(f"[FAIL] [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
                 return
             
             # Get the transformer from the stage
@@ -645,7 +645,7 @@ class Camera(BaseInput):
                 # Access the transformer_definition directly from the properties
                 transformer = existing_stage.get_transformer_definition()
             except AttributeError:
-                logger.error("❌ [CAMERA] Could not get transformer from stage properties")
+                logger.error("[FAIL] [CAMERA] Could not get transformer from stage properties")
                 return
             
             # Update ONLY the brightness on the existing transformer
@@ -661,9 +661,9 @@ class Camera(BaseInput):
                 self._image_processor_stage_index,
                 new_stage_props
             )
-            logger.info(f"✅ [CAMERA] Updated brightness: {brightness}")
+            logger.info(f"[OK] [CAMERA] Updated brightness: {brightness}")
         except Exception as e:
-            logger.error(f"❌ [CAMERA] Error updating brightness: {e}", exc_info=True)
+            logger.error(f"[FAIL] [CAMERA] Error updating brightness: {e}", exc_info=True)
     
     def update_contrast(self, contrast: float):
         """
@@ -682,13 +682,13 @@ class Camera(BaseInput):
             
             # Get the ImageFrameProcessor stage index (set during registration)
             if self._image_processor_stage_index is None:
-                logger.error("❌ [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
+                logger.error("[FAIL] [CAMERA] ImageFrameProcessor stage index not set. Was registration completed?")
                 return
             
             # Get the cache
             cache = brain_input._cache
             if cache is None:
-                logger.warning("⚠️ [CAMERA] Cache not initialized. Cannot update contrast.")
+                logger.warning("[WARN] [CAMERA] Cache not initialized. Cannot update contrast.")
                 return
             
             # Get the EXISTING stage properties to preserve brightness settings
@@ -701,14 +701,14 @@ class Camera(BaseInput):
             
             # Get the existing transformer definition
             if not hasattr(existing_stage, 'variant_name') or existing_stage.variant_name() != 'ImageFrameProcessor':
-                logger.error(f"❌ [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
+                logger.error(f"[FAIL] [CAMERA] Stage {self._image_processor_stage_index} is not an ImageFrameProcessor: {existing_stage.variant_name() if hasattr(existing_stage, 'variant_name') else 'unknown'}")
                 return
             
             # Get the transformer from the stage
             try:
                 transformer = existing_stage.get_transformer_definition()
             except AttributeError:
-                logger.error("❌ [CAMERA] Could not get transformer from stage properties")
+                logger.error("[FAIL] [CAMERA] Could not get transformer from stage properties")
                 return
             
             # Update ONLY the contrast on the existing transformer
@@ -724,7 +724,7 @@ class Camera(BaseInput):
                 self._image_processor_stage_index,
                 new_stage_props
             )
-            logger.info(f"✅ [CAMERA] Updated contrast: {contrast:.2f}")
+            logger.info(f"[OK] [CAMERA] Updated contrast: {contrast:.2f}")
         except Exception as e:
-            logger.error(f"❌ [CAMERA] Error updating contrast: {e}", exc_info=True)
+            logger.error(f"[FAIL] [CAMERA] Error updating contrast: {e}", exc_info=True)
 

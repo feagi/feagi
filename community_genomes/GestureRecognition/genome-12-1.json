@@ -1,0 +1,3851 @@
+{
+   "genome_id": "g-1731267988.5891",
+   "version": "2.0",
+   "brain_regions": {
+      "root": {
+         "title": "Genome's root brain region",
+         "description": null,
+         "parent_region_id": null,
+         "coordinate_2d": [
+            0,
+            0
+         ],
+         "coordinate_3d": [
+            0,
+            0,
+            0
+         ],
+         "areas": [
+            "___pwr",
+            "o__mot",
+            "iv00_C",
+            "iv00BL",
+            "iv00BM",
+            "iv00BR",
+            "iv00ML",
+            "iv00MR",
+            "iv00TL",
+            "iv00TR",
+            "iv00TM",
+            "CRSMot",
+            "CIHMot",
+            "CKQM2_",
+            "CKYM2_",
+            "CO4M3_",
+            "CJWM3_",
+            "CTGM4_",
+            "CLWM4_",
+            "C76ges",
+            "o__loc",
+            "CGLfor",
+            "CS0lef",
+            "CIObac",
+            "CZFrig",
+            "ov_enh",
+            "ovtune",
+            "CYIdow",
+            "CY5up0",
+            "CG9dow",
+            "o___id"
+         ],
+         "regions": [],
+         "inputs": [],
+         "outputs": []
+      }
+   },
+   "physiology": {
+      "burst_delay": 0.04,
+      "max_age": 10000000,
+      "evolution_burst_count": 50,
+      "ipu_idle_threshold": 1000,
+      "plasticity_queue_depth": 1,
+      "lifespan_mgmt_interval": 10
+   },
+   "neuron_morphologies": {
+      "decrease_filter_diagonal": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom",
+         "morphology_name": "decrease_filter_diagonal"
+      },
+      "decrease_filter_diagonal2": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  2,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "increase_filter_diagonal": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom",
+         "morphology_name": "increase_filter_diagonal"
+      },
+      "increase_filter_diagonal2": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  2,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "to_block_[5, 7, 4]": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     5,
+                     7,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom",
+         "morphology_name": "to_block_[5, 7, 4]"
+      },
+      "turn_left_level_one": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_two": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_three": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_left_level_four": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom",
+         "morphology_name": "turn_left_level_four"
+      },
+      "turn_left_level_five": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom",
+         "morphology_name": "turn_left_level_five"
+      },
+      "turn_right_level_one": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     3
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     3
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom",
+         "morphology_name": "turn_right_level_one"
+      },
+      "turn_right_level_two": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     1,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_three": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     1
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     2,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     1
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_four": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     2
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     3,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "turn_right_level_five": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     4,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "motor_forward": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom",
+         "morphology_name": "motor_forward"
+      },
+      "motor_backward": {
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     4
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     4
+                  ]
+               ]
+            ]
+         },
+         "type": "patterns",
+         "class": "custom"
+      },
+      "y_consolidator": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     "*",
+                     "?",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "custom",
+         "morphology_name": "y_consolidator"
+      },
+      "intensity": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "custom",
+         "morphology_name": "intensity"
+      },
+      "APT_low": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     7
+                  ],
+                  [
+                     0,
+                     0,
+                     8
+                  ]
+               ]
+            ]
+         },
+         "class": "custom",
+         "morphology_name": "APT_low"
+      },
+      "apt_high": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     2
+                  ],
+                  [
+                     0,
+                     0,
+                     2
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "diagonal_proprio": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "right_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     7,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "left_detect": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "bbb3": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  -1,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "class": "custom",
+         "morphology_name": "bbb3"
+      },
+      "ori_135_deg": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -1,
+                  0
+               ],
+               [
+                  2,
+                  -2,
+                  0
+               ],
+               [
+                  3,
+                  -3,
+                  0
+               ],
+               [
+                  4,
+                  -4,
+                  0
+               ],
+               [
+                  5,
+                  -5,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "ori_115": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  -2,
+                  0
+               ],
+               [
+                  2,
+                  -4,
+                  0
+               ],
+               [
+                  3,
+                  -6,
+                  0
+               ],
+               [
+                  4,
+                  -9,
+                  0
+               ],
+               [
+                  5,
+                  -11,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "custom"
+      },
+      "ori_0_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  0,
+                  0
+               ],
+               [
+                  2,
+                  0,
+                  0
+               ],
+               [
+                  3,
+                  0,
+                  0
+               ],
+               [
+                  4,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_90_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  0,
+                  1,
+                  0
+               ],
+               [
+                  0,
+                  2,
+                  0
+               ],
+               [
+                  0,
+                  3,
+                  0
+               ],
+               [
+                  0,
+                  4,
+                  0
+               ],
+               [
+                  0,
+                  5,
+                  0
+               ],
+               [
+                  0,
+                  6,
+                  0
+               ],
+               [
+                  0,
+                  7,
+                  0
+               ],
+               [
+                  0,
+                  8,
+                  0
+               ],
+               [
+                  0,
+                  9,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_45_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  2,
+                  2,
+                  0
+               ],
+               [
+                  3,
+                  3,
+                  0
+               ],
+               [
+                  4,
+                  4,
+                  0
+               ],
+               [
+                  5,
+                  5,
+                  0
+               ],
+               [
+                  6,
+                  6,
+                  0
+               ],
+               [
+                  7,
+                  7,
+                  0
+               ],
+               [
+                  8,
+                  8,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "ori_60_deg": {
+         "type": "vectors",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ],
+               [
+                  1,
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  2,
+                  0
+               ],
+               [
+                  2,
+                  3,
+                  0
+               ],
+               [
+                  2,
+                  4,
+                  0
+               ],
+               [
+                  3,
+                  5,
+                  0
+               ],
+               [
+                  3,
+                  6,
+                  0
+               ],
+               [
+                  4,
+                  7,
+                  0
+               ]
+            ]
+         },
+         "class": "custom"
+      },
+      "block_to_block": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "projector": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "memory": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "0-0-0_to_all": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "all_to_0-0-0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "all_to_all": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "?",
+                     "?",
+                     "?"
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "class": "core"
+      },
+      "lateral_+x": {
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-x": {
+         "parameters": {
+            "vectors": [
+               [
+                  -1,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_+y": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  1,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-y": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  -1,
+                  0
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_+z": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "lateral_-z": {
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  -1
+               ]
+            ]
+         },
+         "type": "vectors",
+         "class": "core"
+      },
+      "randomizer": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "expander_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "reducer_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "lateral_pairs_x": {
+         "parameters": {},
+         "type": "functions",
+         "class": "core"
+      },
+      "tile": {
+         "parameters": {
+            "src_seed": [
+               16,
+               16,
+               1
+            ],
+            "src_pattern": [
+               [
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  0
+               ],
+               [
+                  1,
+                  0
+               ]
+            ],
+            "mapper_morphology": "projector"
+         },
+         "type": "composite",
+         "class": "core"
+      },
+      "0_0_0-_0_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-_0_0_0",
+         "class": "custom"
+      },
+      "0_0_0-1_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-1_0_0",
+         "class": "custom"
+      },
+      "0_0_0-2_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-2_0_0",
+         "class": "custom"
+      },
+      "0_0_0-3_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-3_0_0",
+         "class": "custom"
+      },
+      "0_0_0-4_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-4_0_0",
+         "class": "custom"
+      },
+      "0_0_0-5_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-5_0_0",
+         "class": "custom"
+      },
+      "0_0_0-6_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     6,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-6_0_0",
+         "class": "custom"
+      },
+      "0_0_0-7_0_0": {
+         "type": "patterns",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     7,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "0_0_0-7_0_0",
+         "class": "custom"
+      },
+      "v2_mem": {
+         "type": "vectors",
+         "class": "custom",
+         "parameters": {
+            "vectors": [
+               [
+                  1,
+                  0,
+                  0
+               ]
+            ]
+         },
+         "morphology_name": "v2_mem"
+      },
+      "v2_ges": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     1,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "v2_ges"
+      },
+      "v3_ges": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     2,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "v3_ges"
+      },
+      "v4_ges": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     3,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "v4_ges"
+      },
+      "v1_ges": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "v1_ges"
+      },
+      "gesture_v2": {
+         "type": "vectors",
+         "class": "custom",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  -5
+               ]
+            ]
+         },
+         "morphology_name": "gesture_v2"
+      },
+      "v3_gesture": {
+         "type": "vectors",
+         "class": "custom",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  -10
+               ]
+            ]
+         },
+         "morphology_name": "v3_gesture"
+      },
+      "v4_gesture": {
+         "type": "vectors",
+         "class": "custom",
+         "parameters": {
+            "vectors": [
+               [
+                  0,
+                  0,
+                  -15
+               ]
+            ]
+         },
+         "morphology_name": "v4_gesture"
+      },
+      "reset_top": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     "*",
+                     3
+                  ],
+                  [
+                     0,
+                     "*",
+                     3
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "reset_top"
+      },
+      "recog_inh": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     "*",
+                     0
+                  ],
+                  [
+                     0,
+                     "!",
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "recog_inh"
+      },
+      "FORWARD - Recognizer to M1": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     "*",
+                     "*",
+                     "*"
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "FORWARD - Recognizer to M1"
+      },
+      "(0,*,0) -> (*,0,0)": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     1,
+                     0
+                  ],
+                  [
+                     1,
+                     0,
+                     0
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     2,
+                     0
+                  ],
+                  [
+                     2,
+                     0,
+                     0
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     3,
+                     0
+                  ],
+                  [
+                     3,
+                     0,
+                     0
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     4,
+                     0
+                  ],
+                  [
+                     4,
+                     0,
+                     0
+                  ]
+               ],
+               [
+                  [
+                     0,
+                     5,
+                     0
+                  ],
+                  [
+                     5,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "(0,*,0) -> (*,0,0)"
+      },
+      "forward": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "forward"
+      },
+      "left": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     2,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "left"
+      },
+      "left (intermediate to opu)": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     0,
+                     0
+                  ],
+                  [
+                     0,
+                     2,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "left (intermediate to opu)"
+      },
+      "back": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     1,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "back"
+      },
+      "right": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     3,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "right"
+      },
+      "up": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     4,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         },
+         "morphology_name": "up"
+      },
+      "down": {
+         "type": "patterns",
+         "class": "custom",
+         "parameters": {
+            "patterns": [
+               [
+                  [
+                     0,
+                     5,
+                     0
+                  ],
+                  [
+                     0,
+                     0,
+                     0
+                  ]
+               ]
+            ]
+         }
+      }
+   },
+   "genome_title": "Unknown Genome",
+   "genome_description": "",
+   "stats": {
+      "innate_cortical_area_count": 37,
+      "innate_neuron_count": 8351,
+      "innate_synapse_count": 14752
+   },
+   "signatures": {
+      "genome": "0ee23a1e8255bb51",
+      "blueprint": "e81a1dce065d65d5",
+      "physiology": "e4295db02c851f60"
+   },
+   "timestamp": 1733279541.050177,
+   "blueprint": {
+      "_____10c-___pwr-cx-subgrp-t": "",
+      "_____10c-___pwr-cx-_n_cnt-i": 1,
+      "_____10c-___pwr-cx-synatt-f": 100,
+      "_____10c-___pwr-cx-de_gen-f": 0.01,
+      "_____10c-___pwr-cx-pspuni-b": false,
+      "_____10c-___pwr-nx-pstcrm-f": 35,
+      "_____10c-___pwr-cx-dstmap-d": {},
+      "_____10c-___pwr-cx-___bbx-i": 1,
+      "_____10c-___pwr-cx-___bby-i": 1,
+      "_____10c-___pwr-cx-___bbz-i": 1,
+      "_____10c-___pwr-cx-rcordx-i": 10,
+      "_____10c-___pwr-cx-rcordy-i": 0,
+      "_____10c-___pwr-cx-rcordz-i": -20,
+      "_____10c-___pwr-cx-2dcorx-i": -2869,
+      "_____10c-___pwr-cx-2dcory-i": 642,
+      "_____10c-___pwr-cx-gd_vis-b": true,
+      "_____10c-___pwr-nx-pstcr_-f": 500,
+      "_____10c-___pwr-nx-fire_t-f": 1,
+      "_____10c-___pwr-nx-refrac-i": 0,
+      "_____10c-___pwr-nx-leak_c-f": 10,
+      "_____10c-___pwr-nx-leak_v-f": 0,
+      "_____10c-___pwr-nx-c_fr_c-i": 3,
+      "_____10c-___pwr-nx-snooze-f": 0,
+      "_____10c-___pwr-nx-ftincx-f": 0,
+      "_____10c-___pwr-nx-ftincy-f": 0,
+      "_____10c-___pwr-nx-ftincz-f": 0,
+      "_____10c-___pwr-nx-fthlim-f": 0,
+      "_____10c-___pwr-nx-mp_acc-b": true,
+      "_____10c-___pwr-nx-mp_psp-b": false,
+      "_____10c-___pwr-cx-memory-b": false,
+      "_____10c-___pwr-cx-mem__t-i": 100,
+      "_____10c-___pwr-cx-mem_gr-i": 1,
+      "_____10c-___pwr-cx-mem_ls-i": 9,
+      "_____10c-___pwr-nx-excite-f": 100,
+      "_____10c-___pwr-cx-__name-t": "Brain_Power",
+      "_____10c-___pwr-cx-_group-t": "CORE",
+      "_____10c-o__mot-cx-subgrp-t": "",
+      "_____10c-o__mot-cx-_n_cnt-i": 1,
+      "_____10c-o__mot-cx-synatt-f": 100,
+      "_____10c-o__mot-cx-de_gen-f": 0,
+      "_____10c-o__mot-cx-pspuni-b": false,
+      "_____10c-o__mot-nx-pstcrm-f": 35,
+      "_____10c-o__mot-cx-dstmap-d": {},
+      "_____10c-o__mot-cx-___bbx-i": 8,
+      "_____10c-o__mot-cx-___bby-i": 1,
+      "_____10c-o__mot-cx-___bbz-i": 1,
+      "_____10c-o__mot-cx-rcordx-i": 72,
+      "_____10c-o__mot-cx-rcordy-i": 209,
+      "_____10c-o__mot-cx-rcordz-i": -22,
+      "_____10c-o__mot-cx-2dcorx-i": -124,
+      "_____10c-o__mot-cx-2dcory-i": 1272,
+      "_____10c-o__mot-cx-gd_vis-b": true,
+      "_____10c-o__mot-nx-pstcr_-f": 6,
+      "_____10c-o__mot-nx-fire_t-f": 1,
+      "_____10c-o__mot-nx-refrac-i": 0,
+      "_____10c-o__mot-nx-leak_c-f": 0,
+      "_____10c-o__mot-nx-leak_v-f": 0,
+      "_____10c-o__mot-nx-c_fr_c-i": 0,
+      "_____10c-o__mot-nx-snooze-f": 0,
+      "_____10c-o__mot-nx-ftincx-f": 0,
+      "_____10c-o__mot-nx-ftincy-f": 0,
+      "_____10c-o__mot-nx-ftincz-f": 0,
+      "_____10c-o__mot-nx-fthlim-f": 0,
+      "_____10c-o__mot-nx-mp_acc-b": false,
+      "_____10c-o__mot-nx-mp_psp-b": false,
+      "_____10c-o__mot-cx-memory-b": false,
+      "_____10c-o__mot-cx-mem__t-i": 100,
+      "_____10c-o__mot-cx-mem_gr-i": 1,
+      "_____10c-o__mot-cx-mem_ls-i": 9,
+      "_____10c-o__mot-nx-excite-f": 100,
+      "_____10c-o__mot-cx-__name-t": "motor_opu",
+      "_____10c-o__mot-cx-_group-t": "OPU",
+      "_____10c-o__mot-cx-devcnt-i": 1,
+      "_____10c-iv00_C-cx-subgrp-t": "",
+      "_____10c-iv00_C-cx-_n_cnt-i": 1,
+      "_____10c-iv00_C-cx-synatt-f": 100,
+      "_____10c-iv00_C-cx-de_gen-f": 0,
+      "_____10c-iv00_C-cx-pspuni-b": false,
+      "_____10c-iv00_C-nx-pstcrm-f": 100,
+      "_____10c-iv00_C-cx-dstmap-d": {
+         "CUQges": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CQUdow": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CM9ges": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-iv00_C-cx-___bbx-i": 64,
+      "_____10c-iv00_C-cx-___bby-i": 64,
+      "_____10c-iv00_C-cx-___bbz-i": 1,
+      "_____10c-iv00_C-cx-rcordx-i": 30,
+      "_____10c-iv00_C-cx-rcordy-i": 40,
+      "_____10c-iv00_C-cx-rcordz-i": -20,
+      "_____10c-iv00_C-cx-2dcorx-i": -3579,
+      "_____10c-iv00_C-cx-2dcory-i": 1366,
+      "_____10c-iv00_C-cx-gd_vis-b": true,
+      "_____10c-iv00_C-nx-pstcr_-f": 25,
+      "_____10c-iv00_C-nx-fire_t-f": 102.0,
+      "_____10c-iv00_C-nx-refrac-i": 0,
+      "_____10c-iv00_C-nx-leak_c-f": 0,
+      "_____10c-iv00_C-nx-leak_v-f": 0,
+      "_____10c-iv00_C-nx-c_fr_c-i": 3,
+      "_____10c-iv00_C-nx-snooze-f": 0,
+      "_____10c-iv00_C-nx-ftincx-f": 0,
+      "_____10c-iv00_C-nx-ftincy-f": 0,
+      "_____10c-iv00_C-nx-ftincz-f": 0,
+      "_____10c-iv00_C-nx-fthlim-f": 0,
+      "_____10c-iv00_C-nx-mp_acc-b": true,
+      "_____10c-iv00_C-nx-mp_psp-b": false,
+      "_____10c-iv00_C-cx-memory-b": false,
+      "_____10c-iv00_C-cx-mem__t-i": 100,
+      "_____10c-iv00_C-cx-mem_gr-i": 1,
+      "_____10c-iv00_C-cx-mem_ls-i": 9,
+      "_____10c-iv00_C-nx-excite-f": 100,
+      "_____10c-iv00_C-cx-__name-t": "vision_C",
+      "_____10c-iv00_C-cx-_group-t": "IPU",
+      "_____10c-iv00_C-cx-devcnt-i": 1,
+      "_____10c-iv00BL-cx-subgrp-t": "",
+      "_____10c-iv00BL-cx-_n_cnt-i": 1,
+      "_____10c-iv00BL-cx-synatt-f": 100,
+      "_____10c-iv00BL-cx-de_gen-f": 0,
+      "_____10c-iv00BL-cx-pspuni-b": false,
+      "_____10c-iv00BL-nx-pstcrm-f": 35,
+      "_____10c-iv00BL-cx-dstmap-d": {},
+      "_____10c-iv00BL-cx-___bbx-i": 8,
+      "_____10c-iv00BL-cx-___bby-i": 8,
+      "_____10c-iv00BL-cx-___bbz-i": 3,
+      "_____10c-iv00BL-cx-rcordx-i": 20,
+      "_____10c-iv00BL-cx-rcordy-i": 30,
+      "_____10c-iv00BL-cx-rcordz-i": -20,
+      "_____10c-iv00BL-cx-2dcorx-i": 2723,
+      "_____10c-iv00BL-cx-2dcory-i": 729,
+      "_____10c-iv00BL-cx-gd_vis-b": true,
+      "_____10c-iv00BL-nx-pstcr_-f": 5,
+      "_____10c-iv00BL-nx-fire_t-f": 1,
+      "_____10c-iv00BL-nx-refrac-i": 0,
+      "_____10c-iv00BL-nx-leak_c-f": 0,
+      "_____10c-iv00BL-nx-leak_v-f": 0,
+      "_____10c-iv00BL-nx-c_fr_c-i": 3,
+      "_____10c-iv00BL-nx-snooze-f": 0,
+      "_____10c-iv00BL-nx-ftincx-f": 0,
+      "_____10c-iv00BL-nx-ftincy-f": 0,
+      "_____10c-iv00BL-nx-ftincz-f": 0,
+      "_____10c-iv00BL-nx-fthlim-f": 0,
+      "_____10c-iv00BL-nx-mp_acc-b": true,
+      "_____10c-iv00BL-nx-mp_psp-b": false,
+      "_____10c-iv00BL-cx-memory-b": false,
+      "_____10c-iv00BL-cx-mem__t-i": 100,
+      "_____10c-iv00BL-cx-mem_gr-i": 1,
+      "_____10c-iv00BL-cx-mem_ls-i": 9,
+      "_____10c-iv00BL-nx-excite-f": 100,
+      "_____10c-iv00BL-cx-__name-t": "vision_LL",
+      "_____10c-iv00BL-cx-_group-t": "IPU",
+      "_____10c-iv00BL-cx-devcnt-i": 1,
+      "_____10c-iv00BM-cx-subgrp-t": "",
+      "_____10c-iv00BM-cx-_n_cnt-i": 1,
+      "_____10c-iv00BM-cx-synatt-f": 100,
+      "_____10c-iv00BM-cx-de_gen-f": 0,
+      "_____10c-iv00BM-cx-pspuni-b": false,
+      "_____10c-iv00BM-nx-pstcrm-f": 35,
+      "_____10c-iv00BM-cx-dstmap-d": {},
+      "_____10c-iv00BM-cx-___bbx-i": 8,
+      "_____10c-iv00BM-cx-___bby-i": 8,
+      "_____10c-iv00BM-cx-___bbz-i": 3,
+      "_____10c-iv00BM-cx-rcordx-i": 55,
+      "_____10c-iv00BM-cx-rcordy-i": 30,
+      "_____10c-iv00BM-cx-rcordz-i": -20,
+      "_____10c-iv00BM-cx-2dcorx-i": 3084,
+      "_____10c-iv00BM-cx-2dcory-i": 736,
+      "_____10c-iv00BM-cx-gd_vis-b": true,
+      "_____10c-iv00BM-nx-pstcr_-f": 5,
+      "_____10c-iv00BM-nx-fire_t-f": 1,
+      "_____10c-iv00BM-nx-refrac-i": 0,
+      "_____10c-iv00BM-nx-leak_c-f": 0,
+      "_____10c-iv00BM-nx-leak_v-f": 0,
+      "_____10c-iv00BM-nx-c_fr_c-i": 3,
+      "_____10c-iv00BM-nx-snooze-f": 0,
+      "_____10c-iv00BM-nx-ftincx-f": 0,
+      "_____10c-iv00BM-nx-ftincy-f": 0,
+      "_____10c-iv00BM-nx-ftincz-f": 0,
+      "_____10c-iv00BM-nx-fthlim-f": 0,
+      "_____10c-iv00BM-nx-mp_acc-b": true,
+      "_____10c-iv00BM-nx-mp_psp-b": false,
+      "_____10c-iv00BM-cx-memory-b": false,
+      "_____10c-iv00BM-cx-mem__t-i": 100,
+      "_____10c-iv00BM-cx-mem_gr-i": 1,
+      "_____10c-iv00BM-cx-mem_ls-i": 9,
+      "_____10c-iv00BM-nx-excite-f": 100,
+      "_____10c-iv00BM-cx-__name-t": "vision_LM",
+      "_____10c-iv00BM-cx-_group-t": "IPU",
+      "_____10c-iv00BM-cx-devcnt-i": 1,
+      "_____10c-iv00BR-cx-subgrp-t": "",
+      "_____10c-iv00BR-cx-_n_cnt-i": 1,
+      "_____10c-iv00BR-cx-synatt-f": 100,
+      "_____10c-iv00BR-cx-de_gen-f": 0,
+      "_____10c-iv00BR-cx-pspuni-b": false,
+      "_____10c-iv00BR-nx-pstcrm-f": 35,
+      "_____10c-iv00BR-cx-dstmap-d": {},
+      "_____10c-iv00BR-cx-___bbx-i": 8,
+      "_____10c-iv00BR-cx-___bby-i": 8,
+      "_____10c-iv00BR-cx-___bbz-i": 3,
+      "_____10c-iv00BR-cx-rcordx-i": 95,
+      "_____10c-iv00BR-cx-rcordy-i": 30,
+      "_____10c-iv00BR-cx-rcordz-i": -20,
+      "_____10c-iv00BR-cx-2dcorx-i": 3423,
+      "_____10c-iv00BR-cx-2dcory-i": 731,
+      "_____10c-iv00BR-cx-gd_vis-b": true,
+      "_____10c-iv00BR-nx-pstcr_-f": 5,
+      "_____10c-iv00BR-nx-fire_t-f": 1,
+      "_____10c-iv00BR-nx-refrac-i": 0,
+      "_____10c-iv00BR-nx-leak_c-f": 0,
+      "_____10c-iv00BR-nx-leak_v-f": 0,
+      "_____10c-iv00BR-nx-c_fr_c-i": 3,
+      "_____10c-iv00BR-nx-snooze-f": 0,
+      "_____10c-iv00BR-nx-ftincx-f": 0,
+      "_____10c-iv00BR-nx-ftincy-f": 0,
+      "_____10c-iv00BR-nx-ftincz-f": 0,
+      "_____10c-iv00BR-nx-fthlim-f": 0,
+      "_____10c-iv00BR-nx-mp_acc-b": true,
+      "_____10c-iv00BR-nx-mp_psp-b": false,
+      "_____10c-iv00BR-cx-memory-b": false,
+      "_____10c-iv00BR-cx-mem__t-i": 100,
+      "_____10c-iv00BR-cx-mem_gr-i": 1,
+      "_____10c-iv00BR-cx-mem_ls-i": 9,
+      "_____10c-iv00BR-nx-excite-f": 100,
+      "_____10c-iv00BR-cx-__name-t": "vision_LR",
+      "_____10c-iv00BR-cx-_group-t": "IPU",
+      "_____10c-iv00BR-cx-devcnt-i": 1,
+      "_____10c-iv00ML-cx-subgrp-t": "",
+      "_____10c-iv00ML-cx-_n_cnt-i": 1,
+      "_____10c-iv00ML-cx-synatt-f": 100,
+      "_____10c-iv00ML-cx-de_gen-f": 0,
+      "_____10c-iv00ML-cx-pspuni-b": false,
+      "_____10c-iv00ML-nx-pstcrm-f": 35,
+      "_____10c-iv00ML-cx-dstmap-d": {},
+      "_____10c-iv00ML-cx-___bbx-i": 8,
+      "_____10c-iv00ML-cx-___bby-i": 8,
+      "_____10c-iv00ML-cx-___bbz-i": 3,
+      "_____10c-iv00ML-cx-rcordx-i": 20,
+      "_____10c-iv00ML-cx-rcordy-i": 70,
+      "_____10c-iv00ML-cx-rcordz-i": -20,
+      "_____10c-iv00ML-cx-2dcorx-i": 2728,
+      "_____10c-iv00ML-cx-2dcory-i": 541,
+      "_____10c-iv00ML-cx-gd_vis-b": true,
+      "_____10c-iv00ML-nx-pstcr_-f": 5,
+      "_____10c-iv00ML-nx-fire_t-f": 1,
+      "_____10c-iv00ML-nx-refrac-i": 0,
+      "_____10c-iv00ML-nx-leak_c-f": 0,
+      "_____10c-iv00ML-nx-leak_v-f": 0,
+      "_____10c-iv00ML-nx-c_fr_c-i": 3,
+      "_____10c-iv00ML-nx-snooze-f": 0,
+      "_____10c-iv00ML-nx-ftincx-f": 0,
+      "_____10c-iv00ML-nx-ftincy-f": 0,
+      "_____10c-iv00ML-nx-ftincz-f": 0,
+      "_____10c-iv00ML-nx-fthlim-f": 0,
+      "_____10c-iv00ML-nx-mp_acc-b": true,
+      "_____10c-iv00ML-nx-mp_psp-b": false,
+      "_____10c-iv00ML-cx-memory-b": false,
+      "_____10c-iv00ML-cx-mem__t-i": 100,
+      "_____10c-iv00ML-cx-mem_gr-i": 1,
+      "_____10c-iv00ML-cx-mem_ls-i": 9,
+      "_____10c-iv00ML-nx-excite-f": 100,
+      "_____10c-iv00ML-cx-__name-t": "vision_ML",
+      "_____10c-iv00ML-cx-_group-t": "IPU",
+      "_____10c-iv00ML-cx-devcnt-i": 1,
+      "_____10c-iv00MR-cx-subgrp-t": "",
+      "_____10c-iv00MR-cx-_n_cnt-i": 1,
+      "_____10c-iv00MR-cx-synatt-f": 100,
+      "_____10c-iv00MR-cx-de_gen-f": 0,
+      "_____10c-iv00MR-cx-pspuni-b": false,
+      "_____10c-iv00MR-nx-pstcrm-f": 35,
+      "_____10c-iv00MR-cx-dstmap-d": {},
+      "_____10c-iv00MR-cx-___bbx-i": 8,
+      "_____10c-iv00MR-cx-___bby-i": 8,
+      "_____10c-iv00MR-cx-___bbz-i": 3,
+      "_____10c-iv00MR-cx-rcordx-i": 95,
+      "_____10c-iv00MR-cx-rcordy-i": 70,
+      "_____10c-iv00MR-cx-rcordz-i": -20,
+      "_____10c-iv00MR-cx-2dcorx-i": 3418,
+      "_____10c-iv00MR-cx-2dcory-i": 543,
+      "_____10c-iv00MR-cx-gd_vis-b": true,
+      "_____10c-iv00MR-nx-pstcr_-f": 5,
+      "_____10c-iv00MR-nx-fire_t-f": 1,
+      "_____10c-iv00MR-nx-refrac-i": 0,
+      "_____10c-iv00MR-nx-leak_c-f": 0,
+      "_____10c-iv00MR-nx-leak_v-f": 0,
+      "_____10c-iv00MR-nx-c_fr_c-i": 3,
+      "_____10c-iv00MR-nx-snooze-f": 0,
+      "_____10c-iv00MR-nx-ftincx-f": 0,
+      "_____10c-iv00MR-nx-ftincy-f": 0,
+      "_____10c-iv00MR-nx-ftincz-f": 0,
+      "_____10c-iv00MR-nx-fthlim-f": 0,
+      "_____10c-iv00MR-nx-mp_acc-b": true,
+      "_____10c-iv00MR-nx-mp_psp-b": false,
+      "_____10c-iv00MR-cx-memory-b": false,
+      "_____10c-iv00MR-cx-mem__t-i": 100,
+      "_____10c-iv00MR-cx-mem_gr-i": 1,
+      "_____10c-iv00MR-cx-mem_ls-i": 9,
+      "_____10c-iv00MR-nx-excite-f": 100,
+      "_____10c-iv00MR-cx-__name-t": "vision_MR",
+      "_____10c-iv00MR-cx-_group-t": "IPU",
+      "_____10c-iv00MR-cx-devcnt-i": 1,
+      "_____10c-iv00TL-cx-subgrp-t": "",
+      "_____10c-iv00TL-cx-_n_cnt-i": 1,
+      "_____10c-iv00TL-cx-synatt-f": 100,
+      "_____10c-iv00TL-cx-de_gen-f": 0,
+      "_____10c-iv00TL-cx-pspuni-b": false,
+      "_____10c-iv00TL-nx-pstcrm-f": 35,
+      "_____10c-iv00TL-cx-dstmap-d": {},
+      "_____10c-iv00TL-cx-___bbx-i": 8,
+      "_____10c-iv00TL-cx-___bby-i": 8,
+      "_____10c-iv00TL-cx-___bbz-i": 3,
+      "_____10c-iv00TL-cx-rcordx-i": 20,
+      "_____10c-iv00TL-cx-rcordy-i": 105,
+      "_____10c-iv00TL-cx-rcordz-i": -20,
+      "_____10c-iv00TL-cx-2dcorx-i": 2731,
+      "_____10c-iv00TL-cx-2dcory-i": 351,
+      "_____10c-iv00TL-cx-gd_vis-b": true,
+      "_____10c-iv00TL-nx-pstcr_-f": 5,
+      "_____10c-iv00TL-nx-fire_t-f": 1,
+      "_____10c-iv00TL-nx-refrac-i": 0,
+      "_____10c-iv00TL-nx-leak_c-f": 0,
+      "_____10c-iv00TL-nx-leak_v-f": 0,
+      "_____10c-iv00TL-nx-c_fr_c-i": 3,
+      "_____10c-iv00TL-nx-snooze-f": 0,
+      "_____10c-iv00TL-nx-ftincx-f": 0,
+      "_____10c-iv00TL-nx-ftincy-f": 0,
+      "_____10c-iv00TL-nx-ftincz-f": 0,
+      "_____10c-iv00TL-nx-fthlim-f": 0,
+      "_____10c-iv00TL-nx-mp_acc-b": true,
+      "_____10c-iv00TL-nx-mp_psp-b": false,
+      "_____10c-iv00TL-cx-memory-b": false,
+      "_____10c-iv00TL-cx-mem__t-i": 100,
+      "_____10c-iv00TL-cx-mem_gr-i": 1,
+      "_____10c-iv00TL-cx-mem_ls-i": 9,
+      "_____10c-iv00TL-nx-excite-f": 100,
+      "_____10c-iv00TL-cx-__name-t": "vision_TL",
+      "_____10c-iv00TL-cx-_group-t": "IPU",
+      "_____10c-iv00TL-cx-devcnt-i": 1,
+      "_____10c-iv00TR-cx-subgrp-t": "",
+      "_____10c-iv00TR-cx-_n_cnt-i": 1,
+      "_____10c-iv00TR-cx-synatt-f": 100,
+      "_____10c-iv00TR-cx-de_gen-f": 0,
+      "_____10c-iv00TR-cx-pspuni-b": false,
+      "_____10c-iv00TR-nx-pstcrm-f": 35,
+      "_____10c-iv00TR-cx-dstmap-d": {},
+      "_____10c-iv00TR-cx-___bbx-i": 8,
+      "_____10c-iv00TR-cx-___bby-i": 8,
+      "_____10c-iv00TR-cx-___bbz-i": 3,
+      "_____10c-iv00TR-cx-rcordx-i": 95,
+      "_____10c-iv00TR-cx-rcordy-i": 105,
+      "_____10c-iv00TR-cx-rcordz-i": -20,
+      "_____10c-iv00TR-cx-2dcorx-i": 3409,
+      "_____10c-iv00TR-cx-2dcory-i": 350,
+      "_____10c-iv00TR-cx-gd_vis-b": true,
+      "_____10c-iv00TR-nx-pstcr_-f": 5,
+      "_____10c-iv00TR-nx-fire_t-f": 1,
+      "_____10c-iv00TR-nx-refrac-i": 0,
+      "_____10c-iv00TR-nx-leak_c-f": 0,
+      "_____10c-iv00TR-nx-leak_v-f": 0,
+      "_____10c-iv00TR-nx-c_fr_c-i": 3,
+      "_____10c-iv00TR-nx-snooze-f": 0,
+      "_____10c-iv00TR-nx-ftincx-f": 0,
+      "_____10c-iv00TR-nx-ftincy-f": 0,
+      "_____10c-iv00TR-nx-ftincz-f": 0,
+      "_____10c-iv00TR-nx-fthlim-f": 0,
+      "_____10c-iv00TR-nx-mp_acc-b": true,
+      "_____10c-iv00TR-nx-mp_psp-b": false,
+      "_____10c-iv00TR-cx-memory-b": false,
+      "_____10c-iv00TR-cx-mem__t-i": 100,
+      "_____10c-iv00TR-cx-mem_gr-i": 1,
+      "_____10c-iv00TR-cx-mem_ls-i": 9,
+      "_____10c-iv00TR-nx-excite-f": 100,
+      "_____10c-iv00TR-cx-__name-t": "vision_TR",
+      "_____10c-iv00TR-cx-_group-t": "IPU",
+      "_____10c-iv00TR-cx-devcnt-i": 1,
+      "_____10c-iv00TM-cx-subgrp-t": "",
+      "_____10c-iv00TM-cx-_n_cnt-i": 1,
+      "_____10c-iv00TM-cx-synatt-f": 100,
+      "_____10c-iv00TM-cx-de_gen-f": 0,
+      "_____10c-iv00TM-cx-pspuni-b": false,
+      "_____10c-iv00TM-nx-pstcrm-f": 35,
+      "_____10c-iv00TM-cx-dstmap-d": {},
+      "_____10c-iv00TM-cx-___bbx-i": 8,
+      "_____10c-iv00TM-cx-___bby-i": 8,
+      "_____10c-iv00TM-cx-___bbz-i": 3,
+      "_____10c-iv00TM-cx-rcordx-i": 55,
+      "_____10c-iv00TM-cx-rcordy-i": 105,
+      "_____10c-iv00TM-cx-rcordz-i": -20,
+      "_____10c-iv00TM-cx-2dcorx-i": 3066,
+      "_____10c-iv00TM-cx-2dcory-i": 347,
+      "_____10c-iv00TM-cx-gd_vis-b": true,
+      "_____10c-iv00TM-nx-pstcr_-f": 5,
+      "_____10c-iv00TM-nx-fire_t-f": 1,
+      "_____10c-iv00TM-nx-refrac-i": 0,
+      "_____10c-iv00TM-nx-leak_c-f": 0,
+      "_____10c-iv00TM-nx-leak_v-f": 0,
+      "_____10c-iv00TM-nx-c_fr_c-i": 3,
+      "_____10c-iv00TM-nx-snooze-f": 0,
+      "_____10c-iv00TM-nx-ftincx-f": 0,
+      "_____10c-iv00TM-nx-ftincy-f": 0,
+      "_____10c-iv00TM-nx-ftincz-f": 0,
+      "_____10c-iv00TM-nx-fthlim-f": 0,
+      "_____10c-iv00TM-nx-mp_acc-b": true,
+      "_____10c-iv00TM-nx-mp_psp-b": false,
+      "_____10c-iv00TM-cx-memory-b": false,
+      "_____10c-iv00TM-cx-mem__t-i": 100,
+      "_____10c-iv00TM-cx-mem_gr-i": 1,
+      "_____10c-iv00TM-cx-mem_ls-i": 9,
+      "_____10c-iv00TM-nx-excite-f": 100,
+      "_____10c-iv00TM-cx-__name-t": "vision_TM",
+      "_____10c-iv00TM-cx-_group-t": "IPU",
+      "_____10c-iv00TM-cx-devcnt-i": 1,
+      "_____10c-CRSMot-cx-subgrp-t": "",
+      "_____10c-CRSMot-cx-_n_cnt-i": 1,
+      "_____10c-CRSMot-cx-synatt-f": 100,
+      "_____10c-CRSMot-cx-de_gen-f": 0,
+      "_____10c-CRSMot-cx-pspuni-b": false,
+      "_____10c-CRSMot-nx-pstcrm-f": 99999,
+      "_____10c-CRSMot-cx-dstmap-d": {},
+      "_____10c-CRSMot-cx-___bbx-i": 1,
+      "_____10c-CRSMot-cx-___bby-i": 1,
+      "_____10c-CRSMot-cx-___bbz-i": 1,
+      "_____10c-CRSMot-cx-rcordx-i": -50,
+      "_____10c-CRSMot-cx-rcordy-i": 0,
+      "_____10c-CRSMot-cx-rcordz-i": -14,
+      "_____10c-CRSMot-cx-2dcorx-i": 3395,
+      "_____10c-CRSMot-cx-2dcory-i": -185,
+      "_____10c-CRSMot-cx-gd_vis-b": true,
+      "_____10c-CRSMot-nx-pstcr_-f": 1,
+      "_____10c-CRSMot-nx-fire_t-f": 1,
+      "_____10c-CRSMot-nx-refrac-i": 0,
+      "_____10c-CRSMot-nx-leak_c-f": 0,
+      "_____10c-CRSMot-nx-leak_v-f": 0,
+      "_____10c-CRSMot-nx-c_fr_c-i": 0,
+      "_____10c-CRSMot-nx-snooze-f": 0,
+      "_____10c-CRSMot-nx-ftincx-f": 0,
+      "_____10c-CRSMot-nx-ftincy-f": 0,
+      "_____10c-CRSMot-nx-ftincz-f": 0,
+      "_____10c-CRSMot-nx-fthlim-f": 0,
+      "_____10c-CRSMot-nx-mp_acc-b": false,
+      "_____10c-CRSMot-nx-mp_psp-b": false,
+      "_____10c-CRSMot-cx-memory-b": false,
+      "_____10c-CRSMot-cx-mem__t-i": 100,
+      "_____10c-CRSMot-cx-mem_gr-i": 1,
+      "_____10c-CRSMot-cx-mem_ls-i": 9,
+      "_____10c-CRSMot-nx-excite-f": 100,
+      "_____10c-CRSMot-cx-__name-t": "M1_FW",
+      "_____10c-CRSMot-cx-_group-t": "CUSTOM",
+      "_____10c-CIHMot-cx-subgrp-t": "",
+      "_____10c-CIHMot-cx-_n_cnt-i": 1,
+      "_____10c-CIHMot-cx-synatt-f": 100,
+      "_____10c-CIHMot-cx-de_gen-f": 0,
+      "_____10c-CIHMot-cx-pspuni-b": false,
+      "_____10c-CIHMot-nx-pstcrm-f": 99999,
+      "_____10c-CIHMot-cx-dstmap-d": {},
+      "_____10c-CIHMot-cx-___bbx-i": 1,
+      "_____10c-CIHMot-cx-___bby-i": 1,
+      "_____10c-CIHMot-cx-___bbz-i": 1,
+      "_____10c-CIHMot-cx-rcordx-i": -45,
+      "_____10c-CIHMot-cx-rcordy-i": 0,
+      "_____10c-CIHMot-cx-rcordz-i": -14,
+      "_____10c-CIHMot-cx-2dcorx-i": 3764,
+      "_____10c-CIHMot-cx-2dcory-i": -191,
+      "_____10c-CIHMot-cx-gd_vis-b": true,
+      "_____10c-CIHMot-nx-pstcr_-f": 1,
+      "_____10c-CIHMot-nx-fire_t-f": 1,
+      "_____10c-CIHMot-nx-refrac-i": 0,
+      "_____10c-CIHMot-nx-leak_c-f": 0,
+      "_____10c-CIHMot-nx-leak_v-f": 0,
+      "_____10c-CIHMot-nx-c_fr_c-i": 0,
+      "_____10c-CIHMot-nx-snooze-f": 0,
+      "_____10c-CIHMot-nx-ftincx-f": 0,
+      "_____10c-CIHMot-nx-ftincy-f": 0,
+      "_____10c-CIHMot-nx-ftincz-f": 0,
+      "_____10c-CIHMot-nx-fthlim-f": 0,
+      "_____10c-CIHMot-nx-mp_acc-b": false,
+      "_____10c-CIHMot-nx-mp_psp-b": false,
+      "_____10c-CIHMot-cx-memory-b": false,
+      "_____10c-CIHMot-cx-mem__t-i": 100,
+      "_____10c-CIHMot-cx-mem_gr-i": 1,
+      "_____10c-CIHMot-cx-mem_ls-i": 9,
+      "_____10c-CIHMot-nx-excite-f": 100,
+      "_____10c-CIHMot-cx-__name-t": "M1_BW",
+      "_____10c-CIHMot-cx-_group-t": "CUSTOM",
+      "_____10c-CKQM2_-cx-subgrp-t": "",
+      "_____10c-CKQM2_-cx-_n_cnt-i": 1,
+      "_____10c-CKQM2_-cx-synatt-f": 100,
+      "_____10c-CKQM2_-cx-de_gen-f": 0,
+      "_____10c-CKQM2_-cx-pspuni-b": false,
+      "_____10c-CKQM2_-nx-pstcrm-f": 99999,
+      "_____10c-CKQM2_-cx-dstmap-d": {},
+      "_____10c-CKQM2_-cx-___bbx-i": 1,
+      "_____10c-CKQM2_-cx-___bby-i": 1,
+      "_____10c-CKQM2_-cx-___bbz-i": 1,
+      "_____10c-CKQM2_-cx-rcordx-i": -40,
+      "_____10c-CKQM2_-cx-rcordy-i": 0,
+      "_____10c-CKQM2_-cx-rcordz-i": -14,
+      "_____10c-CKQM2_-cx-2dcorx-i": 3763,
+      "_____10c-CKQM2_-cx-2dcory-i": -4,
+      "_____10c-CKQM2_-cx-gd_vis-b": true,
+      "_____10c-CKQM2_-nx-pstcr_-f": 1,
+      "_____10c-CKQM2_-nx-fire_t-f": 1,
+      "_____10c-CKQM2_-nx-refrac-i": 0,
+      "_____10c-CKQM2_-nx-leak_c-f": 0,
+      "_____10c-CKQM2_-nx-leak_v-f": 0,
+      "_____10c-CKQM2_-nx-c_fr_c-i": 0,
+      "_____10c-CKQM2_-nx-snooze-f": 0,
+      "_____10c-CKQM2_-nx-ftincx-f": 0,
+      "_____10c-CKQM2_-nx-ftincy-f": 0,
+      "_____10c-CKQM2_-nx-ftincz-f": 0,
+      "_____10c-CKQM2_-nx-fthlim-f": 0,
+      "_____10c-CKQM2_-nx-mp_acc-b": false,
+      "_____10c-CKQM2_-nx-mp_psp-b": false,
+      "_____10c-CKQM2_-cx-memory-b": false,
+      "_____10c-CKQM2_-cx-mem__t-i": 100,
+      "_____10c-CKQM2_-cx-mem_gr-i": 1,
+      "_____10c-CKQM2_-cx-mem_ls-i": 9,
+      "_____10c-CKQM2_-nx-excite-f": 100,
+      "_____10c-CKQM2_-cx-__name-t": "M2_FW",
+      "_____10c-CKQM2_-cx-_group-t": "CUSTOM",
+      "_____10c-CKYM2_-cx-subgrp-t": "",
+      "_____10c-CKYM2_-cx-_n_cnt-i": 1,
+      "_____10c-CKYM2_-cx-synatt-f": 100,
+      "_____10c-CKYM2_-cx-de_gen-f": 0,
+      "_____10c-CKYM2_-cx-pspuni-b": false,
+      "_____10c-CKYM2_-nx-pstcrm-f": 99999,
+      "_____10c-CKYM2_-cx-dstmap-d": {},
+      "_____10c-CKYM2_-cx-___bbx-i": 1,
+      "_____10c-CKYM2_-cx-___bby-i": 1,
+      "_____10c-CKYM2_-cx-___bbz-i": 1,
+      "_____10c-CKYM2_-cx-rcordx-i": -35,
+      "_____10c-CKYM2_-cx-rcordy-i": 0,
+      "_____10c-CKYM2_-cx-rcordz-i": -14,
+      "_____10c-CKYM2_-cx-2dcorx-i": 3772,
+      "_____10c-CKYM2_-cx-2dcory-i": 153,
+      "_____10c-CKYM2_-cx-gd_vis-b": true,
+      "_____10c-CKYM2_-nx-pstcr_-f": 1,
+      "_____10c-CKYM2_-nx-fire_t-f": 1,
+      "_____10c-CKYM2_-nx-refrac-i": 0,
+      "_____10c-CKYM2_-nx-leak_c-f": 0,
+      "_____10c-CKYM2_-nx-leak_v-f": 0,
+      "_____10c-CKYM2_-nx-c_fr_c-i": 0,
+      "_____10c-CKYM2_-nx-snooze-f": 0,
+      "_____10c-CKYM2_-nx-ftincx-f": 0,
+      "_____10c-CKYM2_-nx-ftincy-f": 0,
+      "_____10c-CKYM2_-nx-ftincz-f": 0,
+      "_____10c-CKYM2_-nx-fthlim-f": 0,
+      "_____10c-CKYM2_-nx-mp_acc-b": false,
+      "_____10c-CKYM2_-nx-mp_psp-b": false,
+      "_____10c-CKYM2_-cx-memory-b": false,
+      "_____10c-CKYM2_-cx-mem__t-i": 100,
+      "_____10c-CKYM2_-cx-mem_gr-i": 1,
+      "_____10c-CKYM2_-cx-mem_ls-i": 9,
+      "_____10c-CKYM2_-nx-excite-f": 100,
+      "_____10c-CKYM2_-cx-__name-t": "M2_BW",
+      "_____10c-CKYM2_-cx-_group-t": "CUSTOM",
+      "_____10c-CO4M3_-cx-subgrp-t": "",
+      "_____10c-CO4M3_-cx-_n_cnt-i": 1,
+      "_____10c-CO4M3_-cx-synatt-f": 100,
+      "_____10c-CO4M3_-cx-de_gen-f": 0,
+      "_____10c-CO4M3_-cx-pspuni-b": false,
+      "_____10c-CO4M3_-nx-pstcrm-f": 99999,
+      "_____10c-CO4M3_-cx-dstmap-d": {},
+      "_____10c-CO4M3_-cx-___bbx-i": 1,
+      "_____10c-CO4M3_-cx-___bby-i": 1,
+      "_____10c-CO4M3_-cx-___bbz-i": 1,
+      "_____10c-CO4M3_-cx-rcordx-i": -30,
+      "_____10c-CO4M3_-cx-rcordy-i": 0,
+      "_____10c-CO4M3_-cx-rcordz-i": -14,
+      "_____10c-CO4M3_-cx-2dcorx-i": 3771,
+      "_____10c-CO4M3_-cx-2dcory-i": 317,
+      "_____10c-CO4M3_-cx-gd_vis-b": true,
+      "_____10c-CO4M3_-nx-pstcr_-f": 1,
+      "_____10c-CO4M3_-nx-fire_t-f": 1,
+      "_____10c-CO4M3_-nx-refrac-i": 0,
+      "_____10c-CO4M3_-nx-leak_c-f": 0,
+      "_____10c-CO4M3_-nx-leak_v-f": 0,
+      "_____10c-CO4M3_-nx-c_fr_c-i": 0,
+      "_____10c-CO4M3_-nx-snooze-f": 0,
+      "_____10c-CO4M3_-nx-ftincx-f": 0,
+      "_____10c-CO4M3_-nx-ftincy-f": 0,
+      "_____10c-CO4M3_-nx-ftincz-f": 0,
+      "_____10c-CO4M3_-nx-fthlim-f": 0,
+      "_____10c-CO4M3_-nx-mp_acc-b": false,
+      "_____10c-CO4M3_-nx-mp_psp-b": false,
+      "_____10c-CO4M3_-cx-memory-b": false,
+      "_____10c-CO4M3_-cx-mem__t-i": 100,
+      "_____10c-CO4M3_-cx-mem_gr-i": 1,
+      "_____10c-CO4M3_-cx-mem_ls-i": 9,
+      "_____10c-CO4M3_-nx-excite-f": 100,
+      "_____10c-CO4M3_-cx-__name-t": "M3_FW",
+      "_____10c-CO4M3_-cx-_group-t": "CUSTOM",
+      "_____10c-CJWM3_-cx-subgrp-t": "",
+      "_____10c-CJWM3_-cx-_n_cnt-i": 1,
+      "_____10c-CJWM3_-cx-synatt-f": 100,
+      "_____10c-CJWM3_-cx-de_gen-f": 0,
+      "_____10c-CJWM3_-cx-pspuni-b": false,
+      "_____10c-CJWM3_-nx-pstcrm-f": 99999,
+      "_____10c-CJWM3_-cx-dstmap-d": {},
+      "_____10c-CJWM3_-cx-___bbx-i": 1,
+      "_____10c-CJWM3_-cx-___bby-i": 1,
+      "_____10c-CJWM3_-cx-___bbz-i": 1,
+      "_____10c-CJWM3_-cx-rcordx-i": -25,
+      "_____10c-CJWM3_-cx-rcordy-i": 0,
+      "_____10c-CJWM3_-cx-rcordz-i": -14,
+      "_____10c-CJWM3_-cx-2dcorx-i": 3768,
+      "_____10c-CJWM3_-cx-2dcory-i": 433,
+      "_____10c-CJWM3_-cx-gd_vis-b": true,
+      "_____10c-CJWM3_-nx-pstcr_-f": 1,
+      "_____10c-CJWM3_-nx-fire_t-f": 1,
+      "_____10c-CJWM3_-nx-refrac-i": 0,
+      "_____10c-CJWM3_-nx-leak_c-f": 0,
+      "_____10c-CJWM3_-nx-leak_v-f": 0,
+      "_____10c-CJWM3_-nx-c_fr_c-i": 0,
+      "_____10c-CJWM3_-nx-snooze-f": 0,
+      "_____10c-CJWM3_-nx-ftincx-f": 0,
+      "_____10c-CJWM3_-nx-ftincy-f": 0,
+      "_____10c-CJWM3_-nx-ftincz-f": 0,
+      "_____10c-CJWM3_-nx-fthlim-f": 0,
+      "_____10c-CJWM3_-nx-mp_acc-b": false,
+      "_____10c-CJWM3_-nx-mp_psp-b": false,
+      "_____10c-CJWM3_-cx-memory-b": false,
+      "_____10c-CJWM3_-cx-mem__t-i": 100,
+      "_____10c-CJWM3_-cx-mem_gr-i": 1,
+      "_____10c-CJWM3_-cx-mem_ls-i": 9,
+      "_____10c-CJWM3_-nx-excite-f": 100,
+      "_____10c-CJWM3_-cx-__name-t": "M3_BW",
+      "_____10c-CJWM3_-cx-_group-t": "CUSTOM",
+      "_____10c-CTGM4_-cx-subgrp-t": "",
+      "_____10c-CTGM4_-cx-_n_cnt-i": 1,
+      "_____10c-CTGM4_-cx-synatt-f": 100,
+      "_____10c-CTGM4_-cx-de_gen-f": 0,
+      "_____10c-CTGM4_-cx-pspuni-b": false,
+      "_____10c-CTGM4_-nx-pstcrm-f": 99999,
+      "_____10c-CTGM4_-cx-dstmap-d": {},
+      "_____10c-CTGM4_-cx-___bbx-i": 1,
+      "_____10c-CTGM4_-cx-___bby-i": 1,
+      "_____10c-CTGM4_-cx-___bbz-i": 1,
+      "_____10c-CTGM4_-cx-rcordx-i": -20,
+      "_____10c-CTGM4_-cx-rcordy-i": 0,
+      "_____10c-CTGM4_-cx-rcordz-i": -14,
+      "_____10c-CTGM4_-cx-2dcorx-i": 3770,
+      "_____10c-CTGM4_-cx-2dcory-i": 584,
+      "_____10c-CTGM4_-cx-gd_vis-b": true,
+      "_____10c-CTGM4_-nx-pstcr_-f": 1,
+      "_____10c-CTGM4_-nx-fire_t-f": 1,
+      "_____10c-CTGM4_-nx-refrac-i": 0,
+      "_____10c-CTGM4_-nx-leak_c-f": 0,
+      "_____10c-CTGM4_-nx-leak_v-f": 0,
+      "_____10c-CTGM4_-nx-c_fr_c-i": 0,
+      "_____10c-CTGM4_-nx-snooze-f": 0,
+      "_____10c-CTGM4_-nx-ftincx-f": 0,
+      "_____10c-CTGM4_-nx-ftincy-f": 0,
+      "_____10c-CTGM4_-nx-ftincz-f": 0,
+      "_____10c-CTGM4_-nx-fthlim-f": 0,
+      "_____10c-CTGM4_-nx-mp_acc-b": false,
+      "_____10c-CTGM4_-nx-mp_psp-b": false,
+      "_____10c-CTGM4_-cx-memory-b": false,
+      "_____10c-CTGM4_-cx-mem__t-i": 100,
+      "_____10c-CTGM4_-cx-mem_gr-i": 1,
+      "_____10c-CTGM4_-cx-mem_ls-i": 9,
+      "_____10c-CTGM4_-nx-excite-f": 100,
+      "_____10c-CTGM4_-cx-__name-t": "M4_FW",
+      "_____10c-CTGM4_-cx-_group-t": "CUSTOM",
+      "_____10c-CLWM4_-cx-subgrp-t": "",
+      "_____10c-CLWM4_-cx-_n_cnt-i": 1,
+      "_____10c-CLWM4_-cx-synatt-f": 100,
+      "_____10c-CLWM4_-cx-de_gen-f": 0,
+      "_____10c-CLWM4_-cx-pspuni-b": false,
+      "_____10c-CLWM4_-nx-pstcrm-f": 99999,
+      "_____10c-CLWM4_-cx-dstmap-d": {},
+      "_____10c-CLWM4_-cx-___bbx-i": 1,
+      "_____10c-CLWM4_-cx-___bby-i": 1,
+      "_____10c-CLWM4_-cx-___bbz-i": 1,
+      "_____10c-CLWM4_-cx-rcordx-i": -15,
+      "_____10c-CLWM4_-cx-rcordy-i": 0,
+      "_____10c-CLWM4_-cx-rcordz-i": -14,
+      "_____10c-CLWM4_-cx-2dcorx-i": 3774,
+      "_____10c-CLWM4_-cx-2dcory-i": 739,
+      "_____10c-CLWM4_-cx-gd_vis-b": true,
+      "_____10c-CLWM4_-nx-pstcr_-f": 1,
+      "_____10c-CLWM4_-nx-fire_t-f": 1,
+      "_____10c-CLWM4_-nx-refrac-i": 0,
+      "_____10c-CLWM4_-nx-leak_c-f": 0,
+      "_____10c-CLWM4_-nx-leak_v-f": 0,
+      "_____10c-CLWM4_-nx-c_fr_c-i": 0,
+      "_____10c-CLWM4_-nx-snooze-f": 0,
+      "_____10c-CLWM4_-nx-ftincx-f": 0,
+      "_____10c-CLWM4_-nx-ftincy-f": 0,
+      "_____10c-CLWM4_-nx-ftincz-f": 0,
+      "_____10c-CLWM4_-nx-fthlim-f": 0,
+      "_____10c-CLWM4_-nx-mp_acc-b": false,
+      "_____10c-CLWM4_-nx-mp_psp-b": false,
+      "_____10c-CLWM4_-cx-memory-b": false,
+      "_____10c-CLWM4_-cx-mem__t-i": 100,
+      "_____10c-CLWM4_-cx-mem_gr-i": 1,
+      "_____10c-CLWM4_-cx-mem_ls-i": 9,
+      "_____10c-CLWM4_-nx-excite-f": 100,
+      "_____10c-CLWM4_-cx-__name-t": "M4_BW",
+      "_____10c-CLWM4_-cx-_group-t": "CUSTOM",
+      "_____10c-CUQges-cx-subgrp-t": "",
+      "_____10c-CUQges-cx-_n_cnt-i": 1,
+      "_____10c-CUQges-cx-synatt-f": 100,
+      "_____10c-CUQges-cx-de_gen-f": 0,
+      "_____10c-CUQges-cx-pspuni-b": false,
+      "_____10c-CUQges-nx-pstcrm-f": 99999,
+      "_____10c-CUQges-cx-dstmap-d": {
+         "C76ges": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CUQges": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CUQges-cx-___bbx-i": 15,
+      "_____10c-CUQges-cx-___bby-i": 3,
+      "_____10c-CUQges-cx-___bbz-i": 1,
+      "_____10c-CUQges-cx-rcordx-i": 36,
+      "_____10c-CUQges-cx-rcordy-i": 135,
+      "_____10c-CUQges-cx-rcordz-i": -20,
+      "_____10c-CUQges-cx-2dcorx-i": -3067,
+      "_____10c-CUQges-cx-2dcory-i": 1615,
+      "_____10c-CUQges-cx-gd_vis-b": true,
+      "_____10c-CUQges-nx-pstcr_-f": 1,
+      "_____10c-CUQges-nx-fire_t-f": 1,
+      "_____10c-CUQges-nx-refrac-i": 0,
+      "_____10c-CUQges-nx-leak_c-f": 0,
+      "_____10c-CUQges-nx-leak_v-f": 0,
+      "_____10c-CUQges-nx-c_fr_c-i": 10,
+      "_____10c-CUQges-nx-snooze-f": 1,
+      "_____10c-CUQges-nx-ftincx-f": 0,
+      "_____10c-CUQges-nx-ftincy-f": 0,
+      "_____10c-CUQges-nx-ftincz-f": 0,
+      "_____10c-CUQges-nx-fthlim-f": 0,
+      "_____10c-CUQges-nx-mp_acc-b": false,
+      "_____10c-CUQges-nx-mp_psp-b": false,
+      "_____10c-CUQges-cx-memory-b": false,
+      "_____10c-CUQges-cx-mem__t-i": 100,
+      "_____10c-CUQges-cx-mem_gr-i": 1,
+      "_____10c-CUQges-cx-mem_ls-i": 9,
+      "_____10c-CUQges-nx-excite-f": 100,
+      "_____10c-CUQges-cx-__name-t": "gesture_horizontal_motion",
+      "_____10c-CUQges-cx-_group-t": "CUSTOM",
+      "_____10c-C76ges-cx-subgrp-t": "",
+      "_____10c-C76ges-cx-_n_cnt-i": 1,
+      "_____10c-C76ges-cx-synatt-f": 100,
+      "_____10c-C76ges-cx-de_gen-f": 0,
+      "_____10c-C76ges-cx-pspuni-b": true,
+      "_____10c-C76ges-nx-pstcrm-f": 99999,
+      "_____10c-C76ges-cx-dstmap-d": {
+         "C76ges": [
+            [
+               "lateral_+z",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "MLIcom": [
+            [
+               "memory",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-C76ges-cx-___bbx-i": 10,
+      "_____10c-C76ges-cx-___bby-i": 3,
+      "_____10c-C76ges-cx-___bbz-i": 20,
+      "_____10c-C76ges-cx-rcordx-i": 52,
+      "_____10c-C76ges-cx-rcordy-i": 140,
+      "_____10c-C76ges-cx-rcordz-i": -20,
+      "_____10c-C76ges-cx-2dcorx-i": -2692,
+      "_____10c-C76ges-cx-2dcory-i": 1847,
+      "_____10c-C76ges-cx-gd_vis-b": true,
+      "_____10c-C76ges-nx-pstcr_-f": 1,
+      "_____10c-C76ges-nx-fire_t-f": 1,
+      "_____10c-C76ges-nx-refrac-i": 0,
+      "_____10c-C76ges-nx-leak_c-f": 0,
+      "_____10c-C76ges-nx-leak_v-f": 0,
+      "_____10c-C76ges-nx-c_fr_c-i": 0,
+      "_____10c-C76ges-nx-snooze-f": 0,
+      "_____10c-C76ges-nx-ftincx-f": 0,
+      "_____10c-C76ges-nx-ftincy-f": 0,
+      "_____10c-C76ges-nx-ftincz-f": 0,
+      "_____10c-C76ges-nx-fthlim-f": 0,
+      "_____10c-C76ges-nx-mp_acc-b": true,
+      "_____10c-C76ges-nx-mp_psp-b": false,
+      "_____10c-C76ges-cx-memory-b": false,
+      "_____10c-C76ges-cx-mem__t-i": 100,
+      "_____10c-C76ges-cx-mem_gr-i": 1,
+      "_____10c-C76ges-cx-mem_ls-i": 9,
+      "_____10c-C76ges-nx-excite-f": 100,
+      "_____10c-C76ges-cx-__name-t": "gesture_hori_signature",
+      "_____10c-C76ges-cx-_group-t": "CUSTOM",
+      "_____10c-o__loc-cx-subgrp-t": "",
+      "_____10c-o__loc-cx-_n_cnt-i": 1,
+      "_____10c-o__loc-cx-synatt-f": 100,
+      "_____10c-o__loc-cx-de_gen-f": 0,
+      "_____10c-o__loc-cx-pspuni-b": false,
+      "_____10c-o__loc-nx-pstcrm-f": 99999,
+      "_____10c-o__loc-cx-dstmap-d": {},
+      "_____10c-o__loc-cx-___bbx-i": 32,
+      "_____10c-o__loc-cx-___bby-i": 32,
+      "_____10c-o__loc-cx-___bbz-i": 1,
+      "_____10c-o__loc-cx-rcordx-i": 110,
+      "_____10c-o__loc-cx-rcordy-i": 51,
+      "_____10c-o__loc-cx-rcordz-i": 0,
+      "_____10c-o__loc-cx-2dcorx-i": 3399,
+      "_____10c-o__loc-cx-2dcory-i": -15,
+      "_____10c-o__loc-cx-gd_vis-b": true,
+      "_____10c-o__loc-nx-pstcr_-f": 1,
+      "_____10c-o__loc-nx-fire_t-f": 1,
+      "_____10c-o__loc-nx-refrac-i": 0,
+      "_____10c-o__loc-nx-leak_c-f": 0,
+      "_____10c-o__loc-nx-leak_v-f": 0,
+      "_____10c-o__loc-nx-c_fr_c-i": 0,
+      "_____10c-o__loc-nx-snooze-f": 0,
+      "_____10c-o__loc-nx-ftincx-f": 0,
+      "_____10c-o__loc-nx-ftincy-f": 0,
+      "_____10c-o__loc-nx-ftincz-f": 0,
+      "_____10c-o__loc-nx-fthlim-f": 0,
+      "_____10c-o__loc-nx-mp_acc-b": true,
+      "_____10c-o__loc-nx-mp_psp-b": false,
+      "_____10c-o__loc-cx-memory-b": false,
+      "_____10c-o__loc-cx-mem__t-i": 100,
+      "_____10c-o__loc-cx-mem_gr-i": 1,
+      "_____10c-o__loc-cx-mem_ls-i": 9,
+      "_____10c-o__loc-nx-excite-f": 100,
+      "_____10c-o__loc-cx-__name-t": "Recognition Location",
+      "_____10c-o__loc-cx-_group-t": "OPU",
+      "_____10c-o__loc-cx-devcnt-i": 1,
+      "_____10c-i___id-cx-subgrp-t": "",
+      "_____10c-i___id-cx-_n_cnt-i": 1,
+      "_____10c-i___id-cx-synatt-f": 100,
+      "_____10c-i___id-cx-de_gen-f": 0,
+      "_____10c-i___id-cx-pspuni-b": true,
+      "_____10c-i___id-nx-pstcrm-f": 99999,
+      "_____10c-i___id-cx-dstmap-d": {
+         "o___id": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               55,
+               false,
+               1,
+               1,
+               1
+            ],
+            [
+               "recog_inh",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               -15,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-i___id-cx-___bbx-i": 1,
+      "_____10c-i___id-cx-___bby-i": 6,
+      "_____10c-i___id-cx-___bbz-i": 1,
+      "_____10c-i___id-cx-rcordx-i": 68,
+      "_____10c-i___id-cx-rcordy-i": 179,
+      "_____10c-i___id-cx-rcordz-i": -20,
+      "_____10c-i___id-cx-2dcorx-i": -1830,
+      "_____10c-i___id-cx-2dcory-i": 1109,
+      "_____10c-i___id-cx-gd_vis-b": true,
+      "_____10c-i___id-nx-pstcr_-f": 1,
+      "_____10c-i___id-nx-fire_t-f": 1,
+      "_____10c-i___id-nx-refrac-i": 0,
+      "_____10c-i___id-nx-leak_c-f": 0,
+      "_____10c-i___id-nx-leak_v-f": 0,
+      "_____10c-i___id-nx-c_fr_c-i": 0,
+      "_____10c-i___id-nx-snooze-f": 0,
+      "_____10c-i___id-nx-ftincx-f": 0,
+      "_____10c-i___id-nx-ftincy-f": 0,
+      "_____10c-i___id-nx-ftincz-f": 0,
+      "_____10c-i___id-nx-fthlim-f": 0,
+      "_____10c-i___id-nx-mp_acc-b": true,
+      "_____10c-i___id-nx-mp_psp-b": false,
+      "_____10c-i___id-cx-memory-b": false,
+      "_____10c-i___id-cx-mem__t-i": 100,
+      "_____10c-i___id-cx-mem_gr-i": 1,
+      "_____10c-i___id-cx-mem_ls-i": 9,
+      "_____10c-i___id-nx-excite-f": 100,
+      "_____10c-i___id-cx-__name-t": "ID Trainer",
+      "_____10c-i___id-cx-_group-t": "IPU",
+      "_____10c-i___id-cx-devcnt-i": 1,
+      "_____10c-CGLfor-cx-subgrp-t": "",
+      "_____10c-CGLfor-cx-_n_cnt-i": 1,
+      "_____10c-CGLfor-cx-synatt-f": 100,
+      "_____10c-CGLfor-cx-de_gen-f": 0,
+      "_____10c-CGLfor-cx-pspuni-b": false,
+      "_____10c-CGLfor-nx-pstcrm-f": 99999,
+      "_____10c-CGLfor-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-_0_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CGLfor-cx-___bbx-i": 1,
+      "_____10c-CGLfor-cx-___bby-i": 1,
+      "_____10c-CGLfor-cx-___bbz-i": 1,
+      "_____10c-CGLfor-cx-rcordx-i": 46,
+      "_____10c-CGLfor-cx-rcordy-i": 196,
+      "_____10c-CGLfor-cx-rcordz-i": -20,
+      "_____10c-CGLfor-cx-2dcorx-i": -894,
+      "_____10c-CGLfor-cx-2dcory-i": 883,
+      "_____10c-CGLfor-cx-gd_vis-b": true,
+      "_____10c-CGLfor-nx-pstcr_-f": 1,
+      "_____10c-CGLfor-nx-fire_t-f": 1,
+      "_____10c-CGLfor-nx-refrac-i": 0,
+      "_____10c-CGLfor-nx-leak_c-f": 0,
+      "_____10c-CGLfor-nx-leak_v-f": 0,
+      "_____10c-CGLfor-nx-c_fr_c-i": 0,
+      "_____10c-CGLfor-nx-snooze-f": 0,
+      "_____10c-CGLfor-nx-ftincx-f": 0,
+      "_____10c-CGLfor-nx-ftincy-f": 0,
+      "_____10c-CGLfor-nx-ftincz-f": 0,
+      "_____10c-CGLfor-nx-fthlim-f": 0,
+      "_____10c-CGLfor-nx-mp_acc-b": true,
+      "_____10c-CGLfor-nx-mp_psp-b": false,
+      "_____10c-CGLfor-cx-memory-b": false,
+      "_____10c-CGLfor-cx-mem__t-i": 100,
+      "_____10c-CGLfor-cx-mem_gr-i": 1,
+      "_____10c-CGLfor-cx-mem_ls-i": 9,
+      "_____10c-CGLfor-nx-excite-f": 100,
+      "_____10c-CGLfor-cx-__name-t": "forward",
+      "_____10c-CGLfor-cx-_group-t": "CUSTOM",
+      "_____10c-CS0lef-cx-subgrp-t": "",
+      "_____10c-CS0lef-cx-_n_cnt-i": 1,
+      "_____10c-CS0lef-cx-synatt-f": 100,
+      "_____10c-CS0lef-cx-de_gen-f": 0,
+      "_____10c-CS0lef-cx-pspuni-b": false,
+      "_____10c-CS0lef-nx-pstcrm-f": 99999,
+      "_____10c-CS0lef-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-2_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CS0lef-cx-___bbx-i": 1,
+      "_____10c-CS0lef-cx-___bby-i": 1,
+      "_____10c-CS0lef-cx-___bbz-i": 1,
+      "_____10c-CS0lef-cx-rcordx-i": 75,
+      "_____10c-CS0lef-cx-rcordy-i": 196,
+      "_____10c-CS0lef-cx-rcordz-i": -20,
+      "_____10c-CS0lef-cx-2dcorx-i": -904,
+      "_____10c-CS0lef-cx-2dcory-i": 1528,
+      "_____10c-CS0lef-cx-gd_vis-b": true,
+      "_____10c-CS0lef-nx-pstcr_-f": 1,
+      "_____10c-CS0lef-nx-fire_t-f": 1,
+      "_____10c-CS0lef-nx-refrac-i": 0,
+      "_____10c-CS0lef-nx-leak_c-f": 0,
+      "_____10c-CS0lef-nx-leak_v-f": 0,
+      "_____10c-CS0lef-nx-c_fr_c-i": 0,
+      "_____10c-CS0lef-nx-snooze-f": 0,
+      "_____10c-CS0lef-nx-ftincx-f": 0,
+      "_____10c-CS0lef-nx-ftincy-f": 0,
+      "_____10c-CS0lef-nx-ftincz-f": 0,
+      "_____10c-CS0lef-nx-fthlim-f": 0,
+      "_____10c-CS0lef-nx-mp_acc-b": true,
+      "_____10c-CS0lef-nx-mp_psp-b": false,
+      "_____10c-CS0lef-cx-memory-b": false,
+      "_____10c-CS0lef-cx-mem__t-i": 100,
+      "_____10c-CS0lef-cx-mem_gr-i": 1,
+      "_____10c-CS0lef-cx-mem_ls-i": 9,
+      "_____10c-CS0lef-nx-excite-f": 100,
+      "_____10c-CS0lef-cx-__name-t": "left",
+      "_____10c-CS0lef-cx-_group-t": "CUSTOM",
+      "_____10c-CIObac-cx-subgrp-t": "",
+      "_____10c-CIObac-cx-_n_cnt-i": 1,
+      "_____10c-CIObac-cx-synatt-f": 100,
+      "_____10c-CIObac-cx-de_gen-f": 0,
+      "_____10c-CIObac-cx-pspuni-b": false,
+      "_____10c-CIObac-nx-pstcrm-f": 99999,
+      "_____10c-CIObac-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-1_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CIObac-cx-___bbx-i": 1,
+      "_____10c-CIObac-cx-___bby-i": 1,
+      "_____10c-CIObac-cx-___bbz-i": 1,
+      "_____10c-CIObac-cx-rcordx-i": 61,
+      "_____10c-CIObac-cx-rcordy-i": 196,
+      "_____10c-CIObac-cx-rcordz-i": -20,
+      "_____10c-CIObac-cx-2dcorx-i": -881,
+      "_____10c-CIObac-cx-2dcory-i": 1256,
+      "_____10c-CIObac-cx-gd_vis-b": true,
+      "_____10c-CIObac-nx-pstcr_-f": 1,
+      "_____10c-CIObac-nx-fire_t-f": 1,
+      "_____10c-CIObac-nx-refrac-i": 0,
+      "_____10c-CIObac-nx-leak_c-f": 0,
+      "_____10c-CIObac-nx-leak_v-f": 0,
+      "_____10c-CIObac-nx-c_fr_c-i": 0,
+      "_____10c-CIObac-nx-snooze-f": 0,
+      "_____10c-CIObac-nx-ftincx-f": 0,
+      "_____10c-CIObac-nx-ftincy-f": 0,
+      "_____10c-CIObac-nx-ftincz-f": 0,
+      "_____10c-CIObac-nx-fthlim-f": 0,
+      "_____10c-CIObac-nx-mp_acc-b": true,
+      "_____10c-CIObac-nx-mp_psp-b": false,
+      "_____10c-CIObac-cx-memory-b": false,
+      "_____10c-CIObac-cx-mem__t-i": 100,
+      "_____10c-CIObac-cx-mem_gr-i": 1,
+      "_____10c-CIObac-cx-mem_ls-i": 9,
+      "_____10c-CIObac-nx-excite-f": 100,
+      "_____10c-CIObac-cx-__name-t": "back",
+      "_____10c-CIObac-cx-_group-t": "CUSTOM",
+      "_____10c-CZFrig-cx-subgrp-t": "",
+      "_____10c-CZFrig-cx-_n_cnt-i": 1,
+      "_____10c-CZFrig-cx-synatt-f": 100,
+      "_____10c-CZFrig-cx-de_gen-f": 0,
+      "_____10c-CZFrig-cx-pspuni-b": false,
+      "_____10c-CZFrig-nx-pstcrm-f": 99999,
+      "_____10c-CZFrig-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-3_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CZFrig-cx-___bbx-i": 1,
+      "_____10c-CZFrig-cx-___bby-i": 1,
+      "_____10c-CZFrig-cx-___bbz-i": 1,
+      "_____10c-CZFrig-cx-rcordx-i": 87,
+      "_____10c-CZFrig-cx-rcordy-i": 196,
+      "_____10c-CZFrig-cx-rcordz-i": -20,
+      "_____10c-CZFrig-cx-2dcorx-i": -890,
+      "_____10c-CZFrig-cx-2dcory-i": 1791,
+      "_____10c-CZFrig-cx-gd_vis-b": true,
+      "_____10c-CZFrig-nx-pstcr_-f": 1,
+      "_____10c-CZFrig-nx-fire_t-f": 1,
+      "_____10c-CZFrig-nx-refrac-i": 0,
+      "_____10c-CZFrig-nx-leak_c-f": 0,
+      "_____10c-CZFrig-nx-leak_v-f": 0,
+      "_____10c-CZFrig-nx-c_fr_c-i": 0,
+      "_____10c-CZFrig-nx-snooze-f": 0,
+      "_____10c-CZFrig-nx-ftincx-f": 0,
+      "_____10c-CZFrig-nx-ftincy-f": 0,
+      "_____10c-CZFrig-nx-ftincz-f": 0,
+      "_____10c-CZFrig-nx-fthlim-f": 0,
+      "_____10c-CZFrig-nx-mp_acc-b": true,
+      "_____10c-CZFrig-nx-mp_psp-b": false,
+      "_____10c-CZFrig-cx-memory-b": false,
+      "_____10c-CZFrig-cx-mem__t-i": 100,
+      "_____10c-CZFrig-cx-mem_gr-i": 1,
+      "_____10c-CZFrig-cx-mem_ls-i": 9,
+      "_____10c-CZFrig-nx-excite-f": 100,
+      "_____10c-CZFrig-cx-__name-t": "right",
+      "_____10c-CZFrig-cx-_group-t": "CUSTOM",
+      "_____10c-CQUdow-cx-subgrp-t": "",
+      "_____10c-CQUdow-cx-_n_cnt-i": 1,
+      "_____10c-CQUdow-cx-synatt-f": 100,
+      "_____10c-CQUdow-cx-de_gen-f": 0,
+      "_____10c-CQUdow-cx-pspuni-b": false,
+      "_____10c-CQUdow-nx-pstcrm-f": 99999,
+      "_____10c-CQUdow-cx-dstmap-d": {
+         "CYIdow": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "MLIcom": [
+            [
+               "memory",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CQUdow-cx-___bbx-i": 16,
+      "_____10c-CQUdow-cx-___bby-i": 16,
+      "_____10c-CQUdow-cx-___bbz-i": 1,
+      "_____10c-CQUdow-cx-rcordx-i": 80,
+      "_____10c-CQUdow-cx-rcordy-i": 133,
+      "_____10c-CQUdow-cx-rcordz-i": -20,
+      "_____10c-CQUdow-cx-2dcorx-i": -2657,
+      "_____10c-CQUdow-cx-2dcory-i": 1399,
+      "_____10c-CQUdow-cx-gd_vis-b": true,
+      "_____10c-CQUdow-nx-pstcr_-f": 1,
+      "_____10c-CQUdow-nx-fire_t-f": 0.0,
+      "_____10c-CQUdow-nx-refrac-i": 0,
+      "_____10c-CQUdow-nx-leak_c-f": 0,
+      "_____10c-CQUdow-nx-leak_v-f": 0,
+      "_____10c-CQUdow-nx-c_fr_c-i": 0,
+      "_____10c-CQUdow-nx-snooze-f": 0,
+      "_____10c-CQUdow-nx-ftincx-f": 0,
+      "_____10c-CQUdow-nx-ftincy-f": 0,
+      "_____10c-CQUdow-nx-ftincz-f": 0,
+      "_____10c-CQUdow-nx-fthlim-f": 0,
+      "_____10c-CQUdow-nx-mp_acc-b": true,
+      "_____10c-CQUdow-nx-mp_psp-b": false,
+      "_____10c-CQUdow-cx-memory-b": false,
+      "_____10c-CQUdow-cx-mem__t-i": 100,
+      "_____10c-CQUdow-cx-mem_gr-i": 1,
+      "_____10c-CQUdow-cx-mem_ls-i": 9,
+      "_____10c-CQUdow-nx-excite-f": 100,
+      "_____10c-CQUdow-cx-__name-t": "downsampling",
+      "_____10c-CQUdow-cx-_group-t": "CUSTOM",
+      "_____10c-ov_enh-cx-subgrp-t": "",
+      "_____10c-ov_enh-cx-_n_cnt-i": 1,
+      "_____10c-ov_enh-cx-synatt-f": 100,
+      "_____10c-ov_enh-cx-de_gen-f": 0,
+      "_____10c-ov_enh-cx-pspuni-b": false,
+      "_____10c-ov_enh-nx-pstcrm-f": 99999,
+      "_____10c-ov_enh-cx-dstmap-d": {},
+      "_____10c-ov_enh-cx-___bbx-i": 3,
+      "_____10c-ov_enh-cx-___bby-i": 1,
+      "_____10c-ov_enh-cx-___bbz-i": 10,
+      "_____10c-ov_enh-cx-rcordx-i": 75,
+      "_____10c-ov_enh-cx-rcordy-i": 0,
+      "_____10c-ov_enh-cx-rcordz-i": -22,
+      "_____10c-ov_enh-cx-2dcorx-i": 3073,
+      "_____10c-ov_enh-cx-2dcory-i": 141,
+      "_____10c-ov_enh-cx-gd_vis-b": true,
+      "_____10c-ov_enh-nx-pstcr_-f": 1,
+      "_____10c-ov_enh-nx-fire_t-f": 1,
+      "_____10c-ov_enh-nx-refrac-i": 0,
+      "_____10c-ov_enh-nx-leak_c-f": 0,
+      "_____10c-ov_enh-nx-leak_v-f": 0,
+      "_____10c-ov_enh-nx-c_fr_c-i": 0,
+      "_____10c-ov_enh-nx-snooze-f": 0,
+      "_____10c-ov_enh-nx-ftincx-f": 0,
+      "_____10c-ov_enh-nx-ftincy-f": 0,
+      "_____10c-ov_enh-nx-ftincz-f": 0,
+      "_____10c-ov_enh-nx-fthlim-f": 0,
+      "_____10c-ov_enh-nx-mp_acc-b": true,
+      "_____10c-ov_enh-nx-mp_psp-b": false,
+      "_____10c-ov_enh-cx-memory-b": false,
+      "_____10c-ov_enh-cx-mem__t-i": 100,
+      "_____10c-ov_enh-cx-mem_gr-i": 1,
+      "_____10c-ov_enh-cx-mem_ls-i": 9,
+      "_____10c-ov_enh-nx-excite-f": 100,
+      "_____10c-ov_enh-cx-__name-t": "Lighting enhancement",
+      "_____10c-ov_enh-cx-_group-t": "OPU",
+      "_____10c-ov_enh-cx-devcnt-i": 1,
+      "_____10c-ovtune-cx-subgrp-t": "",
+      "_____10c-ovtune-cx-_n_cnt-i": 1,
+      "_____10c-ovtune-cx-synatt-f": 100,
+      "_____10c-ovtune-cx-de_gen-f": 0,
+      "_____10c-ovtune-cx-pspuni-b": false,
+      "_____10c-ovtune-nx-pstcrm-f": 99999,
+      "_____10c-ovtune-cx-dstmap-d": {},
+      "_____10c-ovtune-cx-___bbx-i": 2,
+      "_____10c-ovtune-cx-___bby-i": 1,
+      "_____10c-ovtune-cx-___bbz-i": 10,
+      "_____10c-ovtune-cx-rcordx-i": 80,
+      "_____10c-ovtune-cx-rcordy-i": 0,
+      "_____10c-ovtune-cx-rcordz-i": -22,
+      "_____10c-ovtune-cx-2dcorx-i": 2724,
+      "_____10c-ovtune-cx-2dcory-i": 147,
+      "_____10c-ovtune-cx-gd_vis-b": true,
+      "_____10c-ovtune-nx-pstcr_-f": 1,
+      "_____10c-ovtune-nx-fire_t-f": 1,
+      "_____10c-ovtune-nx-refrac-i": 0,
+      "_____10c-ovtune-nx-leak_c-f": 0,
+      "_____10c-ovtune-nx-leak_v-f": 0,
+      "_____10c-ovtune-nx-c_fr_c-i": 0,
+      "_____10c-ovtune-nx-snooze-f": 0,
+      "_____10c-ovtune-nx-ftincx-f": 0,
+      "_____10c-ovtune-nx-ftincy-f": 0,
+      "_____10c-ovtune-nx-ftincz-f": 0,
+      "_____10c-ovtune-nx-fthlim-f": 0,
+      "_____10c-ovtune-nx-mp_acc-b": true,
+      "_____10c-ovtune-nx-mp_psp-b": false,
+      "_____10c-ovtune-cx-memory-b": false,
+      "_____10c-ovtune-cx-mem__t-i": 100,
+      "_____10c-ovtune-cx-mem_gr-i": 1,
+      "_____10c-ovtune-cx-mem_ls-i": 9,
+      "_____10c-ovtune-nx-excite-f": 100,
+      "_____10c-ovtune-cx-__name-t": "Lighting threshold",
+      "_____10c-ovtune-cx-_group-t": "OPU",
+      "_____10c-ovtune-cx-devcnt-i": 1,
+      "_____10c-CYIdow-cx-subgrp-t": "",
+      "_____10c-CYIdow-cx-_n_cnt-i": 1,
+      "_____10c-CYIdow-cx-synatt-f": 100,
+      "_____10c-CYIdow-cx-de_gen-f": 0,
+      "_____10c-CYIdow-cx-pspuni-b": false,
+      "_____10c-CYIdow-nx-pstcrm-f": 99999,
+      "_____10c-CYIdow-cx-dstmap-d": {
+         "MLIcom": [
+            [
+               "memory",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CYIdow-cx-___bbx-i": 8,
+      "_____10c-CYIdow-cx-___bby-i": 8,
+      "_____10c-CYIdow-cx-___bbz-i": 1,
+      "_____10c-CYIdow-cx-rcordx-i": 88,
+      "_____10c-CYIdow-cx-rcordy-i": 155,
+      "_____10c-CYIdow-cx-rcordz-i": -20,
+      "_____10c-CYIdow-cx-2dcorx-i": -2328,
+      "_____10c-CYIdow-cx-2dcory-i": 891,
+      "_____10c-CYIdow-cx-gd_vis-b": true,
+      "_____10c-CYIdow-nx-pstcr_-f": 1,
+      "_____10c-CYIdow-nx-fire_t-f": 1,
+      "_____10c-CYIdow-nx-refrac-i": 0,
+      "_____10c-CYIdow-nx-leak_c-f": 0,
+      "_____10c-CYIdow-nx-leak_v-f": 0,
+      "_____10c-CYIdow-nx-c_fr_c-i": 0,
+      "_____10c-CYIdow-nx-snooze-f": 0,
+      "_____10c-CYIdow-nx-ftincx-f": 0,
+      "_____10c-CYIdow-nx-ftincy-f": 0,
+      "_____10c-CYIdow-nx-ftincz-f": 0,
+      "_____10c-CYIdow-nx-fthlim-f": 0,
+      "_____10c-CYIdow-nx-mp_acc-b": true,
+      "_____10c-CYIdow-nx-mp_psp-b": false,
+      "_____10c-CYIdow-cx-memory-b": false,
+      "_____10c-CYIdow-cx-mem__t-i": 100,
+      "_____10c-CYIdow-cx-mem_gr-i": 1,
+      "_____10c-CYIdow-cx-mem_ls-i": 9,
+      "_____10c-CYIdow-nx-excite-f": 100,
+      "_____10c-CYIdow-cx-__name-t": "downsample2",
+      "_____10c-CYIdow-cx-_group-t": "CUSTOM",
+      "_____10c-CM9ges-cx-subgrp-t": "",
+      "_____10c-CM9ges-cx-_n_cnt-i": 1,
+      "_____10c-CM9ges-cx-synatt-f": 100,
+      "_____10c-CM9ges-cx-de_gen-f": 0,
+      "_____10c-CM9ges-cx-pspuni-b": false,
+      "_____10c-CM9ges-nx-pstcrm-f": 99999,
+      "_____10c-CM9ges-cx-dstmap-d": {
+         "CM9ges": [
+            [
+               "block_to_block",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "COEges": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CM9ges-cx-___bbx-i": 3,
+      "_____10c-CM9ges-cx-___bby-i": 15,
+      "_____10c-CM9ges-cx-___bbz-i": 1,
+      "_____10c-CM9ges-cx-rcordx-i": 36,
+      "_____10c-CM9ges-cx-rcordy-i": 140,
+      "_____10c-CM9ges-cx-rcordz-i": -20,
+      "_____10c-CM9ges-cx-2dcorx-i": -3046,
+      "_____10c-CM9ges-cx-2dcory-i": 1217,
+      "_____10c-CM9ges-cx-gd_vis-b": true,
+      "_____10c-CM9ges-nx-pstcr_-f": 1,
+      "_____10c-CM9ges-nx-fire_t-f": 1,
+      "_____10c-CM9ges-nx-refrac-i": 0,
+      "_____10c-CM9ges-nx-leak_c-f": 0,
+      "_____10c-CM9ges-nx-leak_v-f": 0,
+      "_____10c-CM9ges-nx-c_fr_c-i": 0,
+      "_____10c-CM9ges-nx-snooze-f": 0,
+      "_____10c-CM9ges-nx-ftincx-f": 0,
+      "_____10c-CM9ges-nx-ftincy-f": 0,
+      "_____10c-CM9ges-nx-ftincz-f": 0,
+      "_____10c-CM9ges-nx-fthlim-f": 0,
+      "_____10c-CM9ges-nx-mp_acc-b": true,
+      "_____10c-CM9ges-nx-mp_psp-b": false,
+      "_____10c-CM9ges-cx-memory-b": false,
+      "_____10c-CM9ges-cx-mem__t-i": 100,
+      "_____10c-CM9ges-cx-mem_gr-i": 1,
+      "_____10c-CM9ges-cx-mem_ls-i": 9,
+      "_____10c-CM9ges-nx-excite-f": 100,
+      "_____10c-CM9ges-cx-__name-t": "gesture_vertical_motion",
+      "_____10c-CM9ges-cx-_group-t": "CUSTOM",
+      "_____10c-COEges-cx-subgrp-t": "",
+      "_____10c-COEges-cx-_n_cnt-i": 1,
+      "_____10c-COEges-cx-synatt-f": 100,
+      "_____10c-COEges-cx-de_gen-f": 0,
+      "_____10c-COEges-cx-pspuni-b": false,
+      "_____10c-COEges-nx-pstcrm-f": 99999,
+      "_____10c-COEges-cx-dstmap-d": {
+         "COEges": [
+            [
+               "lateral_+z",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "MLIcom": [
+            [
+               "memory",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-COEges-cx-___bbx-i": 3,
+      "_____10c-COEges-cx-___bby-i": 10,
+      "_____10c-COEges-cx-___bbz-i": 20,
+      "_____10c-COEges-cx-rcordx-i": 46,
+      "_____10c-COEges-cx-rcordy-i": 144,
+      "_____10c-COEges-cx-rcordz-i": -20,
+      "_____10c-COEges-cx-2dcorx-i": -2782,
+      "_____10c-COEges-cx-2dcory-i": 884,
+      "_____10c-COEges-cx-gd_vis-b": true,
+      "_____10c-COEges-nx-pstcr_-f": 1,
+      "_____10c-COEges-nx-fire_t-f": 1,
+      "_____10c-COEges-nx-refrac-i": 0,
+      "_____10c-COEges-nx-leak_c-f": 0,
+      "_____10c-COEges-nx-leak_v-f": 0,
+      "_____10c-COEges-nx-c_fr_c-i": 0,
+      "_____10c-COEges-nx-snooze-f": 0,
+      "_____10c-COEges-nx-ftincx-f": 0,
+      "_____10c-COEges-nx-ftincy-f": 0,
+      "_____10c-COEges-nx-ftincz-f": 0,
+      "_____10c-COEges-nx-fthlim-f": 0,
+      "_____10c-COEges-nx-mp_acc-b": true,
+      "_____10c-COEges-nx-mp_psp-b": false,
+      "_____10c-COEges-cx-memory-b": false,
+      "_____10c-COEges-cx-mem__t-i": 100,
+      "_____10c-COEges-cx-mem_gr-i": 1,
+      "_____10c-COEges-cx-mem_ls-i": 9,
+      "_____10c-COEges-nx-excite-f": 100,
+      "_____10c-COEges-cx-__name-t": "gesture_vert_sig",
+      "_____10c-COEges-cx-_group-t": "CUSTOM",
+      "_____10c-CY5up0-cx-subgrp-t": "",
+      "_____10c-CY5up0-cx-_n_cnt-i": 1,
+      "_____10c-CY5up0-cx-synatt-f": 100,
+      "_____10c-CY5up0-cx-de_gen-f": 0,
+      "_____10c-CY5up0-cx-pspuni-b": false,
+      "_____10c-CY5up0-nx-pstcrm-f": 99999,
+      "_____10c-CY5up0-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-4_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CY5up0-cx-___bbx-i": 1,
+      "_____10c-CY5up0-cx-___bby-i": 1,
+      "_____10c-CY5up0-cx-___bbz-i": 1,
+      "_____10c-CY5up0-cx-rcordx-i": 98,
+      "_____10c-CY5up0-cx-rcordy-i": 196,
+      "_____10c-CY5up0-cx-rcordz-i": -20,
+      "_____10c-CY5up0-cx-2dcorx-i": -889,
+      "_____10c-CY5up0-cx-2dcory-i": 2002,
+      "_____10c-CY5up0-cx-gd_vis-b": true,
+      "_____10c-CY5up0-nx-pstcr_-f": 1,
+      "_____10c-CY5up0-nx-fire_t-f": 1,
+      "_____10c-CY5up0-nx-refrac-i": 0,
+      "_____10c-CY5up0-nx-leak_c-f": 0,
+      "_____10c-CY5up0-nx-leak_v-f": 0,
+      "_____10c-CY5up0-nx-c_fr_c-i": 0,
+      "_____10c-CY5up0-nx-snooze-f": 0,
+      "_____10c-CY5up0-nx-ftincx-f": 0,
+      "_____10c-CY5up0-nx-ftincy-f": 0,
+      "_____10c-CY5up0-nx-ftincz-f": 0,
+      "_____10c-CY5up0-nx-fthlim-f": 0,
+      "_____10c-CY5up0-nx-mp_acc-b": true,
+      "_____10c-CY5up0-nx-mp_psp-b": false,
+      "_____10c-CY5up0-cx-memory-b": false,
+      "_____10c-CY5up0-cx-mem__t-i": 100,
+      "_____10c-CY5up0-cx-mem_gr-i": 1,
+      "_____10c-CY5up0-cx-mem_ls-i": 9,
+      "_____10c-CY5up0-nx-excite-f": 100,
+      "_____10c-CY5up0-cx-__name-t": "up",
+      "_____10c-CY5up0-cx-_group-t": "CUSTOM",
+      "_____10c-CG9dow-cx-subgrp-t": "",
+      "_____10c-CG9dow-cx-_n_cnt-i": 1,
+      "_____10c-CG9dow-cx-synatt-f": 100,
+      "_____10c-CG9dow-cx-de_gen-f": 0,
+      "_____10c-CG9dow-cx-pspuni-b": false,
+      "_____10c-CG9dow-nx-pstcrm-f": 99999,
+      "_____10c-CG9dow-cx-dstmap-d": {
+         "o__mot": [
+            [
+               "0_0_0-5_0_0",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-CG9dow-cx-___bbx-i": 1,
+      "_____10c-CG9dow-cx-___bby-i": 1,
+      "_____10c-CG9dow-cx-___bbz-i": 1,
+      "_____10c-CG9dow-cx-rcordx-i": 109,
+      "_____10c-CG9dow-cx-rcordy-i": 196,
+      "_____10c-CG9dow-cx-rcordz-i": -20,
+      "_____10c-CG9dow-cx-2dcorx-i": -882,
+      "_____10c-CG9dow-cx-2dcory-i": 2201,
+      "_____10c-CG9dow-cx-gd_vis-b": true,
+      "_____10c-CG9dow-nx-pstcr_-f": 1,
+      "_____10c-CG9dow-nx-fire_t-f": 1,
+      "_____10c-CG9dow-nx-refrac-i": 0,
+      "_____10c-CG9dow-nx-leak_c-f": 0,
+      "_____10c-CG9dow-nx-leak_v-f": 0,
+      "_____10c-CG9dow-nx-c_fr_c-i": 0,
+      "_____10c-CG9dow-nx-snooze-f": 0,
+      "_____10c-CG9dow-nx-ftincx-f": 0,
+      "_____10c-CG9dow-nx-ftincy-f": 0,
+      "_____10c-CG9dow-nx-ftincz-f": 0,
+      "_____10c-CG9dow-nx-fthlim-f": 0,
+      "_____10c-CG9dow-nx-mp_acc-b": true,
+      "_____10c-CG9dow-nx-mp_psp-b": false,
+      "_____10c-CG9dow-cx-memory-b": false,
+      "_____10c-CG9dow-cx-mem__t-i": 100,
+      "_____10c-CG9dow-cx-mem_gr-i": 1,
+      "_____10c-CG9dow-cx-mem_ls-i": 9,
+      "_____10c-CG9dow-nx-excite-f": 100,
+      "_____10c-CG9dow-cx-__name-t": "down",
+      "_____10c-CG9dow-cx-_group-t": "CUSTOM",
+      "_____10c-o___id-cx-subgrp-t": "",
+      "_____10c-o___id-cx-_n_cnt-i": 1,
+      "_____10c-o___id-cx-synatt-f": 100,
+      "_____10c-o___id-cx-de_gen-f": 0,
+      "_____10c-o___id-cx-pspuni-b": false,
+      "_____10c-o___id-nx-pstcrm-f": 10.0,
+      "_____10c-o___id-cx-dstmap-d": {
+         "CGLfor": [
+            [
+               "forward",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CIObac": [
+            [
+               "back",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CS0lef": [
+            [
+               "left",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CZFrig": [
+            [
+               "right",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CY5up0": [
+            [
+               "up",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ],
+         "CG9dow": [
+            [
+               "down",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               false,
+               1,
+               1,
+               1
+            ]
+         ]
+      },
+      "_____10c-o___id-cx-___bbx-i": 1,
+      "_____10c-o___id-cx-___bby-i": 6,
+      "_____10c-o___id-cx-___bbz-i": 1,
+      "_____10c-o___id-cx-rcordx-i": 83,
+      "_____10c-o___id-cx-rcordy-i": 179,
+      "_____10c-o___id-cx-rcordz-i": -20,
+      "_____10c-o___id-cx-2dcorx-i": -1473,
+      "_____10c-o___id-cx-2dcory-i": 1396,
+      "_____10c-o___id-cx-gd_vis-b": true,
+      "_____10c-o___id-nx-pstcr_-f": 1,
+      "_____10c-o___id-nx-fire_t-f": 5.0,
+      "_____10c-o___id-nx-refrac-i": 0,
+      "_____10c-o___id-nx-leak_c-f": 0,
+      "_____10c-o___id-nx-leak_v-f": 0,
+      "_____10c-o___id-nx-c_fr_c-i": 0,
+      "_____10c-o___id-nx-snooze-f": 0,
+      "_____10c-o___id-nx-ftincx-f": 0,
+      "_____10c-o___id-nx-ftincy-f": 0,
+      "_____10c-o___id-nx-ftincz-f": 0,
+      "_____10c-o___id-nx-fthlim-f": 0,
+      "_____10c-o___id-nx-mp_acc-b": false,
+      "_____10c-o___id-nx-mp_psp-b": false,
+      "_____10c-o___id-cx-memory-b": false,
+      "_____10c-o___id-cx-mem__t-i": 100,
+      "_____10c-o___id-cx-mem_gr-i": 1,
+      "_____10c-o___id-cx-mem_ls-i": 9,
+      "_____10c-o___id-nx-excite-f": 100,
+      "_____10c-o___id-cx-__name-t": "ID Recognition",
+      "_____10c-o___id-cx-_group-t": "OPU",
+      "_____10c-o___id-cx-devcnt-i": 1,
+      "_____10c-MLIcom-cx-subgrp-t": "MEMORY",
+      "_____10c-MLIcom-cx-_n_cnt-i": 1,
+      "_____10c-MLIcom-cx-synatt-f": 100,
+      "_____10c-MLIcom-cx-de_gen-f": 0.0,
+      "_____10c-MLIcom-cx-pspuni-b": true,
+      "_____10c-MLIcom-nx-pstcrm-f": 15.0,
+      "_____10c-MLIcom-cx-dstmap-d": {
+         "o___id": [
+            [
+               "projector",
+               [
+                  1,
+                  1,
+                  1
+               ],
+               1,
+               true,
+               1,
+               100,
+               1
+            ]
+         ]
+      },
+      "_____10c-MLIcom-cx-___bbx-i": 1,
+      "_____10c-MLIcom-cx-___bby-i": 1,
+      "_____10c-MLIcom-cx-___bbz-i": 1,
+      "_____10c-MLIcom-cx-rcordx-i": 76,
+      "_____10c-MLIcom-cx-rcordy-i": 174,
+      "_____10c-MLIcom-cx-rcordz-i": -20,
+      "_____10c-MLIcom-cx-2dcorx-i": -2030,
+      "_____10c-MLIcom-cx-2dcory-i": 1367,
+      "_____10c-MLIcom-cx-gd_vis-b": true,
+      "_____10c-MLIcom-nx-pstcr_-f": 3.0,
+      "_____10c-MLIcom-nx-fire_t-f": 1,
+      "_____10c-MLIcom-nx-refrac-i": 0,
+      "_____10c-MLIcom-nx-leak_c-f": 0,
+      "_____10c-MLIcom-nx-leak_v-f": 0,
+      "_____10c-MLIcom-nx-c_fr_c-i": 0,
+      "_____10c-MLIcom-nx-snooze-f": 0,
+      "_____10c-MLIcom-nx-ftincx-f": 0,
+      "_____10c-MLIcom-nx-ftincy-f": 0,
+      "_____10c-MLIcom-nx-ftincz-f": 0,
+      "_____10c-MLIcom-nx-fthlim-f": 0,
+      "_____10c-MLIcom-nx-mp_acc-b": true,
+      "_____10c-MLIcom-nx-mp_psp-b": false,
+      "_____10c-MLIcom-cx-memory-b": false,
+      "_____10c-MLIcom-cx-mem__t-i": 2000,
+      "_____10c-MLIcom-cx-mem_gr-i": 2000,
+      "_____10c-MLIcom-cx-mem_ls-i": 4000,
+      "_____10c-MLIcom-nx-excite-f": 100,
+      "_____10c-MLIcom-cx-__name-t": "combined_features",
+      "_____10c-MLIcom-cx-_group-t": "CUSTOM"
+   }
+}

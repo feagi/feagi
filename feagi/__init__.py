@@ -18,7 +18,7 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "2.1.4"
+__version__ = "2.1.5"
 
 # Import key classes for convenience, but keep optional dependencies lazy so
 # `import feagi` does not require platform-specific extras (e.g., pyserial).
@@ -60,8 +60,8 @@ def check_rust_sdk():
     """Check if Rust SDK is installed and print status"""
     try:
         _ = __getattr__("FeagiAgentClient")
-        print("✅ FEAGI Rust SDK is available")
+        print("[OK] FEAGI Rust SDK is available")
     except Exception:
-        print("⚠️  FEAGI Rust SDK not installed")
+        print("[WARN]  FEAGI Rust SDK not installed")
         print("   Install with: pip install feagi_rust_py_libs")
 

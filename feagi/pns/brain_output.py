@@ -108,11 +108,13 @@ class BrainOutput:
             # NOTE: frpl.connector_core.caching.MotorDeviceCache() does not exist in current API
             # Using ConnectorAgent instead - encoding methods still need to be added to rust-py-libs
             agent_descriptor_b64 = self._resolve_agent_descriptor_b64()
-            self._cache = frpl.connector_core.ConnectorAgent(agent_descriptor_b64)
+            # ConnectorAgent may be built with or without constructor arg; env var works for both.
+            os.environ["FEAGI_AGENT_DESCRIPTOR_B64"] = agent_descriptor_b64
+            self._cache = frpl.connector_core.ConnectorAgent()
             self._cache_available = True
-            logger.info("✅ Rust ConnectorAgent initialized")
+            logger.info("[OK] Rust ConnectorAgent initialized")
         except (ImportError, AttributeError) as e:
-            logger.error(f"❌ Failed to initialize Rust ConnectorAgent: {e}")
+            logger.error(f"[FAIL] Failed to initialize Rust ConnectorAgent: {e}")
             logger.error("   Install with: pip install feagi_rust_py_libs")
             raise ImportError(
                 "Rust SDK (feagi_rust_py_libs) is required for brain_output.\n"
@@ -448,9 +450,9 @@ class BrainOutput:
         output_instance._mark_registered(group_id)
         
         if is_motor:
-            logger.debug(f"✅ Registered output: {output_instance.__class__.__name__} (group={group_id}, channel={channel_index})")
+            logger.debug(f"[OK] Registered output: {output_instance.__class__.__name__} (group={group_id}, channel={channel_index})")
         else:
-            logger.debug(f"✅ Registered output: {output_instance.__class__.__name__} (group={group_id})")
+            logger.debug(f"[OK] Registered output: {output_instance.__class__.__name__} (group={group_id})")
     
     def attach_monitor(self, monitor: 'Monitor'):
         """
