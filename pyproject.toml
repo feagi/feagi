@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi-core"
-version = "2.1.5"
+version = "2.1.10"
 description = "Core SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages (without Brain Visualizer)"
 readme = "README.md"
 requires-python = ">=3.10"
