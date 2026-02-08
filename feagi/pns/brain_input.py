@@ -128,7 +128,9 @@ class BrainInput:
             # NOTE: frpl.connector_core.caching.IOCache() does not exist in current API
             # Using ConnectorAgent instead - encoding methods still need to be added to rust-py-libs
             agent_descriptor_b64 = self._resolve_agent_descriptor_b64()
-            self._cache = frpl.connector_core.ConnectorAgent(agent_descriptor_b64)
+            # ConnectorAgent may be built with or without constructor arg; env var works for both.
+            os.environ["FEAGI_AGENT_DESCRIPTOR_B64"] = agent_descriptor_b64
+            self._cache = frpl.connector_core.ConnectorAgent()
             self._cache_available = True
             logger.info("[OK] Rust ConnectorAgent initialized")
         except (ImportError, AttributeError) as e:

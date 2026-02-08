@@ -26,21 +26,31 @@ logger = logging.getLogger(__name__)
 
 def _parse_cortical_unit_index_from_b64(cortical_id: str) -> Optional[int]:
     """
-    Parse cortical unit index (group) from base64 CorticalID.
+    Parse cortical unit index (group) from CorticalID.
+
+    Accepts either base64-encoded ID (preferred) or raw 8-byte string
+    (legacy Rust SDK used String::from_utf8_lossy(cortical_id.as_bytes())).
 
     Args:
-        cortical_id: Base64-encoded cortical ID string
+        cortical_id: Base64-encoded cortical ID, or 8-character string (bytes as latin-1)
 
     Returns:
-        Unit index if parse succeeds, otherwise None.
+        Unit index (byte 7) if parse succeeds, otherwise None.
     """
     try:
         raw = base64.b64decode(cortical_id, validate=True)
     except (binascii.Error, ValueError):
-        return None
-    if len(raw) != 8:
-        return None
-    return int(raw[7])
+        raw = None
+    if raw is not None and len(raw) == 8:
+        return int(raw[7])
+    # Fallback: raw 8-byte string from legacy Rust JSON key (e.g. from_utf8_lossy)
+    if len(cortical_id) == 8:
+        try:
+            b = cortical_id.encode("latin-1")
+            return int(b[7])
+        except (IndexError, ValueError):
+            pass
+    return None
 
 
 def decode_motor_xyzp(
