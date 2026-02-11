@@ -5,10 +5,17 @@ Handles default configuration generation and management for FEAGI SDK.
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 import logging
 
+import toml
+
 logger = logging.getLogger("feagi.config")
+
+# Defaults for required sections when migrating existing configs (add-only, no overwrite).
+REQUIRED_CONFIG_DEFAULTS: dict[str, Any] = {
+    "timeouts": {"service_startup": 3.0},
+}
 
 
 DEFAULT_CONFIG_CONTENT = """# FEAGI Configuration File
@@ -112,9 +119,31 @@ def generate_default_config(output_path: Optional[Path] = None, force: bool = Fa
     return output_path
 
 
+def _merge_required_config_defaults(config: dict[str, Any]) -> bool:
+    """
+    Add required default sections/keys to config if missing (add-only, no overwrite).
+    Returns True if config was modified.
+    """
+    modified = False
+    for section, defaults in REQUIRED_CONFIG_DEFAULTS.items():
+        if not isinstance(defaults, dict):
+            continue
+        if section not in config or not isinstance(config.get(section), dict):
+            config[section] = dict(defaults)
+            modified = True
+        else:
+            for key, value in defaults.items():
+                if key not in config[section]:
+                    config[section][key] = value
+                    modified = True
+    return modified
+
+
 def ensure_default_config() -> Path:
     """
     Ensure default configuration file exists, creating it if necessary.
+    If the file exists but is missing required sections (e.g. [timeouts]),
+    they are added with default values (one-time migration).
     
     Returns:
         Path to configuration file (existing or newly created)
@@ -135,6 +164,15 @@ def ensure_default_config() -> Path:
         paths.ensure_config_dir()
         config_path.write_text(DEFAULT_CONFIG_CONTENT)
         logger.info(f"Created default config: {config_path}")
+        return config_path
+    
+    try:
+        data = toml.load(config_path)
+        if _merge_required_config_defaults(data):
+            config_path.write_text(toml.dumps(data))
+            logger.info(f"Migrated config: added missing required sections to {config_path}")
+    except Exception as exc:
+        logger.warning("Could not migrate existing config: %s", exc)
     
     return config_path
 

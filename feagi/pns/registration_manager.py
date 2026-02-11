@@ -425,7 +425,7 @@ class RegistrationManager:
                     
                     # Call FEAGI HTTP API registration endpoint
                     api_endpoint = f"{feagi_api_url}/v1/agent/register"
-                    logger.info(f"📡 Registering agent via HTTP API: {api_endpoint}")
+                    logger.info("[REG] Registering agent via HTTP API: %s", api_endpoint)
                     
                     response = requests.post(
                         api_endpoint,

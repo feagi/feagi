@@ -8,12 +8,13 @@ Verifies that:
 """
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 import toml
 
 from feagi.cli.bv import _extract_network_settings, _load_feagi_config
-from feagi.config import generate_default_config
+from feagi.config import ensure_default_config, generate_default_config
 
 
 class TestConfigGeneration:
@@ -199,3 +200,59 @@ class TestConfigConsistency:
         assert config["websocket"]["host"] == "127.0.0.1", (
             "Example config WebSocket host should be 127.0.0.1 for security"
         )
+
+
+class TestEnsureDefaultConfigMigration:
+    """Test migration of existing configs missing required sections."""
+
+    def test_migrates_existing_config_missing_timeouts_section(self, tmp_path):
+        """ensure_default_config adds [timeouts] when section is missing."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text('[api]\nhost = "127.0.0.1"\nport = 8000\n')
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+        mock_paths.ensure_config_dir.side_effect = lambda: config_path.parent.mkdir(
+            parents=True, exist_ok=True
+        )
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert "timeouts" in config
+        assert config["timeouts"]["service_startup"] == 3.0
+        assert config["api"]["host"] == "127.0.0.1"
+        assert config["api"]["port"] == 8000
+
+    def test_migrates_existing_config_timeouts_section_missing_service_startup(self, tmp_path):
+        """ensure_default_config adds service_startup when [timeouts] exists but key is missing."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text(
+            '[api]\nhost = "127.0.0.1"\nport = 8000\n\n[timeouts]\n# empty\n'
+        )
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert config["timeouts"]["service_startup"] == 3.0
+
+    def test_does_not_overwrite_existing_timeouts_values(self, tmp_path):
+        """ensure_default_config does not overwrite existing timeouts.service_startup."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text(
+            '[api]\nhost = "127.0.0.1"\nport = 8000\n\n[timeouts]\nservice_startup = 10.0\n'
+        )
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert config["timeouts"]["service_startup"] == 10.0
