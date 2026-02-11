@@ -176,16 +176,35 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
         working_dir = binary.parent
         pck_file = None
     else:
-        binary_names = ("BrainVisualizer.exe", "BrainVisualizer-Remote.exe")
-        candidates = _candidate_paths(bin_dir, binary_names, ("", "windows"))
-        binary = _first_existing_path(candidates)
-        if binary is None:
+        windows_subdirs = ("", "windows")
+        exe_pck_pairs = (
+            ("BrainVisualizer.exe", "BrainVisualizer.pck"),
+            ("BrainVisualizer-Remote.exe", "BrainVisualizer-Remote.pck"),
+        )
+
+        binary = None
+        pck_file = None
+        working_dir = None
+        for subdir in windows_subdirs:
+            root = bin_dir / subdir if subdir else bin_dir
+            for exe_name, pck_name in exe_pck_pairs:
+                exe_candidate = root / exe_name
+                pck_candidate = root / pck_name
+                if exe_candidate.exists() and pck_candidate.exists():
+                    binary = exe_candidate
+                    pck_file = pck_candidate
+                    working_dir = root
+                    break
+            if binary is not None:
+                break
+
+        if binary is None or working_dir is None:
             raise BrainVisualizerLaunchError(
-                "BV binary not found. Expected Windows binary under "
-                f"{bin_dir}."
+                "BV Windows runtime not found. Expected one of: "
+                "BrainVisualizer.exe + BrainVisualizer.pck or "
+                "BrainVisualizer-Remote.exe + BrainVisualizer-Remote.pck "
+                f"under {bin_dir}."
             )
-        working_dir = binary.parent
-        pck_file = working_dir / "BrainVisualizer.pck"
 
     if pck_file is not None and not pck_file.exists():
         raise BrainVisualizerLaunchError(f"BV data file not found: {pck_file}")

@@ -8,12 +8,18 @@ Verifies that:
 """
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 import toml
 
-from feagi.cli.bv import _extract_network_settings, _load_feagi_config
+from feagi.cli.bv import (
+    BrainVisualizerLaunchError,
+    _extract_network_settings,
+    _load_feagi_config,
+    _resolve_bv_binary,
+)
 from feagi.config import ensure_default_config, generate_default_config
 
 
@@ -256,3 +262,62 @@ class TestEnsureDefaultConfigMigration:
         assert result == config_path
         config = toml.load(config_path)
         assert config["timeouts"]["service_startup"] == 10.0
+
+
+class TestWindowsBVBinaryResolution:
+    """Test Windows Brain Visualizer binary/PCK resolution."""
+
+    def test_resolves_remote_windows_binary_with_remote_pck(self, tmp_path):
+        """Resolve BrainVisualizer-Remote executable and matching PCK."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+        remote_exe = windows_bin / "BrainVisualizer-Remote.exe"
+        remote_pck = windows_bin / "BrainVisualizer-Remote.pck"
+        remote_exe.write_text("")
+        remote_pck.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == remote_exe
+        assert working_dir == windows_bin
+
+    def test_prefers_valid_binary_pck_pair_when_one_pair_incomplete(self, tmp_path):
+        """Select complete pair when another executable lacks its PCK."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+
+        (windows_bin / "BrainVisualizer.exe").write_text("")
+        # Intentionally omit BrainVisualizer.pck
+        remote_exe = windows_bin / "BrainVisualizer-Remote.exe"
+        remote_pck = windows_bin / "BrainVisualizer-Remote.pck"
+        remote_exe.write_text("")
+        remote_pck.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == remote_exe
+        assert working_dir == windows_bin
+
+    def test_raises_error_when_no_valid_windows_binary_pck_pair_exists(self, tmp_path):
+        """Raise launch error when no complete Windows runtime pair exists."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+        (windows_bin / "BrainVisualizer-Remote.exe").write_text("")
+        # PCK intentionally missing
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ), pytest.raises(BrainVisualizerLaunchError, match="BV Windows runtime not found"):
+            _resolve_bv_binary()
