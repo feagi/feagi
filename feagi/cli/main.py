@@ -674,109 +674,116 @@ def _handle_start_command(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Run the FEAGI CLI entry point."""
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    # Get version from package metadata
     try:
-        from importlib.metadata import version
-        # Try feagi-core first (the actual package), then feagi (meta-package)
-        try:
-            pkg_version = version("feagi-core")
-        except Exception:
-            pkg_version = version("feagi")
-    except Exception:
-        # Fall back to module version
-        try:
-            import feagi
-            pkg_version = feagi.__version__
-        except Exception:
-            pkg_version = "unknown"
+        parser = _build_parser()
+        args = parser.parse_args(argv)
 
-    # Handle --version flag
-    if args.version:
-        print(f"FEAGI CLI v{pkg_version}")
-        
-        # Try to detect installed Brain Visualizer package
-        bv_version = None
+        # Get version from package metadata
         try:
-            # First try the meta package (most accurate)
+            from importlib.metadata import version
+            # Try feagi-core first (the actual package), then feagi (meta-package)
             try:
-                bv_version = version("feagi-bv")
+                pkg_version = version("feagi-core")
+            except Exception:
+                pkg_version = version("feagi")
+        except Exception:
+            # Fall back to module version
+            try:
+                import feagi
+                pkg_version = feagi.__version__
+            except Exception:
+                pkg_version = "unknown"
+
+        # Handle --version flag
+        if args.version:
+            print(f"FEAGI CLI v{pkg_version}")
+            
+            # Try to detect installed Brain Visualizer package
+            bv_version = None
+            try:
+                # First try the meta package (most accurate)
+                try:
+                    bv_version = version("feagi-bv")
+                except Exception:
+                    pass
+                
+                # Fallback to platform-specific package if meta package not found
+                if not bv_version:
+                    import platform
+                    system = platform.system().lower()
+                    if system == "darwin":
+                        # Check for architecture-specific macOS packages
+                        machine = platform.machine().lower()
+                        if machine in ('arm64', 'aarch64'):
+                            bv_version = version("feagi-bv-macos-arm64")
+                        elif machine in ('x86_64', 'amd64'):
+                            bv_version = version("feagi-bv-macos-x86_64")
+                        # Fallback to old package name for backward compatibility
+                        if not bv_version:
+                            try:
+                                bv_version = version("feagi-bv-macos")
+                            except Exception:
+                                pass
+                    elif system.startswith("linux"):
+                        bv_version = version("feagi-bv-linux")
+                    elif system == "win32":
+                        bv_version = version("feagi-bv-windows")
             except Exception:
                 pass
             
-            # Fallback to platform-specific package if meta package not found
-            if not bv_version:
-                import platform
-                system = platform.system().lower()
-                if system == "darwin":
-                    # Check for architecture-specific macOS packages
-                    machine = platform.machine().lower()
-                    if machine in ('arm64', 'aarch64'):
-                        bv_version = version("feagi-bv-macos-arm64")
-                    elif machine in ('x86_64', 'amd64'):
-                        bv_version = version("feagi-bv-macos-x86_64")
-                    # Fallback to old package name for backward compatibility
-                    if not bv_version:
-                        try:
-                            bv_version = version("feagi-bv-macos")
-                        except Exception:
-                            pass
-                elif system.startswith("linux"):
-                    bv_version = version("feagi-bv-linux")
-                elif system == "win32":
-                    bv_version = version("feagi-bv-windows")
-        except Exception:
-            pass
+            if bv_version:
+                print(f"Brain Visualizer v{bv_version}")
+            else:
+                print('Brain Visualizer: not installed (install with: pip install "feagi[bv]")')
+            
+            return 0
+
+        # Handle commands
+        if args.command == "bv":
+            return _handle_bv_command(args)
+        if args.command == "init":
+            return _handle_init_command(args)
+        if args.command == "start":
+            return _handle_start_command(args)
+        if args.command == "stop":
+            return _handle_stop_command(args)
+        if args.command == "status":
+            return _handle_status_command(args)
+        if args.command == "restart":
+            return _handle_restart_command(args)
+        if args.command == "config":
+            return _handle_config_command(args)
+
+        # No command specified - show help
+        from feagi.paths import get_feagi_paths
         
-        if bv_version:
-            print(f"Brain Visualizer v{bv_version}")
-        else:
-            print('Brain Visualizer: not installed (install with: pip install "feagi[bv]")')
+        paths = get_feagi_paths()
         
+        print(f"FEAGI CLI v{pkg_version}")
+        print("\nAvailable commands:")
+        print("  feagi start          - Start FEAGI")
+        print("  feagi stop           - Stop FEAGI")
+        print("  feagi status         - Check FEAGI status")
+        print("  feagi restart        - Restart FEAGI")
+        print("  feagi bv start       - Launch Brain Visualizer")
+        print("  feagi bv stop        - Stop Brain Visualizer")
+        print("  feagi bv status      - Check Brain Visualizer status")
+        print("  feagi bv restart     - Restart Brain Visualizer")
+        print("  feagi init           - Initialize FEAGI environment")
+        print("\nFEAGI Directories:")
+        print(f"  Config:      {paths.config_dir}")
+        print(f"  Logs:        {paths.logs_dir}")
+        print(f"  Cache:       {paths.cache_dir}")
+        print(f"  Genomes:     {paths.genomes_dir}")
+        print(f"  Connectomes: {paths.connectomes_dir}")
+        print("\nFor more information: https://github.com/feagi/feagi/tree/main/docs")
         return 0
-
-    # Handle commands
-    if args.command == "bv":
-        return _handle_bv_command(args)
-    if args.command == "init":
-        return _handle_init_command(args)
-    if args.command == "start":
-        return _handle_start_command(args)
-    if args.command == "stop":
-        return _handle_stop_command(args)
-    if args.command == "status":
-        return _handle_status_command(args)
-    if args.command == "restart":
-        return _handle_restart_command(args)
-    if args.command == "config":
-        return _handle_config_command(args)
-
-    # No command specified - show help
-    from feagi.paths import get_feagi_paths
-    
-    paths = get_feagi_paths()
-    
-    print(f"FEAGI CLI v{pkg_version}")
-    print("\nAvailable commands:")
-    print("  feagi start          - Start FEAGI")
-    print("  feagi stop           - Stop FEAGI")
-    print("  feagi status         - Check FEAGI status")
-    print("  feagi restart        - Restart FEAGI")
-    print("  feagi bv start       - Launch Brain Visualizer")
-    print("  feagi bv stop        - Stop Brain Visualizer")
-    print("  feagi bv status      - Check Brain Visualizer status")
-    print("  feagi bv restart     - Restart Brain Visualizer")
-    print("  feagi init           - Initialize FEAGI environment")
-    print("\nFEAGI Directories:")
-    print(f"  Config:      {paths.config_dir}")
-    print(f"  Logs:        {paths.logs_dir}")
-    print(f"  Cache:       {paths.cache_dir}")
-    print(f"  Genomes:     {paths.genomes_dir}")
-    print(f"  Connectomes: {paths.connectomes_dir}")
-    print("\nFor more information: https://github.com/feagi/feagi/tree/main/docs")
-    return 0
+    except KeyboardInterrupt:
+        print(
+            "Startup interrupted by console signal while FEAGI was launching.",
+            file=sys.stderr,
+        )
+        return 130
 
 
 if __name__ == "__main__":

@@ -14,6 +14,28 @@ from typing import Optional
 logger = logging.getLogger("feagi.engine")
 
 
+def _build_detached_spawn_options() -> dict[str, object]:
+    """
+    Build platform-specific subprocess options for detached FEAGI startup.
+
+    Returns:
+        Dictionary of keyword arguments to pass to subprocess.Popen.
+    """
+    if os.name == "nt":
+        # @cursor:critical-path Keep FEAGI isolated from parent console events
+        # on Windows to prevent unexpected CTRL_C_EVENT propagation.
+        creationflags = (
+            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            | getattr(subprocess, "DETACHED_PROCESS", 0)
+        )
+        return {
+            "creationflags": creationflags,
+            "stdin": subprocess.DEVNULL,
+        }
+
+    return {"start_new_session": True}
+
+
 class FeagiEngine:
     """
     FEAGI Engine Manager
@@ -370,14 +392,14 @@ class FeagiEngine:
                     os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
                     0o644
                 )
-                
+                detached_options = _build_detached_spawn_options()
                 self.process = subprocess.Popen(
                     cmd,
                     cwd=self.working_dir,
                     env=env,
                     stdout=stdout_fd,
                     stderr=stderr_fd,
-                    start_new_session=True,
+                    **detached_options,
                 )
                 
                 # Mark as daemon mode to prevent __del__ from stopping it
