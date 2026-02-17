@@ -36,6 +36,7 @@ Example:
 """
 
 import logging
+import os
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -70,12 +71,21 @@ if _rust_sdk_available:
     try:
         rust_sdk.init_rust_logging()
         print("[PYTHON-SDK] [OK] Rust logging initialized", flush=True)
-    except Exception as e:
-        print(f"[PYTHON-SDK] [FAIL] Failed to init Rust logging: {e}", flush=True)
-        logging.getLogger("feagi.pns.client").warning(
-            "Failed to init Rust logging: %s",
-            e,
-        )
+    except BaseException as e:
+        if "global default trace dispatcher has already been set" in str(e):
+            print(
+                "[PYTHON-SDK] [OK] Rust logging already initialized",
+                flush=True,
+            )
+        else:
+            print(
+                f"[PYTHON-SDK] [FAIL] Failed to init Rust logging: {e}",
+                flush=True,
+            )
+            logging.getLogger("feagi.pns.client").warning(
+                "Failed to init Rust logging: %s",
+                e,
+            )
 else:
     # No fallback - Rust SDK is required (will raise ImportError in __init__)
     PyAgentClient = None
@@ -167,6 +177,64 @@ class FeagiAgentClient:
             agent_id,
             agent_type.value,
         )
+
+    @staticmethod
+    def _parse_agent_descriptor_b64(
+        agent_descriptor_b64: str,
+    ) -> Tuple[str, str, int]:
+        """
+        Parse base64 AgentDescriptor (48-byte payload) into fields.
+
+        Expected layout:
+          - bytes [0:4]: instance id (unused by Python SDK)
+          - bytes [4:24]: manufacturer (null-padded ASCII)
+          - bytes [24:44]: agent name (null-padded ASCII)
+          - bytes [44:48]: agent version (little-endian u32)
+        """
+        import base64
+        import binascii
+
+        try:
+            descriptor_bytes = base64.b64decode(
+                agent_descriptor_b64,
+                validate=True,
+            )
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError(
+                "agent_descriptor_b64 must be valid base64 "
+                "AgentDescriptor bytes."
+            ) from exc
+
+        if len(descriptor_bytes) != 48:
+            raise ValueError(
+                "agent_descriptor_b64 must decode to 48 bytes."
+            )
+
+        manufacturer = (
+            descriptor_bytes[4:24]
+            .decode("ascii", errors="strict")
+            .rstrip("\x00")
+            .strip()
+        )
+        agent_name = (
+            descriptor_bytes[24:44]
+            .decode("ascii", errors="strict")
+            .rstrip("\x00")
+            .strip()
+        )
+        agent_version = int.from_bytes(
+            descriptor_bytes[44:48],
+            byteorder="little",
+        )
+
+        if not manufacturer:
+            raise ValueError("Agent descriptor manufacturer cannot be empty.")
+        if not agent_name:
+            raise ValueError("Agent descriptor agent_name cannot be empty.")
+        if agent_version <= 0:
+            raise ValueError("Agent descriptor agent_version must be > 0.")
+
+        return manufacturer, agent_name, agent_version
     
     def configure(
         self,
@@ -184,6 +252,8 @@ class FeagiAgentClient:
         sensory_socket_hwm: Optional[int] = None,
         sensory_socket_linger_ms: Optional[int] = None,
         sensory_socket_immediate: Optional[bool] = None,
+        agent_descriptor_b64: Optional[str] = None,
+        auth_token_b64: Optional[str] = None,
     ):
         """
         Configure the agent
@@ -209,6 +279,10 @@ class FeagiAgentClient:
                 for the sensory socket.
             sensory_socket_immediate: Optional immediate mode flag for the
                 sensory socket.
+            agent_descriptor_b64: Base64 AgentDescriptor (48-byte payload).
+                If not provided, uses FEAGI_AGENT_DESCRIPTOR_B64 env var.
+            auth_token_b64: Base64 auth token (must decode to 32 bytes). If not
+                provided, uses FEAGI_AUTH_TOKEN_B64 env var.
         """
         # Map Python AgentType to Rust AgentType
         rust_agent_type = {
@@ -229,6 +303,33 @@ class FeagiAgentClient:
         self._config.with_heartbeat_interval(heartbeat_interval)
         self._config.with_connection_timeout_ms(connection_timeout_ms)
         self._config.with_registration_retries(registration_retries)
+
+        descriptor_b64 = agent_descriptor_b64 or os.environ.get(
+            "FEAGI_AGENT_DESCRIPTOR_B64"
+        )
+        if not descriptor_b64:
+            raise ValueError(
+                "agent_descriptor_b64 must be provided "
+                "(or FEAGI_AGENT_DESCRIPTOR_B64 set)."
+            )
+        manufacturer, descriptor_name, descriptor_version = (
+            self._parse_agent_descriptor_b64(descriptor_b64)
+        )
+        self._config.with_agent_descriptor(
+            manufacturer,
+            descriptor_name,
+            descriptor_version,
+        )
+
+        resolved_auth_token_b64 = auth_token_b64 or os.environ.get(
+            "FEAGI_AUTH_TOKEN_B64"
+        )
+        if not resolved_auth_token_b64:
+            raise ValueError(
+                "auth_token_b64 must be provided "
+                "(or FEAGI_AUTH_TOKEN_B64 set)."
+            )
+        self._config.with_auth_token_base64(resolved_auth_token_b64)
 
         if any(
             value is not None
@@ -569,6 +670,25 @@ class FeagiAgentClient:
         except Exception as e:
             logger.error(f"Failed to send sensory data: {e}")
             raise
+
+    def send_sensory_bytes(self, payload: bytes):
+        """
+        Send pre-encoded FEAGI sensory bytes through Rust client.
+
+        Args:
+            payload: Serialized FEAGI byte container payload.
+
+        Raises:
+            RuntimeError: If not connected.
+        """
+        if not self._connected or self._client is None:
+            raise RuntimeError("Agent not connected. Call connect() first.")
+
+        try:
+            self._client.send_sensory_bytes(payload)
+        except Exception as e:
+            logger.error("Failed to send sensory bytes: %s", e)
+            raise
     
     def receive_motor_data(self) -> Optional[Dict[str, Any]]:
         """
@@ -655,15 +775,20 @@ class FeagiAgentClient:
         """
         if self._connected:
             self._connected = False
-            
-            # Skip Rust client deregistration - it blocks on interrupted ZMQ
-            # sockets.
-            # FEAGI will clean up via heartbeat timeout
+
+            # Ensure explicit deregistration/teardown on the Rust side.
+            if self._client is not None:
+                try:
+                    self._client.disconnect()
+                except Exception as disconnect_error:
+                    logger.warning(
+                        "Rust disconnect reported an error for %s: %s",
+                        self.agent_id,
+                        disconnect_error,
+                    )
+
             self._client = None
-            logger.info(
-                "[OK] Disconnected %s (cleanup via heartbeat timeout)",
-                self.agent_id,
-            )
+            logger.info("[OK] Disconnected %s", self.agent_id)
     
     def __enter__(self):
         """Context manager entry"""

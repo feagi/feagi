@@ -30,6 +30,8 @@ except ImportError:
 import time
 import cv2
 import logging
+import os
+import numpy as np
 from pathlib import Path
 from typing import Optional
 
@@ -44,6 +46,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 class TestVideoToFEAGI:
     """Integration test for video streaming to FEAGI"""
     
+    @pytest.fixture
     def feagi_config(self):
         """FEAGI connection configuration"""
         return {
@@ -53,54 +56,54 @@ class TestVideoToFEAGI:
             "rest_port": 8000,
         }
     
+    @pytest.fixture
     def video_path(self):
         """Path to test video file"""
         # Try multiple possible locations
         possible_paths = [
             Path(__file__).parent.parent.parent / "examples" / "vt_all.mov",
             Path.cwd() / "examples" / "vt_all.mov",
-            Path("/Users/nadji/code/FEAGI-2.0/feagi-python-sdk/examples/vt_all.mov"),
+            Path(
+                "/Users/nadji/code/FEAGI-2.0/feagi-python-sdk/examples/vt_all.mov"
+            ),
         ]
         
         for path in possible_paths:
             if path.exists():
-                return path
-        
-        pytest.skip(f"Video file not found. Tried: {[str(p) for p in possible_paths]}")
-    
-    def feagi_engine(self, feagi_config):
-        """Start FEAGI engine for testing"""
-        from feagi.engine import FeagiEngine
-        
-        # Try to find config and genome
-        config_path = self._find_file("feagi_configuration.toml")
-        genome_path = self._find_file("genome.json") or self._find_file("test_genome.json")
-        
-        if config_path is None:
-            pytest.skip("No feagi_configuration.toml found. Please provide config file.")
-        
-        logger.info(f"Using config: {config_path}")
-        if genome_path:
-            logger.info(f"Using genome: {genome_path}")
-        
-        # Create engine
-        engine = FeagiEngine()
-        engine.load_config(str(config_path))
-        
-        if genome_path:
-            engine.load_genome(str(genome_path))
-        
-        # Start FEAGI
-        logger.info("Starting FEAGI engine...")
-        if not engine.start(wait_for_ready=True, timeout=60.0):
-            pytest.skip("Failed to start FEAGI engine")
-        
-        # Yield engine to test
-        yield engine
-        
-        # Cleanup after test
-        logger.info("Stopping FEAGI engine...")
-        engine.stop()
+                yield path
+                return
+
+        # Generate a deterministic temporary video for integration test runs.
+        temp_video_path = Path("/tmp/vt_all--temp.mov")
+        width = 64
+        height = 64
+        frame_count = 30
+        fps = 10.0
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(
+            str(temp_video_path),
+            fourcc,
+            fps,
+            (width, height),
+        )
+        if not writer.isOpened():
+            pytest.skip(
+                "Video file not found and temporary video creation failed. "
+                f"Tried: {[str(p) for p in possible_paths]}"
+            )
+        for idx in range(frame_count):
+            frame = np.zeros((height, width, 3), dtype=np.uint8)
+            frame[:, :, 0] = (idx * 11) % 255
+            frame[:, :, 1] = (idx * 17) % 255
+            frame[:, :, 2] = (idx * 23) % 255
+            writer.write(frame)
+        writer.release()
+
+        try:
+            yield temp_video_path
+        finally:
+            if temp_video_path.exists():
+                temp_video_path.unlink()
     
     def _find_file(self, filename: str) -> Optional[Path]:
         """Find a file in common locations"""
@@ -118,7 +121,7 @@ class TestVideoToFEAGI:
         
         return None
     
-    def test_video_stream_to_feagi(self, feagi_config, video_path, feagi_engine):
+    def test_video_stream_to_feagi(self, feagi_config, video_path):
         """
         Complete integration test: Read video frames and send to FEAGI
         
@@ -159,21 +162,45 @@ class TestVideoToFEAGI:
             position="center"
         )
         
-        print(f"   [OK] Camera registered: {width}x{height}, encoding=absolute, position=center")
+        print(
+            f"   [OK] Camera registered: {width}x{height}, "
+            "encoding=absolute, position=center"
+        )
         
         # Step 3: Configure connection to FEAGI
         print("\n[CFG] Configuring connection to FEAGI...")
+        auth_token_b64 = os.environ.get("FEAGI_AUTH_TOKEN_B64")
+        connection_timeout_ms = os.environ.get("FEAGI_CONNECTION_TIMEOUT_MS")
+        registration_retries = os.environ.get("FEAGI_REGISTRATION_RETRIES")
+        if not auth_token_b64:
+            pytest.skip(
+                "FEAGI_AUTH_TOKEN_B64 must be set for Rust SDK agent connect."
+            )
+        if not connection_timeout_ms:
+            pytest.skip(
+                "FEAGI_CONNECTION_TIMEOUT_MS must be set for Rust SDK agent "
+                "connect."
+            )
+        if not registration_retries:
+            pytest.skip(
+                "FEAGI_REGISTRATION_RETRIES must be set for Rust SDK agent "
+                "connect."
+            )
         
         brain_input.configure(
             feagi_host=feagi_config["host"],
             feagi_port=feagi_config["sensory_port"],
+            registration_port=30001,
             transport="zmq",
             api_port=feagi_config["rest_port"],
             feagi_http_timeout_s=5.0,
             heartbeat_interval_s=5.0,
             heartbeat_join_timeout_s=5.0,
+            connection_timeout_ms=int(connection_timeout_ms),
+            registration_retries=int(registration_retries),
+            auth_token_b64=auth_token_b64,
         )
-        
+
         print(f"   Host: {feagi_config['host']}")
         print(f"   Port: {feagi_config['sensory_port']}")
         print("   Transport: ZMQ")
@@ -245,12 +272,19 @@ class TestVideoToFEAGI:
         print(f"   Time elapsed: {elapsed_time:.2f}s")
         print(f"   Actual FPS: {actual_fps:.1f}")
         print(f"   Target FPS: {fps:.1f}")
-        print(f"   Status: {'[OK] PASS' if frames_sent == frames_to_send else '[WARN]  INCOMPLETE'}")
+        status_text = (
+            "[OK] PASS"
+            if frames_sent == frames_to_send
+            else "[WARN]  INCOMPLETE"
+        )
+        print(f"   Status: {status_text}")
         print(f"{'='*60}\n")
         
         # Assert success
         assert frames_sent > 0, "No frames were sent"
-        assert frames_sent == frames_to_send, f"Only sent {frames_sent}/{frames_to_send} frames"
+        assert frames_sent == frames_to_send, (
+            f"Only sent {frames_sent}/{frames_to_send} frames"
+        )
 
 
 # Standalone execution
@@ -327,7 +361,7 @@ if __name__ == "__main__":
         engine.load_genome(str(genome_path))
     
     print("\n[START] Starting FEAGI engine...")
-    # Start without health check for now (REST API might take time to initialize)
+    # Start without health check (REST API may take time to initialize)
     if not engine.start(wait_for_ready=False):
         print("[FAIL] Failed to start FEAGI!")
         exit(1)
@@ -342,7 +376,7 @@ if __name__ == "__main__":
     
     # Run test
     try:
-        test.test_video_stream_to_feagi(feagi_config, video_path, feagi_engine)
+        test.test_video_stream_to_feagi(feagi_config, video_path)
         print("\n[OK] Test completed successfully!\n")
     except Exception as e:
         print(f"\n[FAIL] Test failed: {e}\n")

@@ -212,14 +212,20 @@ class Camera(BaseInput):
         """Register with Rust ConnectorAgent"""
         self._init_rust_properties()
         
-        # NOTE: sensor_simple_vision_register does NOT exist in current rust-py-libs API
-        # The ImageFrame registration code is commented out in the Rust source.
-        # Use sensor_segmented_vision_register instead, which is the available API
-        method_name = "sensor_segmented_vision_register"
-        
-        if not hasattr(cache, method_name):
+        # Rust API currently exposes segmented vision registration with different
+        # method casing depending on binding build/version.
+        method_name = None
+        for candidate in (
+            "sensor_segmented_vision_register",
+            "sensor_SegmentedVision_register",
+        ):
+            if hasattr(cache, candidate):
+                method_name = candidate
+                break
+
+        if method_name is None:
             raise AttributeError(
-                f"ConnectorAgent missing method: {method_name}\n"
+                "ConnectorAgent missing segmented vision registration method.\n"
                 f"The simple_vision registration method is not exposed in rust-py-libs.\n"
                 f"Using segmented_vision_register as alternative."
             )

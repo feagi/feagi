@@ -89,6 +89,7 @@ class BrainOutput:
         self._feagi_connection_timeout_ms: Optional[int] = None
         self._feagi_registration_retries: Optional[int] = None
         self._feagi_heartbeat_interval_s: Optional[float] = None
+        self._auth_token_b64: Optional[str] = None
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
@@ -267,6 +268,7 @@ class BrainOutput:
         feagi_connection_timeout_ms: int,
         feagi_registration_retries: int,
         feagi_heartbeat_interval_s: float,
+        auth_token_b64: Optional[str] = None,
     ):
         """
         Configure connection to FEAGI.
@@ -308,6 +310,7 @@ class BrainOutput:
         self._feagi_connection_timeout_ms = feagi_connection_timeout_ms
         self._feagi_registration_retries = feagi_registration_retries
         self._feagi_heartbeat_interval_s = feagi_heartbeat_interval_s
+        self._auth_token_b64 = auth_token_b64
         
         logger.info(
             "[CFG] Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
@@ -378,6 +381,14 @@ class BrainOutput:
                 )
 
             client = FeagiAgentClient(self._agent_id, AgentType.MOTOR)
+            resolved_auth_token_b64 = self._auth_token_b64 or os.environ.get(
+                "FEAGI_AUTH_TOKEN_B64"
+            )
+            if not resolved_auth_token_b64:
+                raise RuntimeError(
+                    "Missing auth token base64. Provide auth_token_b64 in "
+                    "brain_output.configure(...) or set FEAGI_AUTH_TOKEN_B64."
+                )
             client.configure(
                 feagi_host=self._feagi_host,
                 registration_port=self._feagi_registration_port,
@@ -387,6 +398,7 @@ class BrainOutput:
                 heartbeat_interval=self._feagi_heartbeat_interval_s,
                 connection_timeout_ms=self._feagi_connection_timeout_ms,
                 registration_retries=self._feagi_registration_retries,
+                auth_token_b64=resolved_auth_token_b64,
             )
             client.connect()
             self._client = client

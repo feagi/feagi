@@ -131,6 +131,7 @@ def connect_with_zmq(
     agent_id: str,
     agent_type: str,
     capabilities: Dict,
+    auth_token_b64: str,
     heartbeat_interval_s: float,
     connection_timeout_ms: int,
     registration_retries: int,
@@ -156,6 +157,7 @@ def connect_with_zmq(
         sensory_port=int(transport.ports["sensory"]),
         motor_port=int(transport.ports["motor"]),
         custom_capabilities=capabilities,
+        auth_token_b64=auth_token_b64,
         heartbeat_interval=float(heartbeat_interval_s),
         connection_timeout_ms=int(connection_timeout_ms),
         registration_retries=int(registration_retries),
@@ -226,6 +228,7 @@ def main():
     heartbeat_interval_s = parse_env_float("FEAGI_HEARTBEAT_INTERVAL_S")
     connection_timeout_ms = parse_env_int("FEAGI_CONNECTION_TIMEOUT_MS")
     registration_retries = parse_env_int("FEAGI_REGISTRATION_RETRIES")
+    auth_token_b64 = require_env("FEAGI_AUTH_TOKEN_B64")
 
     # agent_id must be a base64 AgentDescriptor (48-byte payload)
     agent_id = require_env("AGENT_DESCRIPTOR_B64")
@@ -290,6 +293,7 @@ def main():
                     agent_id,
                     agent_type,
                     capabilities,
+                    auth_token_b64,
                     heartbeat_interval_s,
                     connection_timeout_ms,
                     registration_retries,

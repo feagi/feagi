@@ -151,6 +151,9 @@ class VideoStreamAgent(BaseAgent):
         feagi_http_timeout_s: float,
         heartbeat_interval_s: float,
         heartbeat_join_timeout_s: float,
+        connection_timeout_ms: Optional[int] = None,
+        registration_retries: Optional[int] = None,
+        auth_token_b64: Optional[str] = None,
     ):
         """
         Connect to FEAGI and register camera.
@@ -165,6 +168,9 @@ class VideoStreamAgent(BaseAgent):
             feagi_http_timeout_s: HTTP timeout in seconds (required; no defaults in safety mode)
             heartbeat_interval_s: Heartbeat interval in seconds (required; no defaults in safety mode)
             heartbeat_join_timeout_s: Heartbeat join timeout in seconds (required; no defaults in safety mode)
+            connection_timeout_ms: Rust SDK connection timeout in milliseconds.
+            registration_retries: Rust SDK registration retry count.
+            auth_token_b64: Base64 auth token (32-byte decoded payload).
         """
         if self._started:
             logger.warning("VideoStreamAgent already started")
@@ -190,6 +196,9 @@ class VideoStreamAgent(BaseAgent):
             feagi_http_timeout_s=feagi_http_timeout_s,
             heartbeat_interval_s=heartbeat_interval_s,
             heartbeat_join_timeout_s=heartbeat_join_timeout_s,
+            connection_timeout_ms=connection_timeout_ms,
+            registration_retries=registration_retries,
+            auth_token_b64=auth_token_b64,
         )
         brain_input.connect()
         
