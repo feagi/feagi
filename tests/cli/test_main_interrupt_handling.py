@@ -5,8 +5,9 @@ Tests for top-level CLI interrupt handling.
 from __future__ import annotations
 
 import argparse
+import importlib
 
-import feagi.cli.main as cli_main
+cli_main = importlib.import_module("feagi.cli.main")
 
 
 def test_main_handles_keyboard_interrupt_during_start(monkeypatch, capsys):
@@ -25,7 +26,11 @@ def test_main_handles_keyboard_interrupt_during_start(monkeypatch, capsys):
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(cli_main, "_build_parser", lambda: FakeParser())
-    monkeypatch.setattr(cli_main, "_handle_start_command", interrupting_start_handler)
+    monkeypatch.setattr(
+        cli_main,
+        "_handle_start_command",
+        interrupting_start_handler,
+    )
 
     result = cli_main.main(["start"])
     captured = capsys.readouterr()

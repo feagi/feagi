@@ -46,8 +46,8 @@ def test_build_detached_spawn_options_posix(monkeypatch):
     assert options == {"start_new_session": True}
 
 
-def test_start_daemon_windows_uses_detached_spawn_options(monkeypatch, tmp_path):
-    """FeagiEngine.start uses Windows detached kwargs in daemon mode."""
+def test_start_daemon_uses_detached_spawn_options(monkeypatch, tmp_path):
+    """FeagiEngine.start applies detached kwargs in daemon mode."""
     popen_calls: list[dict[str, object]] = []
 
     class DummyProcess:
@@ -71,19 +71,16 @@ def test_start_daemon_windows_uses_detached_spawn_options(monkeypatch, tmp_path)
             create_log_run_dir=lambda component, retention: Path(tmp_path)
         )
 
+    detached_options = {
+        "creationflags": 0x00000200 | 0x00000008,
+        "stdin": engine_manager.subprocess.DEVNULL,
+    }
+
     monkeypatch.setenv("FEAGI_DAEMON_MODE", "1")
-    monkeypatch.setattr(engine_manager.os, "name", "nt", raising=False)
     monkeypatch.setattr(
-        engine_manager.subprocess,
-        "CREATE_NEW_PROCESS_GROUP",
-        0x00000200,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        engine_manager.subprocess,
-        "DETACHED_PROCESS",
-        0x00000008,
-        raising=False,
+        engine_manager,
+        "_build_detached_spawn_options",
+        lambda: detached_options,
     )
     monkeypatch.setattr(engine_manager.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(engine_manager.os, "open", lambda *_args, **_kwargs: 3)
@@ -98,6 +95,6 @@ def test_start_daemon_windows_uses_detached_spawn_options(monkeypatch, tmp_path)
     assert started is True
     assert len(popen_calls) == 1
     kwargs = popen_calls[0]["kwargs"]
-    assert kwargs["creationflags"] == (0x00000200 | 0x00000008)
-    assert kwargs["stdin"] is engine_manager.subprocess.DEVNULL
+    assert kwargs["creationflags"] == detached_options["creationflags"]
+    assert kwargs["stdin"] is detached_options["stdin"]
     assert "start_new_session" not in kwargs
