@@ -35,13 +35,13 @@ def main():
     print("=" * 60)
     
     # === Register devices ===
-    print("\n📥 Registering devices...")
+    print("\nRegistering devices...")
     camera = Camera.register(resolution=(320, 240))
     servo = ServoMotor.register(range=(0, 180))
-    print("✓ Devices registered")
+    print("Devices registered")
     
     # === Configure connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
     feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
@@ -66,7 +66,7 @@ def main():
     
     brain_input.connect()
     brain_output.connect()
-    print("✓ Connected to FEAGI")
+    print("Connected to FEAGI")
     
     # === Set up data logging ===
     print("\n📝 Setting up data logging...")
@@ -95,7 +95,7 @@ def main():
     brain_output.attach_monitor(logger_jsonl)
     brain_output.attach_monitor(logger_csv)
     
-    print("✓ Loggers attached:")
+    print("Loggers attached:")
     print("  - JSONL: data_log.jsonl")
     print("  - CSV:   data_log.csv")
     
@@ -118,13 +118,13 @@ def main():
         if (i + 1) % 10 == 0:
             print(f"  Logged {i + 1}/50 packets...")
     
-    print("✓ Agent run complete")
+    print("Agent run complete")
     
     # === Close loggers ===
     print("\n💾 Closing loggers...")
     logger_jsonl.close()
     logger_csv.close()
-    print("✓ Loggers closed and data flushed")
+    print("Loggers closed and data flushed")
     
     # === Display sample data ===
     print("\n" + "=" * 60)
@@ -143,7 +143,7 @@ def main():
         print("  (Log file not created - FEAGI may not be running)")
     
     print("\n" + "=" * 60)
-    print("✅ Example complete!")
+    print("Example complete.")
     print("=" * 60)
     print("\nLog files created:")
     print("  - data_log.jsonl (JSON Lines format)")

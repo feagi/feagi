@@ -425,7 +425,7 @@ class FeagiEngine:
         # Wait for ready
         if wait_for_ready:
             logger.info(f"Waiting for FEAGI to be ready (timeout: {timeout}s)...")
-            logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/feagi/status")
+            logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/system/health_check")
             
             if self._wait_for_ready(timeout):
                 logger.info("[OK] FEAGI is ready!")
@@ -470,7 +470,7 @@ class FeagiEngine:
             try:
                 import requests
                 response = requests.get(
-                    f"http://{self.host}:{self.rest_port}/v1/feagi/status",
+                    f"http://{self.host}:{self.rest_port}/v1/system/health_check",
                     timeout=2
                 )
                 if response.status_code == 200:

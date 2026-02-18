@@ -121,7 +121,7 @@ def register_with_feagi(
         error_msg = response_body.get("message", "Unknown error")
         raise Exception(f"Registration failed: {error_msg}")
 
-    print(f"✅ Registration successful: {response_body.get('message', '')}\n")
+    print(f"Registration successful: {response_body.get('message', '')}\n")
 
     return RegistrationInfo(response_body)
 
@@ -164,7 +164,7 @@ def connect_with_zmq(
     )
     client.connect()
 
-    print("✅ ZMQ client connected\n")
+    print("ZMQ client connected\n")
     return client
 
 
@@ -191,7 +191,7 @@ async def connect_with_websocket(transport: TransportOption, agent_id: str):
         f"ws://{transport.host}:{transport.ports['motor']}/motor/{agent_id}"
     )
     
-    print("✅ WebSocket connections established\n")
+    print("WebSocket connections established\n")
     
     return ws_sensory, ws_motor
 
@@ -251,7 +251,7 @@ def main():
         # Step 2: Display available transports
         print("🌐 Available Transports:")
         for transport in reg_info.transports:
-            status = "✅" if transport.enabled else "❌"
+            status = "yes" if transport.enabled else "no"
             print(f"   {status} {transport.transport_type.upper()}")
             for stream, port in transport.ports.items():
                 print(f"      - {stream}: {port}")
@@ -323,7 +323,7 @@ def main():
         return 1
     
     print("=" * 70)
-    print("✅ Transport selection demonstration complete!")
+    print("Transport selection demonstration complete.")
     print("=" * 70)
     return 0
 

@@ -1,5 +1,5 @@
 """
-Simple Robot Example using FEAGI SDK 3.0
+Simple Robot Example using FEAGI SDK 2.0
 
 Demonstrates the new inputs/outputs API for a simple robot with:
 - Camera (640x480 visual input)
@@ -39,18 +39,18 @@ def parse_env_float(name: str) -> float:
 
 def main():
     print("=" * 60)
-    print("FEAGI 3.0 - Simple Robot Example")
+    print("FEAGI 2.0 - Simple Robot Example")
     print("=" * 60)
     
     # === Register Inputs ===
-    print("\n📥 Registering inputs...")
+    print("\nRegistering inputs...")
     
     camera = Camera.register(
         resolution=(640, 480),
         encoding="absolute",
         position="center"
     )
-    print(f"  ✓ Camera registered (640x480)")
+    print("  Camera registered (640x480)")
     
     infrared_front = Infrared.register(
         encoding="absolute",
@@ -58,20 +58,20 @@ def main():
         min_distance=0.0,
         max_distance=400.0
     )
-    print(f"  ✓ Infrared sensor registered (0-400cm)")
+    print("  Infrared sensor registered (0-400cm)")
     
     # === Register Outputs ===
-    print("\n📤 Registering outputs...")
+    print("\nRegistering outputs...")
     
     servo_head = ServoMotor.register(range=(0, 180))
-    print(f"  ✓ Servo motor registered (0-180°)")
+    print("  Servo motor registered (0-180 deg)")
     
     motor_left = RotaryMotor.register(bidirectional=True)
     motor_right = RotaryMotor.register(bidirectional=True)
-    print(f"  ✓ Rotary motors registered (left, right)")
+    print("  Rotary motors registered (left, right)")
     
     # === Configure Connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
@@ -101,7 +101,7 @@ def main():
     )
     
     print(
-        f"  ✓ Configured: {feagi_host}:{feagi_sensory_port} (input), "
+        f"  Configured: {feagi_host}:{feagi_sensory_port} (input), "
         f"{feagi_host}:{feagi_motor_port} (output)"
     )
     
@@ -111,7 +111,7 @@ def main():
     try:
         brain_input.connect()
         brain_output.connect()
-        print("  ✓ Connected successfully!")
+        print("  Connected successfully!")
     except Exception as e:
         print(f"  ✗ Connection failed: {e}")
         print("\n⚠️  Make sure:")
@@ -173,7 +173,7 @@ def main():
     # === Cleanup ===
     brain_input.disconnect()
     brain_output.disconnect()
-    print("✓ Disconnected")
+    print("Disconnected")
     
     print("\n" + "=" * 60)
     print("Agent stopped successfully!")

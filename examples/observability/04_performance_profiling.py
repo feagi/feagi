@@ -35,15 +35,15 @@ def main():
     print("=" * 60)
     
     # === Register devices ===
-    print("\n📥 Registering devices...")
+    print("\nRegistering devices...")
     camera = Camera.register(resolution=(1920, 1080))  # High resolution
     servo = ServoMotor.register(range=(0, 180))
     motor_left = RotaryMotor.register()
     motor_right = RotaryMotor.register()
-    print("✓ Devices registered (high-res camera for profiling)")
+    print("Devices registered (high-res camera for profiling)")
     
     # === Configure connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
     feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
@@ -68,7 +68,7 @@ def main():
     
     brain_input.connect()
     brain_output.connect()
-    print("✓ Connected to FEAGI")
+    print("Connected to FEAGI")
     
     # === Set up profiler ===
     print("\n⚡ Setting up performance profiler...")
@@ -76,7 +76,7 @@ def main():
     
     brain_input.attach_monitor(profiler)
     brain_output.attach_monitor(profiler)
-    print("✓ Profiler attached")
+    print("Profiler attached")
     
     # === Run performance benchmark ===
     print("\n🤖 Running performance benchmark (200 iterations)...")
@@ -104,7 +104,7 @@ def main():
             print(f"  Completed {i + 1}/200 iterations...")
     
     total_time = time.time() - start_time
-    print(f"✓ Benchmark complete in {total_time:.2f} seconds")
+    print(f"Benchmark complete in {total_time:.2f} seconds")
     print(f"  Average: {total_time / 200 * 1000:.2f} ms per iteration")
     
     # === Display performance profile ===
@@ -149,7 +149,7 @@ def main():
                 print("       - Reduce motor sampling rate")
                 print("       - Optimize motor command processing")
     else:
-        print("\n✅ No significant bottlenecks detected!")
+        print("\nNo significant bottlenecks detected.")
         print("   All operations running efficiently (<5ms average)")
     
     # === Performance summary ===
@@ -168,7 +168,7 @@ def main():
         print(f"  Transmission:    {profile.transmission_time_ms:.2f} ms")
     
     print("\n" + "=" * 60)
-    print("✅ Example complete!")
+    print("Example complete.")
     print("=" * 60)
 
 

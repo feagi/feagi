@@ -35,7 +35,7 @@ engine = FeagiEngine()
 engine.load_config("feagi_configuration.toml")
 engine.load_genome("my_genome.json")  # Start fresh!
 
-print("\n✅ Genome loaded")
+print("\nGenome loaded")
 print("   - Fresh neural structure")
 print("   - No training/learning yet")
 print("   - Ready for new experiments")
@@ -65,7 +65,7 @@ engine2 = FeagiEngine()
 engine2.load_config("feagi_configuration.toml")
 engine2.load_connectome("trained_brain.connectome")  # Resume from saved state!
 
-print("\n✅ Connectome loaded")
+print("\nConnectome loaded")
 print("   - Trained neural state")
 print("   - All learned connections preserved")
 print("   - Ready to continue or deploy")
@@ -91,10 +91,10 @@ print("=" * 70)
 engine3 = FeagiEngine()
 engine3.load_config("feagi_configuration.toml")
 engine3.load_genome("genome1.json")      # Load genome first
-print("\n✅ Genome loaded")
+print("\nGenome loaded")
 
 engine3.load_connectome("brain.connectome")  # This will replace genome!
-print("⚠️  Connectome loaded - genome was cleared (mutually exclusive)")
+print("Connectome loaded - genome was cleared (mutually exclusive)")
 
 # Only connectome will be used when starting
 print("\nFinal state: Connectome will be used (genome was cleared)")
@@ -139,14 +139,14 @@ print("Summary")
 print("=" * 70)
 print("""
 Genome (Blueprint):
-  ✅ Use for: New experiments, fresh starts
-  ✅ Contains: Neural structure definition
-  ✅ State: Untrained
-  
+  Use for: New experiments, fresh starts
+  Contains: Neural structure definition
+  State: Untrained
+
 Connectome (Trained Brain):
-  ✅ Use for: Resume training, deploy models
-  ✅ Contains: Neural state + learned connections
-  ✅ State: Trained/learned
+  Use for: Resume training, deploy models
+  Contains: Neural state + learned connections
+  State: Trained/learned
   
 Method Chaining:
   engine.load_config("config.toml").load_genome("genome.json").start()

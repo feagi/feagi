@@ -1,5 +1,5 @@
 """
-Servo Motor Example using FEAGI SDK 3.0
+Servo Motor Example using FEAGI SDK 2.0
 
 Demonstrates how to use ServoMotor with FEAGI for positional control.
 This example shows:
@@ -32,26 +32,26 @@ def parse_env_float(name: str) -> float:
 
 def main():
     print("=" * 60)
-    print("FEAGI 3.0 - Servo Motor Example")
+    print("FEAGI 2.0 - Servo Motor Example")
     print("=" * 60)
     
     # === Register Servos ===
-    print("\n📤 Registering servo motors...")
+    print("\nRegistering servo motors...")
     
-    # Standard servo (0-180°)
+    # Standard servo (0-180 deg)
     servo_head = ServoMotor.register(range=(0, 180), encoding="absolute")
-    print(f"  ✓ Head servo registered (0-180°)")
+    print("  Head servo registered (0-180 deg)")
     
-    # Wide-range servo (0-270°)
+    # Wide-range servo (0-270 deg)
     servo_arm = ServoMotor.register(range=(0, 270), encoding="absolute")
-    print(f"  ✓ Arm servo registered (0-270°)")
+    print("  Arm servo registered (0-270 deg)")
     
-    # Bidirectional servo (-90 to +90°)
+    # Bidirectional servo (-90 to +90 deg)
     servo_tilt = ServoMotor.register(range=(-90, 90), encoding="absolute")
-    print(f"  ✓ Tilt servo registered (-90° to +90°)")
+    print("  Tilt servo registered (-90 to +90 deg)")
     
     # === Configure Connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
@@ -75,7 +75,7 @@ def main():
     )
     
     print(
-        f"  ✓ Configured: {feagi_host}:{feagi_motor_port} (ZMQ)"
+        f"  Configured: {feagi_host}:{feagi_motor_port} (ZMQ)"
     )
     
     # === Connect ===
@@ -83,7 +83,7 @@ def main():
     
     try:
         brain_output.connect()
-        print("  ✓ Connected successfully!")
+        print("  Connected successfully!")
     except Exception as e:
         print(f"  ✗ Connection failed: {e}")
         print("\n⚠️  Make sure:")
@@ -141,7 +141,7 @@ def main():
     
     # === Cleanup ===
     brain_output.disconnect()
-    print("✓ Disconnected")
+    print("Disconnected")
     
     print("\n" + "=" * 60)
     print("Motor control stopped successfully!")

@@ -18,15 +18,15 @@ def main():
     print("=" * 60)
     
     # === Register devices ===
-    print("\n📥 Registering devices...")
+    print("\nRegistering devices...")
     camera = Camera.register(resolution=(640, 480))
-    print("✓ Camera registered")
+    print("Camera registered")
     
     # === Configure connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     brain_input.configure(feagi_host="localhost")
     brain_input.connect()
-    print("✓ Connected to FEAGI")
+    print("Connected to FEAGI")
     
     # === Set up data inspection ===
     print("\n🔍 Setting up data validation...")
@@ -37,7 +37,7 @@ def main():
     )
     
     brain_input.attach_monitor(inspector)
-    print("✓ Data inspector attached")
+    print("Data inspector attached")
     
     # === Run agent with various data conditions ===
     print("\n🤖 Running agent with test scenarios...")
@@ -58,9 +58,9 @@ def main():
             brain_input.send()
             time.sleep(0.01)
         
-        print(f"    ✓ Sent 5 packets")
+        print("    Sent 5 packets")
     
-    print("\n✓ Test scenarios complete")
+    print("\nTest scenarios complete")
     
     # === Check validation report ===
     print("\n" + "=" * 60)
@@ -79,7 +79,7 @@ def main():
         for issue in report.issues:
             print(f"  {issue}")
     else:
-        print("\n✅ No issues detected!")
+        print("\nNo issues detected.")
     
     # === Display detailed report ===
     print("\n" + "=" * 60)
@@ -88,7 +88,7 @@ def main():
     # === Recommendations ===
     if report.has_errors():
         print("=" * 60)
-        print("🔧 RECOMMENDATIONS")
+        print("RECOMMENDATIONS")
         print("=" * 60)
         print("\nData validation errors detected. Common fixes:")
         print("  1. Check sensor connections")
@@ -97,7 +97,7 @@ def main():
         print("  4. Add input validation before sending to FEAGI")
     
     print("\n" + "=" * 60)
-    print("✅ Example complete!")
+    print("Example complete.")
     print("=" * 60)
 
 
