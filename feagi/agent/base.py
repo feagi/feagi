@@ -6,6 +6,7 @@ Abstract base class for all FEAGI agents.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
+import os
 
 
 class BaseAgent(ABC):
@@ -117,6 +118,31 @@ class BaseAgent(ABC):
             )
         
         self.client = FeagiAgentClient(self.agent_id, agent_type)
+
+        auth_token_b64 = self.capabilities.get("auth_token_b64") or os.environ.get(
+            "FEAGI_AUTH_TOKEN_B64"
+        )
+        if not auth_token_b64:
+            raise ValueError(
+                "Missing auth_token_b64. Provide capabilities['auth_token_b64'] "
+                "or set FEAGI_AUTH_TOKEN_B64."
+            )
+        connection_timeout_raw = self.capabilities.get("connection_timeout_ms")
+        if connection_timeout_raw is None:
+            connection_timeout_raw = os.environ.get("FEAGI_CONNECTION_TIMEOUT_MS")
+        if connection_timeout_raw is None:
+            raise ValueError(
+                "Missing connection_timeout_ms. Provide capabilities['connection_timeout_ms'] "
+                "or set FEAGI_CONNECTION_TIMEOUT_MS."
+            )
+        registration_retries_raw = self.capabilities.get("registration_retries")
+        if registration_retries_raw is None:
+            registration_retries_raw = os.environ.get("FEAGI_REGISTRATION_RETRIES")
+        if registration_retries_raw is None:
+            raise ValueError(
+                "Missing registration_retries. Provide capabilities['registration_retries'] "
+                "or set FEAGI_REGISTRATION_RETRIES."
+            )
         
         # Convert capabilities dict to client config format (FEAGI 2.0)
         motor_cap = None
@@ -159,7 +185,10 @@ class BaseAgent(ABC):
             vision_unit=vision_cap,
             motor_unit=motor_cap,
             motor_units=motor_caps,
-            custom_capabilities=custom_caps if custom_caps else None
+            custom_capabilities=custom_caps if custom_caps else None,
+            connection_timeout_ms=int(connection_timeout_raw),
+            registration_retries=int(registration_retries_raw),
+            auth_token_b64=auth_token_b64,
         )
         self.client.connect()  # Synchronous, not async!
     

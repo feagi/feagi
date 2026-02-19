@@ -212,14 +212,20 @@ class Camera(BaseInput):
         """Register with Rust ConnectorAgent"""
         self._init_rust_properties()
         
-        # NOTE: sensor_simple_vision_register does NOT exist in current rust-py-libs API
-        # The ImageFrame registration code is commented out in the Rust source.
-        # Use sensor_segmented_vision_register instead, which is the available API
-        method_name = "sensor_segmented_vision_register"
-        
-        if not hasattr(cache, method_name):
+        # Rust API currently exposes segmented vision registration with different
+        # method casing depending on binding build/version.
+        method_name = None
+        for candidate in (
+            "sensor_segmented_vision_register",
+            "sensor_SegmentedVision_register",
+        ):
+            if hasattr(cache, candidate):
+                method_name = candidate
+                break
+
+        if method_name is None:
             raise AttributeError(
-                f"ConnectorAgent missing method: {method_name}\n"
+                "ConnectorAgent missing segmented vision registration method.\n"
                 f"The simple_vision registration method is not exposed in rust-py-libs.\n"
                 f"Using segmented_vision_register as alternative."
             )
@@ -298,10 +304,13 @@ class Camera(BaseInput):
         # Store segmented properties for later gaze updates
         self._segmented_properties = segmented_properties
         
-        # GazeProperties - create default centered gaze
-        # GazeProperties is in data_types, not descriptors
+        # GazeProperties - explicit default: eccentricity (0.5, 0.5), modulation 1.0
+        # Ensures registration uses these values regardless of Rust create_default_centered().
         try:
-            gaze = cc_data_types.GazeProperties.create_default_centered()
+            pct = cc_data_types.Percentage.new_from_0_1
+            eccentricity_xy = cc_data_types.Percentage2D(pct(0.5), pct(0.5))
+            modulation_pct = pct(1.0)
+            gaze = cc_data_types.GazeProperties(eccentricity_xy, modulation_pct)
         except AttributeError:
             # GazeProperties not exposed - needs to be added to rust-py-libs lib.rs
             raise AttributeError(

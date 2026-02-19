@@ -1,0 +1,3 @@
+# Video Streamer example - FEAGI SDK 2.0 (video extra for opencv)
+feagi-core[video]>=2.1.0
+toml>=0.10.2

@@ -7,8 +7,8 @@ communication with FEAGI.
 This example:
 1. Auto-detects ESP32 serial port (or uses specified port)
 2. Connects to FEAGI via ZMQ
-3. Bridges sensory data from ESP32 → FEAGI
-4. Bridges motor commands from FEAGI → ESP32
+3. Bridges sensory data from ESP32 to FEAGI
+4. Bridges motor commands from FEAGI to ESP32
 
 Prerequisites:
 - ESP32 connected via USB
@@ -18,10 +18,10 @@ Prerequisites:
 Usage:
     # Auto-detect ESP32 port
     python esp32_controller_example.py --agent-id esp32-01
-    
+
     # Specify port
     python esp32_controller_example.py --agent-id esp32-01 --serial-port /dev/ttyUSB0
-    
+
     # Custom FEAGI host
     python esp32_controller_example.py --agent-id esp32-01 --feagi-host 192.168.1.100
 """
@@ -36,7 +36,7 @@ def main():
         description="ESP32 Serial-to-FEAGI Bridge",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    
+
     parser.add_argument(
         "--agent-id",
         required=True,
@@ -64,15 +64,15 @@ def main():
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO)"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    
+
     # Create and run controller
     controller = Esp32SerialController(
         agent_id=args.agent_id,
@@ -81,7 +81,7 @@ def main():
         feagi_host=args.feagi_host,
         auto_detect_port=(args.serial_port is None),
     )
-    
+
     try:
         controller.run()
     except KeyboardInterrupt:
@@ -93,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

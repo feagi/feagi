@@ -35,13 +35,13 @@ def main():
     print("=" * 60)
     
     # === Register devices ===
-    print("\n📥 Registering devices...")
+    print("\nRegistering devices...")
     camera = Camera.register(resolution=(640, 480))
     servo = ServoMotor.register(range=(0, 180))
-    print("✓ Devices registered")
+    print("Devices registered")
     
     # === Configure connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
     feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
@@ -66,7 +66,7 @@ def main():
     
     brain_input.connect()
     brain_output.connect()
-    print("✓ Connected to FEAGI")
+    print("Connected to FEAGI")
     
     # === Enable monitoring with one line ===
     print("\n🔍 Enabling monitoring (one-liner)...")
@@ -76,7 +76,7 @@ def main():
         log_level="INFO"
     )
     
-    print("✓ Monitoring enabled!")
+    print("Monitoring enabled.")
     print("  - Metrics collection: ON")
     print("  - Data logging: quick_start_data.log")
     
@@ -98,7 +98,7 @@ def main():
         if (i + 1) % 10 == 0:
             print(f"  Processed {i + 1}/50 iterations...")
     
-    print("✓ Agent run complete")
+    print("Agent run complete")
     
     # === View results ===
     print("\n📊 Results:")
@@ -108,16 +108,16 @@ def main():
     logger.close()
     
     print("\n" + "=" * 60)
-    print("✅ Quick start example complete!")
+    print("Quick start example complete.")
     print("=" * 60)
     
     print("\nThat's it! Just one line to enable monitoring:")
     print("  enable_monitoring(log_file='data.log')")
     print("\nYou get:")
-    print("  ✓ Automatic metrics collection")
-    print("  ✓ Structured data logging")
-    print("  ✓ Easy-to-read summaries")
-    print("  ✓ Exportable data files")
+    print("  Automatic metrics collection")
+    print("  Structured data logging")
+    print("  Easy-to-read summaries")
+    print("  Exportable data files")
 
 
 if __name__ == "__main__":

@@ -1,97 +1,57 @@
-# FEAGI Connector Examples
+# FEAGI Python SDK - Examples
 
-**Note: FEAGI Connector is now a pure SDK library. For complete agent examples and reference implementations, please see the `simple_agent` project.**
-
-This directory contains SDK usage documentation and code examples demonstrating the new Rust-powered API.
+Each example lives in its own folder with a README and optional `requirements.txt`. Use the SDK virtual environment or install dependencies per example.
 
 ## Requirements
 
-Install with video support:
+- Python 3.10+
+- FEAGI Python SDK. From repo root: `pip install -e ".[video]"` (or use project venv). Optional: `feagi_rust_py_libs` for PNS client performance.
+
+Configuration is read from `feagi_configuration.toml` in this directory (or from paths set by your environment). Do not hardcode hosts or ports; use environment variables or the config file.
+
+## Overview
+
+| Example Folder | Description |
+|----------------|-------------|
+| `simple_robot/` | Robot with camera, infrared, servo, rotary motors; `feagi.pns` inputs/outputs |
+| `servo_motor/` | Servo motor control only; register servos, connect, read angles in a loop |
+| `video_streamer/` | Video streaming with `FeagiEngine` and `VideoStreamAgent` |
+| `genome_vs_connectome/` | Difference between loading a genome vs a connectome with `FeagiEngine` |
+| `esp32_controller/` | ESP32 serial bridge using `feagi.agent.esp32.Esp32SerialController` |
+| `mixed_transport_agent/` | Agent that chooses ZMQ or WebSocket based on FEAGI registration |
+| `observability/` | PNS observability: metrics, logging, profiling, validation |
+
+## Running Examples
+
+Each folder has its own README and (where applicable) `requirements.txt`. Run from the example folder or set `PYTHONPATH` to include the SDK.
+
 ```bash
-pip install --extra-index-url https://test.pypi.org/simple/ feagi-connector[video]
+cd simple_robot
+python example_simple_robot.py
 ```
 
-## SDK Usage Examples
+Or from this directory:
 
-### New API: Segmented Vision with Gaze Control (v0.0.73+)
-
-See `segmented_vision_gaze_example.py` for a complete example using the new Rust data structures.
-
-```python
-import feagi_rust_py_libs as frpl
-from feagi_connector import FeagiAgentConnector
-
-# Create image frames using Rust types
-color_space = frpl.connector_core.data_types.descriptors.ColorSpace.Linear
-memory_order = frpl.connector_core.data_types.descriptors.MemoryOrderLayout.WidthsHeightsChannels
-image_frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
-    numpy_array, color_space, memory_order
-)
-
-# Create gaze properties
-eccentricity = frpl.connector_core.data_types.Percentage2D(
-    frpl.connector_core.data_types.Percentage.new_from_0_1(0.2),
-    frpl.connector_core.data_types.Percentage.new_from_0_1(0.2)
-)
-
-# Register segmented vision sensor
-agent.sensors.image_camera_with_peripheral.register(
-    cortical_group, num_channels, input_props, segment_props, gaze
-)
-
-# Write image data
-agent.sensors.image_camera_with_peripheral.write(
-    cortical_group, channel, image_frame
-)
-
-# Get structured byte container
-byte_container = agent.sensor_get_byte_container()
-neuron_data = byte_container.try_create_new_struct_from_index(0)
+```bash
+python simple_robot/example_simple_robot.py
 ```
 
-### Basic Connection Example
+Common environment variables (no hardcoded defaults): `FEAGI_HOST`, `FEAGI_AGENT_DESCRIPTOR_B64`, `FEAGI_REGISTRATION_PORT`, `FEAGI_SENSORY_PORT`, `FEAGI_MOTOR_PORT`. See each example README for full list.
 
-```python
-from feagi_connector import FeagiClient
-from feagi_connector.protocols import FSMPChannel
+## Shared Configuration
 
-# Create client
-# agent_id must be a base64 AgentDescriptor (48-byte payload)
-client = FeagiClient(host="localhost", agent_id="<agent_descriptor_b64>")
+- **feagi_configuration.toml** – Used by engine and video/genome examples. Stored here; example folders resolve it (this folder or parent). Override with `FEAGI_CONFIG_PATH` where supported.
+- **agent_config.toml.template** – Sample agent config; copy to your agent directory and customize.
 
-# Connect
-await client.connect()
+## Troubleshooting
 
-# Send sensory data  
-await client.send_sensory_data(FSMPChannel.VISION, image_bytes)
+- **FEAGI logs "Unknown cortical area" (base64 IDs)** – The genome's cortical area IDs do not match the IDs the agent sends. Use a genome that defines vision (IPU) areas compatible with the agent's pipeline, or align registration and genome (see FEAGI/BDU docs).
 
-# Register motor callback
-await client.register_motor_callback(handle_motor_data)
+## SDK Modules Used
 
-# Disconnect
-await client.disconnect()
-```
+- **feagi.engine** – `FeagiEngine` for starting/stopping the neural engine and loading config/genome/connectome
+- **feagi.agent** – `VideoStreamAgent`, `Esp32SerialController`
+- **feagi.pns** – `brain_input`, `brain_output`, `FeagiAgentClient`, `AgentType`; inputs (Camera, Infrared), outputs (ServoMotor, RotaryMotor)
+- **feagi.pns.observability** – `enable_monitoring`, MetricsCollector, DataLogger, DataInspector, Profiler
 
-### Performance Comparison (Python vs Rust)
-
-```python
-# Explicit implementation selection
-from feagi_connector.utils.processing import encode_neuron_potential_xyz_python
-from feagi_connector.utils.rust_processing import encode_neuron_potential_xyz_rust
-
-# Use Python implementation
-py_encoded = encode_neuron_potential_xyz_python(neuron_data)
-
-# Use Rust implementation (5-20x faster)
-rust_encoded = encode_neuron_potential_xyz_rust(neuron_data)
-```
-
-## Complete Agent Examples
-
-For complete, runnable agent implementations that demonstrate:
-- Robot control agents
-- IoT sensor agents  
-- Vision processing agents
-- Custom agent extensions
-
-**See the `simple_agent` project**, which serves as the reference implementation showing how to use FEAGI Connector in real applications. 
+For full API details, see the SDK package documentation and `feagi/` source.

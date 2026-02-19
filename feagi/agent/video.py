@@ -74,13 +74,14 @@ class VideoStreamAgent(BaseAgent):
         camera_encoding: str = "absolute",
         auto_detect: bool = True,
         agent_id: str = "video_stream_agent",
-        feagi_host: str = "localhost"
+        feagi_host: str = "localhost",
+        connection_params: Optional[dict] = None,
     ):
         """
         Initialize VideoStreamAgent.
-        
+
         Note: FEAGI engine must be started separately before using this agent.
-        
+
         Args:
             video_path: Path to video file
             camera_position: Camera position for registration (default: "center")
@@ -88,23 +89,29 @@ class VideoStreamAgent(BaseAgent):
             auto_detect: Auto-detect video properties on init (default: True)
             agent_id: Unique agent identifier (default: "video_stream_agent")
             feagi_host: FEAGI hostname (default: "localhost")
+            connection_params: Optional dict passed to start() in context manager.
+                Must include: feagi_host, feagi_port, api_port, transport,
+                feagi_http_timeout_s, heartbeat_interval_s, heartbeat_join_timeout_s.
         """
         super().__init__(agent_id=agent_id, feagi_host=feagi_host)
-        
+
         self.video_path = Path(video_path)
         if not self.video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
-        
+
         # Video properties (will be set by _detect_video_properties)
         self.width = None
         self.height = None
         self.fps = None
         self.total_frames = None
-        
+
         # Camera settings
         self.camera_position = camera_position
         self.camera_encoding = camera_encoding
-        
+
+        # Connection params for context manager (optional; when set, __enter__ calls start(**connection_params))
+        self._connection_params = connection_params
+
         # Agent state
         self.camera = None
         self._cap = None
@@ -151,12 +158,16 @@ class VideoStreamAgent(BaseAgent):
         feagi_http_timeout_s: float,
         heartbeat_interval_s: float,
         heartbeat_join_timeout_s: float,
+        registration_port: Optional[int] = None,
+        connection_timeout_ms: Optional[int] = None,
+        registration_retries: Optional[int] = None,
+        auth_token_b64: Optional[str] = None,
     ):
         """
         Connect to FEAGI and register camera.
-        
+
         Note: FEAGI engine must already be running before calling this.
-        
+
         Args:
             feagi_host: FEAGI hostname (required; no defaults in safety mode)
             feagi_port: FEAGI sensory port (required; no defaults in safety mode)
@@ -165,6 +176,10 @@ class VideoStreamAgent(BaseAgent):
             feagi_http_timeout_s: HTTP timeout in seconds (required; no defaults in safety mode)
             heartbeat_interval_s: Heartbeat interval in seconds (required; no defaults in safety mode)
             heartbeat_join_timeout_s: Heartbeat join timeout in seconds (required; no defaults in safety mode)
+            registration_port: ZMQ registration port (optional; use FEAGI_REGISTRATION_PORT if unset)
+            connection_timeout_ms: Rust SDK connection timeout in milliseconds.
+            registration_retries: Rust SDK registration retry count.
+            auth_token_b64: Base64 auth token (32-byte decoded payload).
         """
         if self._started:
             logger.warning("VideoStreamAgent already started")
@@ -185,11 +200,15 @@ class VideoStreamAgent(BaseAgent):
         brain_input.configure(
             feagi_host=feagi_host,
             feagi_port=feagi_port,
+            registration_port=registration_port,
             transport=transport,
             api_port=api_port,
             feagi_http_timeout_s=feagi_http_timeout_s,
             heartbeat_interval_s=heartbeat_interval_s,
             heartbeat_join_timeout_s=heartbeat_join_timeout_s,
+            connection_timeout_ms=connection_timeout_ms,
+            registration_retries=registration_retries,
+            auth_token_b64=auth_token_b64,
         )
         brain_input.connect()
         
@@ -360,8 +379,11 @@ class VideoStreamAgent(BaseAgent):
         logger.info("VideoStreamAgent stopped")
     
     def __enter__(self):
-        """Context manager entry: auto-start"""
-        self.start()
+        """Context manager entry: auto-start with connection_params if set."""
+        if self._connection_params is not None:
+            self.start(**self._connection_params)
+        else:
+            self.start()
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):

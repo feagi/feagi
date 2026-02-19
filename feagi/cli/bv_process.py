@@ -11,6 +11,7 @@ Robust lifecycle management for Brain Visualizer processes including:
 from __future__ import annotations
 
 import os
+import platform
 import signal
 import subprocess
 import time
@@ -71,6 +72,16 @@ class BVProcessManager:
             except OSError:
                 pass
             setattr(self, fd_attr, None)
+
+    @staticmethod
+    def _windows_creation_flags() -> int:
+        """Return Windows creation flags that isolate BV from console signals."""
+        if platform.system().lower().startswith("windows"):
+            return (
+                subprocess.CREATE_NEW_PROCESS_GROUP
+                | subprocess.DETACHED_PROCESS
+            )
+        return 0
     
     def start(
         self,
@@ -118,6 +129,7 @@ class BVProcessManager:
                 stdout=stdout_fd,
                 stderr=stderr_fd,
                 start_new_session=True,  # Detach from parent
+                creationflags=self._windows_creation_flags(),
             )
         except Exception as exc:
             if stdout_fd is not None:

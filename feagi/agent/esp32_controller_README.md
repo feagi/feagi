@@ -89,7 +89,7 @@ python -m feagi.agent.esp32 --agent-id <agent_descriptor_b64> --feagi-host 192.1
 ### Using the Example Script
 
 ```bash
-python examples/esp32_controller_example.py --agent-id <agent_descriptor_b64>
+python examples/esp32_controller/esp32_controller_example.py --agent-id <agent_descriptor_b64>
 ```
 
 ## Configuration

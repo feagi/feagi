@@ -65,7 +65,8 @@ auto_recovery_on_validation_failure = true  # Allow loading invalid genomes with
 # REST API server configuration
 # REQUIRED: These values must be provided via environment variables or config override
 # Example: FEAGI_API_HOST=127.0.0.1 FEAGI_API_PORT=8000
-host = "127.0.0.1"  # Localhost only - secure by default, no firewall prompts. Override with FEAGI_API_HOST for network deployments
+bind_host = "127.0.0.1"  # Bind address. Default loopback reduces OS firewall prompts. Set to 0.0.0.0 to allow external clients.
+advertised_host = "127.0.0.1"  # Advertised address. Must be routable; never use 0.0.0.0 / :: / *.
 port = 8000         # Default API port, override with FEAGI_API_PORT for production
 workers = 1         # Can be overridden with $FEAGI_API_WORKERS
 reload = false      # Can be overridden with $FEAGI_API_RELOAD
@@ -76,7 +77,8 @@ reload = false      # Can be overridden with $FEAGI_API_RELOAD
 registration_port = 30001  # ZMQ agent registration endpoint (REQ/REP)
 sensory_port = 5555        # ZMQ sensory data input (PULL socket - agents PUSH sensory data here)
 motor_port = 5564          # ZMQ motor data output (PUB socket - agents SUB to receive motor commands)
-host = "0.0.0.0"           # Host for agent communication, can be overridden with FEAGI_AGENT_HOST
+bind_host = "0.0.0.0"           # Bind address for agent endpoints
+advertised_host = "127.0.0.1"   # Advertised address for agents to connect to
 
 [ports]
 # ZMQ Communication Ports
@@ -104,7 +106,8 @@ zmq_motor_port = 5564        # Motor data output
 # ZMQ-specific settings
 # REQUIRED: Host must be provided via environment variable or config override
 # Example: FEAGI_ZMQ_HOST=0.0.0.0
-host = "0.0.0.0"           # Default for cross-platform compatibility, override with FEAGI_ZMQ_HOST for production
+bind_host = "0.0.0.0"           # Bind address for ZMQ endpoints
+advertised_host = "127.0.0.1"   # Advertised address for ZMQ endpoints
 enabled = true
 
 # Timeout configurations (all in milliseconds)
@@ -119,7 +122,8 @@ inactive_client_timeout = 60000   # Consider clients inactive after this
 [websocket]
 # WebSocket transport settings (NEW in FEAGI 2.0)
 # Can coexist with ZMQ - agents choose which transport to use
-host = "127.0.0.1"           # Localhost only - secure by default, no firewall prompts. Override with FEAGI_WS_HOST for network deployments
+bind_host = "127.0.0.1"           # Bind address for WebSocket endpoints
+advertised_host = "127.0.0.1"     # Advertised address for WebSocket endpoints
 enabled = true             # Enable/disable WebSocket transport
 
 # WebSocket ports (all configurable, NO hardcoding)

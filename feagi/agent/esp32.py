@@ -25,6 +25,7 @@ Usage:
 
 import json
 import logging
+import os
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -75,6 +76,9 @@ class Esp32SerialController:
         feagi_sensory_port: int = 5555,
         feagi_motor_port: int = 5564,
         heartbeat_interval: float = 5.0,
+        connection_timeout_ms: Optional[int] = None,
+        registration_retries: Optional[int] = None,
+        auth_token_b64: Optional[str] = None,
         auto_detect_port: bool = True,
     ):
         """
@@ -100,6 +104,9 @@ class Esp32SerialController:
         self.feagi_sensory_port = feagi_sensory_port
         self.feagi_motor_port = feagi_motor_port
         self.heartbeat_interval = heartbeat_interval
+        self.connection_timeout_ms = connection_timeout_ms
+        self.registration_retries = registration_retries
+        self.auth_token_b64 = auth_token_b64
         
         # Serial port
         if serial_port is None and auto_detect_port:
@@ -233,12 +240,44 @@ class Esp32SerialController:
             self.feagi_client = FeagiAgentClient(self.agent_id, AgentType.BOTH)
             
             # Configure client
+            connection_timeout_ms = self.connection_timeout_ms
+            if connection_timeout_ms is None:
+                env_timeout = os.environ.get("FEAGI_CONNECTION_TIMEOUT_MS")
+                if env_timeout is None:
+                    raise RuntimeError(
+                        "Missing connection timeout. Provide connection_timeout_ms "
+                        "or set FEAGI_CONNECTION_TIMEOUT_MS."
+                    )
+                connection_timeout_ms = int(env_timeout)
+
+            registration_retries = self.registration_retries
+            if registration_retries is None:
+                env_retries = os.environ.get("FEAGI_REGISTRATION_RETRIES")
+                if env_retries is None:
+                    raise RuntimeError(
+                        "Missing registration retries. Provide registration_retries "
+                        "or set FEAGI_REGISTRATION_RETRIES."
+                    )
+                registration_retries = int(env_retries)
+
+            auth_token_b64 = self.auth_token_b64 or os.environ.get(
+                "FEAGI_AUTH_TOKEN_B64"
+            )
+            if not auth_token_b64:
+                raise RuntimeError(
+                    "Missing auth token base64. Provide auth_token_b64 "
+                    "or set FEAGI_AUTH_TOKEN_B64."
+                )
+
             self.feagi_client.configure(
                 feagi_host=self.feagi_host,
                 registration_port=self.feagi_registration_port,
                 sensory_port=self.feagi_sensory_port,
                 motor_port=self.feagi_motor_port,
                 heartbeat_interval=self.heartbeat_interval,
+                connection_timeout_ms=int(connection_timeout_ms),
+                registration_retries=int(registration_retries),
+                auth_token_b64=auth_token_b64,
             )
             
             # Connect (registers with FEAGI)

@@ -40,15 +40,15 @@ def main():
     print("=" * 60)
     
     # === Register devices ===
-    print("\n📥 Registering devices...")
+    print("\nRegistering devices...")
     camera = Camera.register(resolution=(640, 480))
     servo = ServoMotor.register(range=(0, 180))
     motor_left = RotaryMotor.register()
     motor_right = RotaryMotor.register()
-    print("✓ Devices registered")
+    print("Devices registered")
     
     # === Configure connection ===
-    print("\n🔧 Configuring connection...")
+    print("\nConfiguring connection...")
     agent_id = require_env("FEAGI_AGENT_DESCRIPTOR_B64")
     feagi_host = require_env("FEAGI_HOST")
     feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
@@ -73,14 +73,14 @@ def main():
     
     brain_input.connect()
     brain_output.connect()
-    print("✓ Connected to FEAGI")
+    print("Connected to FEAGI")
     
     # === Set up all monitors ===
     print("\n🔍 Setting up comprehensive monitoring...")
     
     # Metrics collection
     metrics = MetricsCollector(log_level="INFO")
-    print("  ✓ MetricsCollector created")
+    print("  MetricsCollector created")
     
     # Data logging (10% sampling for lower overhead)
     logger = DataLogger(
@@ -90,7 +90,7 @@ def main():
         log_outputs=True,
         sample_rate=0.1  # Log 10% of packets
     )
-    print("  ✓ DataLogger created (10% sampling)")
+    print("  DataLogger created (10% sampling)")
     
     # Data validation
     inspector = DataInspector(
@@ -98,11 +98,11 @@ def main():
         check_ranges=True,
         detect_anomalies=True
     )
-    print("  ✓ DataInspector created")
+    print("  DataInspector created")
     
     # Performance profiling
     profiler = Profiler()
-    print("  ✓ Profiler created")
+    print("  Profiler created")
     
     # Attach all monitors
     monitors = [metrics, logger, inspector, profiler]
@@ -111,7 +111,7 @@ def main():
         brain_input.attach_monitor(monitor)
         brain_output.attach_monitor(monitor)
     
-    print("✓ All monitors attached")
+    print("All monitors attached")
     
     # === Run agent ===
     print("\n🤖 Running monitored agent (100 iterations)...")
@@ -138,12 +138,12 @@ def main():
         if (i + 1) % 25 == 0:
             print(f"  Processed {i + 1}/100 iterations...")
     
-    print("✓ Agent run complete")
+    print("Agent run complete")
     
     # === Close logger ===
     print("\n💾 Closing data logger...")
     logger.close()
-    print("✓ Logger closed")
+    print("Logger closed")
     
     # === Display all results ===
     print("\n" + "=" * 60)
@@ -159,7 +159,7 @@ def main():
     if validation_report.has_errors() or validation_report.has_warnings():
         validation_report.print_summary()
     else:
-        print("\n✅ No validation issues detected!")
+        print("\nNo validation issues detected.")
         print(f"   Inspected {validation_report.packets_inspected} packets")
     
     print("\n" + "=" * 60)
@@ -176,7 +176,7 @@ def main():
     metrics.export_json("comprehensive_metrics.json")
     metrics.export_csv("comprehensive_metrics.csv")
     
-    print("\n✓ Exported:")
+    print("\nExported:")
     print("  - comprehensive_metrics.json")
     print("  - comprehensive_metrics.csv")
     print("  - comprehensive_data.jsonl")
@@ -211,7 +211,7 @@ def main():
     print(f"  File:               comprehensive_data.jsonl")
     
     print("\n" + "=" * 60)
-    print("✅ Comprehensive monitoring example complete!")
+    print("Comprehensive monitoring example complete.")
     print("=" * 60)
     
     print("\nYou now have:")
