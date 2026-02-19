@@ -260,7 +260,7 @@ start_consuming_data()
 ```python
 # Automatic coordination
 agent.register(
-    agent_id="my_visualizer",
+    agent_id="<agent_descriptor_b64>",
     capabilities={"visualization": True}
 )
 # Data automatically flows after registration

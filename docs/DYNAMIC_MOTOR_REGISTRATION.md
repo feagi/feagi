@@ -58,7 +58,7 @@ feagi_agent = FeagiAgent()
 feagi_agent.brain_output.miscellaneous_absolute.register(
     cortical_group=0, 
     number_of_channels=10,
-    misc_dimensions=frpl.connector_core.data.descriptors.MiscDataDimensions(10, 1, 1)
+    misc_dimensions=frpl.connector_core.data_types.descriptors.MiscDataDimensions(10, 1, 1)
 )  # Registers: omot00
 
 feagi_agent.brain_output.gaze_absolute_linear.register(

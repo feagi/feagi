@@ -65,6 +65,9 @@ from feagi.pns.brain_output import brain_output
 from feagi.pns import inputs
 from feagi.pns import outputs
 
+# Client for agent integration
+from feagi.pns.client import FeagiAgentClient, AgentType
+
 # Also export common classes directly
 from feagi.pns.inputs import Camera, NumericStream as NumericInput, Infrared
 from feagi.pns.outputs import ServoMotor, RotaryMotor, NumericStream as NumericOutput
@@ -73,6 +76,9 @@ __all__ = [
     # Global singletons
     "brain_input",
     "brain_output",
+    # Client
+    "FeagiAgentClient",
+    "AgentType",
     # Submodules
     "inputs",
     "outputs",

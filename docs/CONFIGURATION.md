@@ -11,7 +11,7 @@ Following FEAGI 2.0 architecture principles, **ALL agents must use configuration
 Copy the template to your agent directory:
 
 ```bash
-cp feagi-connector/agent_config.toml.template your_agent/config.toml
+cp examples/agent_config.toml.template your_agent/config.toml
 ```
 
 Edit `config.toml` with your settings:
@@ -47,8 +47,9 @@ feagi_host = config["feagi"]["host"]
 registration_port = config["feagi"]["registration_port"]
 
 # Create FEAGI client with config values
+# NOTE: agent_id must be a base64 AgentDescriptor (48-byte payload).
 client = FeagiAgentClient(
-    agent_id="my-agent",
+    agent_id="<agent_descriptor_b64>",
     feagi_host=feagi_host,
     registration_port=registration_port,
     agent_type=AgentType.Sensory
@@ -308,7 +309,7 @@ def __init__(self, config):
 See complete examples:
 - [`video_agent/agent.py`](../../video_agent/agent.py) - Vision agent with config
 - [`simple_agent/agent.py`](../../simple_agent/agent.py) - Minimal agent with config
-- [`agent_config.toml.template`](../agent_config.toml.template) - Standard template
+- [`agent_config.toml.template`](../examples/agent_config.toml.template) - Standard template
 
 ## Troubleshooting
 
@@ -324,7 +325,7 @@ FEAGI 2.0 Architecture Requirement:
 **Solution**:
 ```bash
 cd your_agent/
-cp ../feagi-connector/agent_config.toml.template config.toml
+cp ../examples/agent_config.toml.template config.toml
 # Edit config.toml with your settings
 ```
 

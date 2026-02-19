@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-"""
-Tests for the FeagiClient class.
-"""
+# Tests for the FeagiClient class.
 
 import asyncio
-import json
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from feagi_connector import FeagiClient
+from feagi_connector.protocols import FSMPChannel
+
+TEST_AGENT_DESCRIPTOR_B64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 
 @pytest.fixture
@@ -69,7 +69,10 @@ def feagi_client(mock_command_client, mock_sensory_client, mock_viz_client):
     with patch("feagi_connector.client.FeagiCommandClient", return_value=mock_command_client), \
          patch("feagi_connector.client.FeagiSensoryClient", return_value=mock_sensory_client), \
          patch("feagi_connector.client.FeagiVizClient", return_value=mock_viz_client):
-        client = FeagiClient(host="test-host", agent_id="test-agent")
+        client = FeagiClient(
+            host="test-host",
+            agent_id=TEST_AGENT_DESCRIPTOR_B64,
+        )
         yield client
 
 

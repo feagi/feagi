@@ -15,7 +15,7 @@ The updated FEAGI Connector includes advanced gaze control functionality that al
 
 The latest version introduces several API improvements:
 
-- **New API Path**: `frpl.connector_core.data.*` instead of `frpl.data_structures.data.*`
+- **New API Path**: `frpl.connector_core.data_types.*` instead of `frpl.data_structures.data.*`
 - **Stage Updates**: Dynamic stage property updates via `update_stage()` method
 - **Percentage4D**: Motor data now returns `Percentage4D` objects with `.get_as_0_1()` accessor
 - **Factory Method**: `FeagiAgentConnector.create_dummy_connector()` for testing

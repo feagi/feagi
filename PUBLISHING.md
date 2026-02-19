@@ -153,6 +153,27 @@ PyPI doesn't allow overwriting versions. You must:
 1. Increment the version number
 2. Create a new release
 
+## Brain Visualizer Runtime (feagi-bv)
+
+`feagi-bv` is a separate, platform-specific runtime package for Brain Visualizer
+binaries. It is published via a dedicated workflow:
+
+1. When the FEAGI SDK release workflow runs, it dispatches the BV packaging workflow
+2. The workflow downloads BV release artifacts and builds platform-specific wheels
+3. Manual runs are still supported via GitHub Actions → `Publish FEAGI BV Runtime (TestPyPI)`
+
+Installation:
+
+```bash
+pip install "feagi[bv]"
+```
+
+> **Note:** Use quotes for zsh users (macOS default shell).
+
+Notes:
+- Wheels are platform-specific (Linux/macOS/Windows).
+- The workflow publishes to TestPyPI by default.
+
 ## Wheel Details
 
 Each release produces approximately 16-20 wheel files:

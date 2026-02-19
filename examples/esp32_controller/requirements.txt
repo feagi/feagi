@@ -1,0 +1,2 @@
+# ESP32 Controller example - FEAGI SDK 2.0 (pyserial via feagi-core)
+feagi-core>=2.1.0

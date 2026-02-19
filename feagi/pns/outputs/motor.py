@@ -4,7 +4,7 @@ Motor Outputs
 Servo motors, rotary motors (DC), stepper motors, etc.
 """
 
-from typing import Tuple, Literal
+from typing import Tuple, Literal, Optional
 from feagi.pns.outputs.base import BaseOutput
 
 # Type hints
@@ -13,13 +13,13 @@ MotorEncoding = Literal["absolute", "incremental"]
 
 class ServoMotor(BaseOutput):
     """
-    Servo motor output.
+    Servo motor output (positional servo).
     
-    Maps to Rust `motor_servo_*` methods.
+    Maps to Rust `motor_positional_servo_*` methods.
     
     Args:
         range: (min_angle, max_angle) in degrees
-        encoding: Encoding mode
+        encoding: Encoding mode ("absolute" or "incremental")
     
     Example:
         from feagi.pns.outputs import ServoMotor
@@ -37,17 +37,27 @@ class ServoMotor(BaseOutput):
             brain_output.receive()
             angle = servo.get_angle()
             set_servo_hardware(angle)  # Your hardware API
+    
+    Note:
+        The servo reads values as SignedPercentage (-1.0 to 1.0) from FEAGI
+        and automatically maps them to your specified angle range.
     """
     
     def __init__(
         self,
         range: Tuple[float, float] = (0, 180),
-        encoding: MotorEncoding = "absolute"
+        encoding: MotorEncoding = "absolute",
+        gain: float = 1.0,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ):
-        super().__init__()
+        super().__init__(unit_id)
         self.min_angle, self.max_angle = range
         self.encoding = encoding
         self.channel = 0
+        self.gain = gain  # Amplification factor for motor commands
+        self.preferred_group_id = unit_id
+        self.preferred_channel_index = channel_index
         
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
@@ -56,7 +66,10 @@ class ServoMotor(BaseOutput):
     def register(
         cls,
         range: Tuple[float, float] = (0, 180),
-        encoding: MotorEncoding = "absolute"
+        encoding: MotorEncoding = "absolute",
+        gain: float = 1.0,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ) -> 'ServoMotor':
         """
         Register a new servo motor output.
@@ -64,13 +77,17 @@ class ServoMotor(BaseOutput):
         Args:
             range: (min_angle, max_angle) in degrees
             encoding: "absolute" or "incremental"
+            gain: Amplification factor for motor commands (default: 1.0)
+                  Use >1.0 to amplify weak signals, <1.0 to dampen strong signals
+            unit_id: Cortical unit index (motor group) for this servo
+            channel_index: Optional channel override within the motor group
         
         Returns:
             ServoMotor instance
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding)
+        servo = cls(range, encoding, gain, unit_id, channel_index)
         brain_output.register_output(servo)
         return servo
     
@@ -83,19 +100,55 @@ class ServoMotor(BaseOutput):
         """
         return self._current_angle
     
-    def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust IOCache"""
-        # TODO: Update method name when servo motor support is added to Rust
-        # For now, use generic motor registration
-        # method_name = f"motor_servo_{self.encoding}_try_register"
-        pass
+    def _register_with_cache(self, cache, group_id: int, channel_index: int = None, decoder_registered: bool = False):
+        """Register callback with Rust MotorDeviceCache (decoder must be registered first)"""
+        try:
+            import feagi_rust_py_libs as frpl
+            
+            # Use provided channel_index if given, otherwise use self.channel
+            if channel_index is not None:
+                self.channel = channel_index
+            
+            # Only register callback if decoder has been registered
+            if decoder_registered:
+                # Register callback to receive motor commands from FEAGI
+                cache.register_callback(
+                    motor_unit=frpl.data_structures.genomic.MotorCorticalType.PositionalServo,
+                    group=group_id,
+                    channel=self.channel,
+                    callback=self._on_motor_command
+                )
+            
+            self.group_id = group_id
+        except Exception as e:
+            raise RuntimeError(f"Failed to register ServoMotor: {e}") from e
+    
+    def _on_motor_command(self, value: float):
+        """Callback invoked when FEAGI sends a motor command"""
+        # Value is SignedPercentage (-1.0 to 1.0) from FEAGI
+        # Store raw value for debugging
+        raw_value = value
+        
+        # Apply gain to amplify/dampen the signal
+        value = value * self.gain
+        # Clamp to [-1.0, 1.0] after gain application
+        value = max(-1.0, min(1.0, value))
+        
+        # Map to angle range: -1.0 -> min_angle, 0.0 -> center, 1.0 -> max_angle
+        center = (self.min_angle + self.max_angle) / 2.0
+        half_range = (self.max_angle - self.min_angle) / 2.0
+        self._current_angle = center + (value * half_range)
+        
+        # Debug logging (only for first motor, every 10th update to avoid spam)
+        if self.channel == 0 and abs(raw_value) > 0.001:
+            if not hasattr(self, '_debug_counter'):
+                self._debug_counter = 0
+            self._debug_counter += 1
+            if self._debug_counter % 10 == 0:
+                print(f"[MOTOR] Motor[0]: raw={raw_value:.4f}, gain={self.gain}, scaled={value:.4f}, angle={self._current_angle:.4f} rad (range=[{self.min_angle:.4f}, {self.max_angle:.4f}] rad)", flush=True)
     
     def _read_from_cache(self, cache):
-        """Read current angle from Rust IOCache"""
-        # TODO: Implement when servo motor support is added
-        # method_name = f"motor_servo_{self.encoding}_try_read_postprocessed_cached_value"
-        # percentage = read_method(group=self.group_id, channel=self.channel)
-        # self._current_angle = self.min_angle + (percentage * (self.max_angle - self.min_angle))
+        """No longer needed - callbacks handle updates"""
         pass
 
 
@@ -123,12 +176,16 @@ class RotaryMotor(BaseOutput):
     def __init__(
         self,
         encoding: MotorEncoding = "absolute",
-        bidirectional: bool = True
+        bidirectional: bool = True,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ):
-        super().__init__()
+        super().__init__(unit_id)
         self.encoding = encoding
         self.bidirectional = bidirectional
         self.channel = 0
+        self.preferred_group_id = unit_id
+        self.preferred_channel_index = channel_index
         
         # Current speed (from FEAGI)
         # Range: -1.0 to 1.0 if bidirectional, 0.0 to 1.0 if not
@@ -138,7 +195,9 @@ class RotaryMotor(BaseOutput):
     def register(
         cls,
         encoding: MotorEncoding = "absolute",
-        bidirectional: bool = True
+        bidirectional: bool = True,
+        unit_id: int = 0,
+        channel_index: Optional[int] = None,
     ) -> 'RotaryMotor':
         """
         Register a new rotary motor output.
@@ -146,13 +205,15 @@ class RotaryMotor(BaseOutput):
         Args:
             encoding: "absolute" or "incremental"
             bidirectional: Whether motor can reverse
+            unit_id: Cortical unit index (motor group) for this motor
+            channel_index: Optional channel override within the motor group
         
         Returns:
             RotaryMotor instance
         """
         from feagi.pns import brain_output
         
-        motor = cls(encoding, bidirectional)
+        motor = cls(encoding, bidirectional, unit_id, channel_index)
         brain_output.register_output(motor)
         return motor
     
@@ -165,57 +226,38 @@ class RotaryMotor(BaseOutput):
         """
         return self._current_speed
     
-    def _register_with_cache(self, cache, group_id: int):
-        """Register with Rust IOCache"""
-        # Build method name
-        method_name = f"motor_rotary_motor_{self.encoding}_linear_try_register"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            raise AttributeError(f"Rust IOCache missing method: {method_name}")
-        
-        register_method = getattr(cache, method_name)
-        
-        # Register
-        register_method(
-            group=group_id,
-            number_of_channels=1,
-            z_neuron_depth=10  # Default depth
-        )
-    
-    def _read_from_cache(self, cache):
-        """Read current speed from Rust IOCache"""
-        # Build method name
-        method_name = f"motor_rotary_motor_{self.encoding}_linear_try_read_postprocessed_cached_value"
-        
-        # Get method
-        if not hasattr(cache, method_name):
-            return  # Method not available yet
-        
-        read_method = getattr(cache, method_name)
-        
-        # Read
+    def _register_with_cache(self, cache, group_id: int, channel_index: int = None, decoder_registered: bool = False):
+        """Register callback with Rust MotorDeviceCache (decoder must be registered first)"""
         try:
             import feagi_rust_py_libs as frpl
             
-            # Read percentage value
-            percentage = read_method(
-                group=self.group_id,
-                channel=self.channel
-            )
+            # Use provided channel_index if given, otherwise use self.channel
+            if channel_index is not None:
+                self.channel = channel_index
             
-            # Convert SignedPercentage to float
-            if hasattr(percentage, 'value'):
-                value = percentage.value()
-            else:
-                value = float(percentage)
+            # Only register callback if decoder has been registered
+            if decoder_registered:
+                # Register callback to receive motor commands from FEAGI
+                cache.register_callback(
+                    motor_unit=frpl.data_structures.genomic.MotorCorticalType.RotaryMotor,
+                    group=group_id,
+                    channel=self.channel,
+                    callback=self._on_motor_command
+                )
             
-            # Map to speed range
-            if self.bidirectional:
-                self._current_speed = value  # Already -1.0 to 1.0
-            else:
-                self._current_speed = (value + 1.0) / 2.0  # Map to 0.0 to 1.0
-        except Exception:
-            # If reading fails, keep current value
-            pass
+            self.group_id = group_id
+        except Exception as e:
+            raise RuntimeError(f"Failed to register RotaryMotor: {e}") from e
+    
+    def _on_motor_command(self, value: float):
+        """Callback invoked when FEAGI sends a motor command"""
+        # Value is signed percentage (-1.0 to 1.0)
+        if self.bidirectional:
+            self._current_speed = value  # Already -1.0 to 1.0
+        else:
+            self._current_speed = (value + 1.0) / 2.0  # Map to 0.0 to 1.0
+    
+    def _read_from_cache(self, cache):
+        """No longer needed - callbacks handle updates"""
+        pass
 

@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "feagi"
+version = "2.1.10"
+description = "Complete FEAGI SDK with Brain Visualizer - Framework for Evolutionary Artificial General Intelligence"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Neuraville Inc.", email = "feagi@neuraville.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Meta-package that includes feagi-core + Brain Visualizer
+dependencies = [
+    "feagi-core==2.1.10",
+    "feagi-bv>=2.0.0,<3.0.0",
+    "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+# Additional optional dependencies
+video = [
+    "opencv-python>=4.9.0",
+]
+bluetooth = [
+    "bleak>=0.21.0",
+    "websockets>=12.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "opencv-python>=4.9.0",
+    "requests>=2.31.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "ruff>=0.0.270",
+    "pre-commit>=3.0.0",
+    "opencv-python>=4.9.0",
+]
+docs = [
+    "mkdocs>=1.4.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings>=0.20.0",
+    "mkdocstrings-python>=1.0.0",
+]
+full = [
+    "opencv-python>=4.9.0",
+    "bleak>=0.21.0",
+    "websockets>=12.0",
+]
+
+[project.urls]
+"Homepage" = "https://www.neuraville.com/feagi"
+"Source" = "https://github.com/feagi/feagi"
+"Bug Tracker" = "https://github.com/feagi/feagi/issues"
+"Documentation" = "https://github.com/feagi/feagi/tree/staging/docs"

@@ -3,9 +3,9 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "feagi"
-version = "2.0.0"
-description = "Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages"
+name = "feagi-core"
+version = "2.1.10"
+description = "Core SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages (without Brain Visualizer)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -25,15 +25,27 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.20.0",
-    "pyzmq>=24.0.0",
     "aiohttp>=3.9.0",
     "toml>=0.10.2",
     "requests>=2.31.0",
+    "feagi-rust-py-libs>=0.0.86",
+    "pyserial>=3.5",  # For ESP32 serial communication
 ]
 
 [project.optional-dependencies]
+bv = [
+    "feagi-bv>=2.0.0,<3.0.0",
+    "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
+]
 video = [
     "opencv-python>=4.9.0",
+]
+bluetooth = [
+    "bleak>=0.21.0",
+    "websockets>=12.0",
 ]
 test = [
     "pytest>=7.0.0",
@@ -60,21 +72,29 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
+    "feagi-bv>=2.0.0,<3.0.0",
+    "feagi-bv-linux>=2.0.0,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.0.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.0.0,<3.0.0 ; sys_platform == 'win32'",
     "opencv-python>=4.9.0",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
+    "bleak>=0.21.0",
+    "websockets>=12.0",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/Neuraville/FEAGI-2.0"
-"Bug Tracker" = "https://github.com/Neuraville/FEAGI-2.0/issues"
-"Documentation" = "https://docs.feagi.org"
+"Homepage" = "https://www.neuraville.com/feagi"
+"Source" = "https://github.com/feagi/feagi"
+"Bug Tracker" = "https://github.com/feagi/feagi/issues"
+"Documentation" = "https://github.com/feagi/feagi/tree/staging/docs"
 
 [project.scripts]
 feagi = "feagi.cli:main"
 
 [tool.setuptools]
-packages = ["feagi"]
+# Auto-discover all packages and subpackages
+# This ensures feagi.agent, feagi.pns, feagi.cli, etc. are all included
+packages = { find = {} }
 
 [tool.setuptools.package-data]
 feagi = [

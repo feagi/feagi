@@ -7,13 +7,33 @@ Manages the lifecycle of a FEAGI engine instance.
 import subprocess
 import time
 import logging
-import signal
 import os
-import sys
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional
 
 logger = logging.getLogger("feagi.engine")
+
+
+def _build_detached_spawn_options() -> dict[str, object]:
+    """
+    Build platform-specific subprocess options for detached FEAGI startup.
+
+    Returns:
+        Dictionary of keyword arguments to pass to subprocess.Popen.
+    """
+    if os.name == "nt":
+        # @cursor:critical-path Keep FEAGI isolated from parent console events
+        # on Windows to prevent unexpected CTRL_C_EVENT propagation.
+        creationflags = (
+            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            | getattr(subprocess, "DETACHED_PROCESS", 0)
+        )
+        return {
+            "creationflags": creationflags,
+            "stdin": subprocess.DEVNULL,
+        }
+
+    return {"start_new_session": True}
 
 
 class FeagiEngine:
@@ -60,6 +80,7 @@ class FeagiEngine:
         self.working_dir = Path(working_dir) if working_dir else Path.cwd()
         self.process: Optional[subprocess.Popen] = None
         self.config_path: Optional[Path] = None
+        self.config: Optional[dict[str, object]] = None
         self.genome_path: Optional[Path] = None
         self.connectome_path: Optional[Path] = None
         
@@ -85,7 +106,6 @@ class FeagiEngine:
         Returns:
             Path to FEAGI executable or None
         """
-        import platform
         import shutil
         
         # 1. Check for bundled binary (highest priority)
@@ -178,17 +198,23 @@ class FeagiEngine:
         
         return None
     
-    def load_config(self, config_path: str) -> 'FeagiEngine':
+    def load_config(self, config_path: str | None = None) -> 'FeagiEngine':
         """
         Load FEAGI configuration file
         
         Args:
-            config_path: Path to feagi_configuration.toml
+            config_path: Path to feagi_configuration.toml. If None, uses default config.
         
         Returns:
             Self for chaining
         """
-        self.config_path = Path(config_path)
+        from feagi.config import ensure_default_config
+        
+        # Use default config if none specified
+        if config_path is None:
+            self.config_path = ensure_default_config()
+        else:
+            self.config_path = Path(config_path)
         
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -196,9 +222,11 @@ class FeagiEngine:
         logger.info(f"Loaded config: {self.config_path}")
         
         # Parse config to extract ports (optional, for convenience)
+        self.config = None
         try:
             import toml
             config = toml.load(self.config_path)
+            self.config = config
             
             # Extract ports if available
             if "api" in config:
@@ -217,7 +245,10 @@ class FeagiEngine:
         Load genome file (initial neural structure)
         
         Args:
-            genome_path: Path to genome JSON file
+            genome_path: Path to genome JSON file. Can be:
+                - Absolute path: /path/to/genome.json
+                - Relative path: ./genome.json (uses current directory)
+                - Filename only: genome.json (searches in default genomes directory)
         
         Returns:
             Self for chaining
@@ -226,7 +257,17 @@ class FeagiEngine:
             Use load_genome() for starting with a fresh neural structure.
             Use load_connectome() for loading a trained/saved state.
         """
-        self.genome_path = Path(genome_path)
+        from feagi.paths import get_feagi_paths
+        
+        paths = get_feagi_paths()
+        
+        # Resolve path: if just a filename, look in genomes directory
+        genome_path_obj = Path(genome_path)
+        if not genome_path_obj.is_absolute() and "/" not in genome_path and "\\" not in genome_path:
+            # Just a filename, try genomes directory
+            self.genome_path = paths.resolve_path(genome_path, "genome")
+        else:
+            self.genome_path = Path(genome_path)
         
         if not self.genome_path.exists():
             raise FileNotFoundError(f"Genome file not found: {genome_path}")
@@ -244,7 +285,10 @@ class FeagiEngine:
         Load connectome file (trained neural state)
         
         Args:
-            connectome_path: Path to connectome file
+            connectome_path: Path to connectome file. Can be:
+                - Absolute path: /path/to/trained.connectome
+                - Relative path: ./trained.connectome (uses current directory)
+                - Filename only: trained.connectome (searches in default connectomes directory)
         
         Returns:
             Self for chaining
@@ -254,7 +298,17 @@ class FeagiEngine:
             Use load_connectome() to resume from a saved state.
             Use load_genome() to start fresh with initial structure.
         """
-        self.connectome_path = Path(connectome_path)
+        from feagi.paths import get_feagi_paths
+        
+        paths = get_feagi_paths()
+        
+        # Resolve path: if just a filename, look in connectomes directory
+        connectome_path_obj = Path(connectome_path)
+        if not connectome_path_obj.is_absolute() and "/" not in connectome_path and "\\" not in connectome_path:
+            # Just a filename, try connectomes directory
+            self.connectome_path = paths.resolve_path(connectome_path, "connectome")
+        else:
+            self.connectome_path = Path(connectome_path)
         
         if not self.connectome_path.exists():
             raise FileNotFoundError(f"Connectome file not found: {connectome_path}")
@@ -310,17 +364,59 @@ class FeagiEngine:
         
         # Start process
         try:
-            self.process = subprocess.Popen(
-                cmd,
-                cwd=self.working_dir,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,  # Line buffered
+            # Determine if we should detach (daemon mode)
+            detach = env.get("FEAGI_DAEMON_MODE") == "1"
+            logger.info(
+                f"Daemon mode: {detach} "
+                f"(FEAGI_DAEMON_MODE={env.get('FEAGI_DAEMON_MODE')})"
             )
             
-            logger.info(f"✓ FEAGI started (PID: {self.process.pid})")
+            if detach:
+                # Detached mode for CLI: redirect to log files
+                logger.info("Starting FEAGI in detached/daemon mode")
+                from feagi.paths import get_feagi_paths
+                paths = get_feagi_paths()
+                log_dir = paths.create_log_run_dir(component="feagi", retention=10)
+                
+                log_file = log_dir / "feagi.log"
+                error_file = log_dir / "feagi_error.log"
+                
+                # Use low-level file descriptors that persist
+                stdout_fd = os.open(
+                    str(log_file),
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o644
+                )
+                stderr_fd = os.open(
+                    str(error_file),
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    0o644
+                )
+                detached_options = _build_detached_spawn_options()
+                self.process = subprocess.Popen(
+                    cmd,
+                    cwd=self.working_dir,
+                    env=env,
+                    stdout=stdout_fd,
+                    stderr=stderr_fd,
+                    **detached_options,
+                )
+                
+                # Mark as daemon mode to prevent __del__ from stopping it
+                self._daemon_mode = True
+            else:
+                # Normal mode: capture output for monitoring
+                self.process = subprocess.Popen(
+                    cmd,
+                    cwd=self.working_dir,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                )
+            
+            logger.info(f"[OK] FEAGI started (PID: {self.process.pid})")
             
         except Exception as e:
             logger.error(f"Failed to start FEAGI: {e}")
@@ -329,13 +425,13 @@ class FeagiEngine:
         # Wait for ready
         if wait_for_ready:
             logger.info(f"Waiting for FEAGI to be ready (timeout: {timeout}s)...")
-            logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/feagi/status")
+            logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/system/health_check")
             
             if self._wait_for_ready(timeout):
-                logger.info("✓ FEAGI is ready!")
+                logger.info("[OK] FEAGI is ready!")
                 return True
             else:
-                logger.error("✗ FEAGI failed to become ready")
+                logger.error("[FAIL] FEAGI failed to become ready")
                 self.stop()
                 return False
         
@@ -374,11 +470,11 @@ class FeagiEngine:
             try:
                 import requests
                 response = requests.get(
-                    f"http://{self.host}:{self.rest_port}/v1/feagi/status",
+                    f"http://{self.host}:{self.rest_port}/v1/system/health_check",
                     timeout=2
                 )
                 if response.status_code == 200:
-                    logger.info("✓ REST API is ready")
+                    logger.info("[OK] REST API is ready")
                     return True
             except requests.exceptions.ConnectionError:
                 # Still starting up
@@ -413,7 +509,7 @@ class FeagiEngine:
             # Wait for process to exit
             try:
                 self.process.wait(timeout=timeout)
-                logger.info("✓ FEAGI stopped gracefully")
+                logger.info("[OK] FEAGI stopped gracefully")
                 self.process = None
                 return True
             except subprocess.TimeoutExpired:
@@ -422,7 +518,7 @@ class FeagiEngine:
                 # Force kill (SIGKILL)
                 self.process.kill()
                 self.process.wait(timeout=5)
-                logger.info("✓ FEAGI stopped (forced)")
+                logger.info("[OK] FEAGI stopped (forced)")
                 self.process = None
                 return True
         
@@ -459,7 +555,8 @@ class FeagiEngine:
         self.stop()
     
     def __del__(self):
-        """Destructor - auto-stop"""
-        if self.process is not None:
+        """Destructor - auto-stop (except in daemon mode)"""
+        # Don't stop if running in daemon mode (detached from CLI)
+        if self.process is not None and not hasattr(self, '_daemon_mode'):
             self.stop()
 

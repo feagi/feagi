@@ -164,28 +164,7 @@ FEAGI uses **dedicated streams** for different protocols and purposes:
 ### REST Stream (Port 5563) - Primary API Interface
 Modern REST API operations over ZMQ (replaces legacy control protocol):
 
-```python
-import zmq
-import json
-
-# Connect to REST stream
-context = zmq.Context()
-socket = context.socket(zmq.DEALER)
-socket.connect("tcp://localhost:5563")
-
-# Send REST request
-request = {
-    "method": "GET",
-    "route": "/v1/system/health_check",
-    "timestamp": int(time.time() * 1000)
-}
-socket.send_multipart([b"", json.dumps(request).encode()])
-
-# Receive response
-response_parts = socket.recv_multipart()
-response = json.loads(response_parts[1])
-print(f"Status: {response['status']}")
-```
+Use the Rust SDK or `feagi-io` for REST-over-ZMQ requests; Python ZMQ bindings are not required.
 
 ### Agent Management via REST Protocol
 All agent management now uses the REST protocol instead of legacy control messages:
@@ -217,44 +196,12 @@ heartbeat_request = {
 ### Visualization Stream (Port 5562)
 Real-time neural activity data (publish-subscribe) - **All cortical areas**:
 
-```python
-import zmq
-from feagi_bytes import ByteStructureDecoder
-
-# Subscribe to neural data (comprehensive brain state)
-context = zmq.Context()
-socket = context.socket(zmq.SUB)
-socket.setsockopt(zmq.SUBSCRIBE, b"activity")  # Subscribe to neural activity
-socket.connect("tcp://localhost:5562")
-
-# Decode comprehensive neural activity
-decoder = ByteStructureDecoder()
-while True:
-    topic, data = socket.recv_multipart()
-    neural_activity = decoder.decode_neuron_flat(data)
-    # Process all neural data for visualization...
-```
+Use the FEAGI Python SDK client (Rust-backed via `feagi-rust-py-libs`) to subscribe to the visualization stream. We do not expose a direct `pyzmq`-based API in the Python SDK.
 
 ### Motor Stream (Port 5564)
 Real-time motor control data (publish-subscribe) - **OPU areas only**:
 
-```python
-import zmq
-from feagi_bytes import ByteStructureDecoder
-
-# Subscribe to motor control data (OPU areas only)
-context = zmq.Context()
-socket = context.socket(zmq.SUB)
-socket.setsockopt(zmq.SUBSCRIBE, b"motor")  # Subscribe to motor commands
-socket.connect("tcp://localhost:5564")
-
-# Decode motor control data (optimized for real-time control)
-decoder = ByteStructureDecoder()
-while True:
-    topic, data = socket.recv_multipart()
-    motor_data = decoder.decode_neuron_flat(data)
-    # Process motor control data for robotic actuation...
-```
+Use the FEAGI Python SDK client (Rust-backed via `feagi-rust-py-libs`) for motor stream subscriptions. We do not expose a direct `pyzmq`-based API in the Python SDK.
 
 ## API Access
 
