@@ -304,10 +304,13 @@ class Camera(BaseInput):
         # Store segmented properties for later gaze updates
         self._segmented_properties = segmented_properties
         
-        # GazeProperties - create default centered gaze
-        # GazeProperties is in data_types, not descriptors
+        # GazeProperties - explicit default: eccentricity (0.5, 0.5), modulation 1.0
+        # Ensures registration uses these values regardless of Rust create_default_centered().
         try:
-            gaze = cc_data_types.GazeProperties.create_default_centered()
+            pct = cc_data_types.Percentage.new_from_0_1
+            eccentricity_xy = cc_data_types.Percentage2D(pct(0.5), pct(0.5))
+            modulation_pct = pct(1.0)
+            gaze = cc_data_types.GazeProperties(eccentricity_xy, modulation_pct)
         except AttributeError:
             # GazeProperties not exposed - needs to be added to rust-py-libs lib.rs
             raise AttributeError(

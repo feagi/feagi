@@ -1,0 +1,4 @@
+# Simple Robot example - FEAGI SDK 2.0
+# Install from feagi-python-sdk root: pip install -e ".[video]" or use project venv
+feagi-core>=2.1.0
+numpy>=1.20.0

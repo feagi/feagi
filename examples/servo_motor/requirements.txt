@@ -1,0 +1,2 @@
+# Servo Motor example - FEAGI SDK 2.0
+feagi-core>=2.1.0

@@ -15,10 +15,27 @@ Connectome:
     - Use to continue training or deploy trained models
 
 Usage:
-    python examples/example_genome_vs_connectome.py
+    python example_genome_vs_connectome.py
 """
 
+import os
+from pathlib import Path
+
 from feagi.engine import FeagiEngine
+
+
+def _config_path() -> Path:
+    env_path = os.environ.get("FEAGI_CONFIG_PATH")
+    if env_path:
+        return Path(env_path)
+    here = Path(__file__).resolve().parent
+    local = here / "feagi_configuration.toml"
+    if local.is_file():
+        return local
+    return here.parent / "feagi_configuration.toml"
+
+
+CONFIG_PATH = _config_path()
 
 print("=" * 70)
 print("FEAGI Engine: Genome vs Connectome")
@@ -32,7 +49,7 @@ print("Option 1: Load Genome (fresh neural structure)")
 print("=" * 70)
 
 engine = FeagiEngine()
-engine.load_config("feagi_configuration.toml")
+engine.load_config(str(CONFIG_PATH))
 engine.load_genome("my_genome.json")  # Start fresh!
 
 print("\nGenome loaded")
@@ -62,7 +79,7 @@ print("Option 2: Load Connectome (trained neural state)")
 print("=" * 70)
 
 engine2 = FeagiEngine()
-engine2.load_config("feagi_configuration.toml")
+engine2.load_config(str(CONFIG_PATH))
 engine2.load_connectome("trained_brain.connectome")  # Resume from saved state!
 
 print("\nConnectome loaded")
@@ -89,7 +106,7 @@ print("Note: Genome and Connectome are Mutually Exclusive")
 print("=" * 70)
 
 engine3 = FeagiEngine()
-engine3.load_config("feagi_configuration.toml")
+engine3.load_config(str(CONFIG_PATH))
 engine3.load_genome("genome1.json")      # Load genome first
 print("\nGenome loaded")
 
@@ -129,7 +146,7 @@ print("""
 4. A/B Testing:
    # Test A: Fresh genome
    engine_a.load_genome("base_genome.json")
-   
+
    # Test B: Trained connectome
    engine_b.load_connectome("trained_v2.connectome")
 """)
@@ -147,17 +164,10 @@ Connectome (Trained Brain):
   Use for: Resume training, deploy models
   Contains: Neural state + learned connections
   State: Trained/learned
-  
+
 Method Chaining:
   engine.load_config("config.toml").load_genome("genome.json").start()
   engine.load_config("config.toml").load_connectome("brain.connectome").start()
 """)
 
 print("=" * 70)
-
-
-
-
-
-
-
