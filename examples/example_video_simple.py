@@ -21,6 +21,7 @@ or ensure agent registration and genome are aligned (see FEAGI/BDU docs).
 
 Usage:
     python example_video_simple.py
+    # Auto-uses first .mov in examples/assets/ (or repo assets/) when available
     FEAGI_VIDEO_PATH=/path/to/video.mp4 python example_video_simple.py
 
 Run from the examples/ directory so feagi_configuration.toml is found.
@@ -41,8 +42,20 @@ import toml
 from feagi.engine import FeagiEngine
 from feagi.agent import VideoStreamAgent
 
-# Video path: env override or default
-VIDEO_PATH = os.environ.get("FEAGI_VIDEO_PATH", "examples/vt_all.mov")
+def _discover_default_video_path() -> str:
+    example_dir = Path(__file__).resolve().parent
+    repo_root = example_dir.parent
+    candidate_dirs = (example_dir / "assets", repo_root / "assets")
+    for directory in candidate_dirs:
+        if directory.is_dir():
+            mov_files = sorted(directory.glob("*.mov"))
+            if mov_files:
+                return str(mov_files[0])
+    return ""
+
+
+# Video path: env override or auto-detected assets default
+VIDEO_PATH = os.environ.get("FEAGI_VIDEO_PATH") or _discover_default_video_path()
 
 CONFIG_PATH = Path(__file__).resolve().parent / "feagi_configuration.toml"
 
@@ -244,13 +257,3 @@ engine.stop()
 
 print("Sensorimotor loop complete.\n")
 
-
-print("=" * 60)
-print("All examples complete!")
-print("=" * 60)
-print("\nKey points:")
-print("  User controls FEAGI lifecycle (engine.start/stop)")
-print("  Agent focuses ONLY on video streaming")
-print("  Generator pattern enables motor control")
-print("  Clean separation of concerns")
-print("=" * 60)
