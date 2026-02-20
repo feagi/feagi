@@ -53,13 +53,17 @@ try:
     _rust_sdk_available = True
 except ImportError:
     try:
-        # Legacy/packaged layout (an external wheel may provide this top-level
-        # module).
-        import feagi_agent_sdk as rust_sdk
+        from feagi_rust_py_libs import feagi_agent_sdk as rust_sdk
         _rust_sdk_available = True
-    except ImportError as e2:
-        _rust_import_error = str(e2)
-        rust_sdk = None
+    except ImportError:
+        try:
+            # Legacy/packaged layout (an external wheel may provide this top-level
+            # module).
+            import feagi_agent_sdk as rust_sdk
+            _rust_sdk_available = True
+        except ImportError as e2:
+            _rust_import_error = str(e2)
+            rust_sdk = None
 
 # Only define these if Rust SDK is available
 if _rust_sdk_available:
@@ -120,6 +124,12 @@ class FeagiAgentClient:
         ```python
         from feagi_connector import FeagiAgentClient, AgentType
         
+        # Check if FEAGI is reachable first (prevents thread blocking)
+        if not FeagiAgentClient.is_feagi_reachable("localhost"):
+            print("FEAGI not available, running in standalone mode")
+            # ... standalone logic ...
+            return
+        
         # Create client
         client = FeagiAgentClient("video_camera_01", AgentType.SENSORY)
         
@@ -131,7 +141,10 @@ class FeagiAgentClient:
         )
         
         # Connect (with automatic retry)
-        client.connect()
+        success = client.connect(graceful=True)  # Returns False instead of raising
+        if not success:
+            # Handle connection failure gracefully
+            pass
         
         # Send data
         client.send_sensory_data([(0, 50.0), (1, 75.0)])
@@ -139,6 +152,54 @@ class FeagiAgentClient:
         # Client auto-deregisters on exit
         ```
     """
+    
+    @staticmethod
+    def is_feagi_reachable(
+        host: str, 
+        port: int = 30001, 
+        timeout: float = 1.0
+    ) -> bool:
+        """
+        Quick lightweight check if FEAGI is reachable
+        
+        This method performs a TCP socket connection test WITHOUT initializing
+        the SDK or creating any background threads. Use this before creating
+        a client to determine if FEAGI is available.
+        
+        Args:
+            host: FEAGI hostname or IP address (default: "localhost")
+            port: FEAGI registration port (default: 30001)
+            timeout: Connection timeout in seconds (default: 1.0)
+        
+        Returns:
+            True if FEAGI registration port is reachable, False otherwise
+        
+        Example:
+            ```python
+            if FeagiAgentClient.is_feagi_reachable("192.168.1.100"):
+                client = FeagiAgentClient("my_agent", AgentType.SENSORY)
+                client.configure(feagi_host="192.168.1.100")
+                client.connect()
+            else:
+                print("Running in standalone mode")
+                run_without_feagi()
+            ```
+        
+        Note:
+            This is a pure Python implementation using socket module,
+            NO Rust SDK or ZMQ dependencies are initialized.
+        """
+        import socket
+        
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            return result == 0
+        except Exception as e:
+            logger.debug(f"FEAGI reachability check failed: {e}")
+            return False
     
     def __init__(self, agent_id: str, agent_type: AgentType):
         """
@@ -532,24 +593,50 @@ class FeagiAgentClient:
             logger.debug("Resolution detection failed: %s", e)
             return None
     
-    def connect(self):
+    def connect(self, graceful: bool = False) -> bool:
         """
         Connect to FEAGI and register the agent
         
         This will:
         1. Create ZMQ sockets
         2. Register with FEAGI (with automatic retry)
-        3. Start background heartbeat
+        3. Start background heartbeat (only after successful registration)
+        
+        Args:
+            graceful: If True, returns False on failure instead of raising exceptions.
+                     Useful for controllers that can operate without FEAGI.
+        
+        Returns:
+            True if connection successful, False if failed (only when graceful=True)
         
         Raises:
-            RuntimeError: If not configured or connection fails
+            RuntimeError: If not configured or connection fails (only when graceful=False)
+        
+        Example:
+            ```python
+            # Graceful mode (no exceptions)
+            if client.connect(graceful=True):
+                print("Connected to FEAGI")
+            else:
+                print("Running without FEAGI")
+            
+            # Strict mode (raises on failure)
+            try:
+                client.connect()
+            except RuntimeError as e:
+                print(f"Connection failed: {e}")
+            ```
         """
         if self._config is None:
-            raise RuntimeError("Agent not configured. Call configure() first.")
+            error_msg = "Agent not configured. Call configure() first."
+            if graceful:
+                logger.error(error_msg)
+                return False
+            raise RuntimeError(error_msg)
         
         if self._connected:
             logger.warning("Agent already connected")
-            return
+            return True
         
         logger.info(f"Connecting to FEAGI as: {self.agent_id}")
         logger.debug(f"  FEAGI host: {self._feagi_host}")
@@ -564,11 +651,12 @@ class FeagiAgentClient:
         # like regular TCP). Let the Rust SDK handle connection testing.
         
         try:
-            # Create client
+            # Create client (NOTE: This may start background threads in Rust SDK)
             logger.debug("Creating Rust-backed agent client...")
             self._client = PyAgentClient(self._config)
             
             # Connect (with automatic retry)
+            # This is where threads are spawned after successful registration
             logger.debug("Attempting registration with FEAGI...")
             try:
                 self._client.connect()
@@ -602,14 +690,24 @@ class FeagiAgentClient:
                     logger.error("  3. ZMQ socket state issue (restart FEAGI)")
                     logger.error("  4. Firewall blocking connection")
                     logger.error("")
-                    raise RuntimeError(
+                    
+                    error_msg = (
                         "Registration failed: %s. Check FEAGI is running with "
                         "Rust PNS on port %s. See logs above for "
                         "troubleshooting steps."
                         % (reg_error, registration_port)
-                    ) from reg_error
+                    )
+                    
+                    if graceful:
+                        logger.warning("%s", error_msg)
+                        return False
+                    
+                    raise RuntimeError(error_msg) from reg_error
                 else:
                     # Re-raise with original error
+                    if graceful:
+                        logger.warning("Connection failed: %s", reg_error)
+                        return False
                     raise
             
             self._connected = True
@@ -630,9 +728,12 @@ class FeagiAgentClient:
                 else "N/A"
             )
             logger.info("  Heartbeat: %ss", heartbeat_interval)
+            return True
             
         except RuntimeError:
-            # Re-raise our enhanced RuntimeErrors
+            # Re-raise our enhanced RuntimeErrors (unless graceful mode)
+            if graceful:
+                return False
             raise
         except Exception as e:
             # Catch-all for unexpected errors
@@ -646,30 +747,59 @@ class FeagiAgentClient:
             logger.error("  - FEAGI host: %s", self._feagi_host)
             logger.error("  - Registration port: %s", registration_port)
             logger.error("  - Error: %s", e)
+            
+            if graceful:
+                return False
+            
             raise RuntimeError(
                 "Connection failed with unexpected error: %s" % e
             ) from e
     
-    def send_sensory_data(self, neuron_pairs: List[Tuple[int, float]]):
+    def send_sensory_data(self, neuron_pairs: List[Tuple[int, float]], blocking: bool = True):
         """
         Send sensory data to FEAGI in binary XYZP format
         
         Args:
             neuron_pairs: List of (neuron_id, potential) tuples
                          Example: [(0, 50.0), (1, 75.0), (2, 30.0)]
+            blocking: If False, silently ignores errors (for event loop compatibility)
         
         Raises:
-            RuntimeError: If not connected
+            RuntimeError: If not connected (only when blocking=True)
+        
+        Returns:
+            bool: True if send succeeded, False if failed (only relevant when blocking=False)
+        
+        Example:
+            ```python
+            # Blocking mode (default) - raises on error
+            client.send_sensory_data([(0, 50.0), (1, 75.0)])
+            
+            # Non-blocking mode - for simulator event loops
+            # Won't raise exceptions or block the main thread
+            success = client.send_sensory_data([(0, 50.0)], blocking=False)
+            if not success:
+                # Handle failure gracefully
+                pass
+            ```
         """
         if not self._connected or self._client is None:
-            raise RuntimeError("Agent not connected. Call connect() first.")
+            if blocking:
+                raise RuntimeError("Agent not connected. Call connect() first.")
+            return False
         
         try:
             # Send via Rust SDK
             self._client.send_sensory_data(neuron_pairs)
+            return True
         except Exception as e:
-            logger.error(f"Failed to send sensory data: {e}")
-            raise
+            if blocking:
+                logger.error(f"Failed to send sensory data: {e}")
+                raise
+            else:
+                # Non-blocking mode: log warning but don't raise
+                logger.debug(f"Non-blocking send failed (continuing): {e}")
+                return False
 
     def send_sensory_bytes(self, payload: bytes):
         """
@@ -690,23 +820,42 @@ class FeagiAgentClient:
             logger.error("Failed to send sensory bytes: %s", e)
             raise
     
-    def receive_motor_data(self) -> Optional[Dict[str, Any]]:
+    def receive_motor_data(self, blocking: bool = True) -> Optional[Dict[str, Any]]:
         """
         Receive motor data from FEAGI (non-blocking)
+        
+        Args:
+            blocking: If False, returns None on error instead of raising
         
         Returns:
             Motor data as dictionary if available, None otherwise
             
         Raises:
-            RuntimeError: If not connected or not a motor agent
+            RuntimeError: If not connected or not a motor agent (only when blocking=True)
+        
+        Example:
+            ```python
+            # Blocking mode (default) - raises on error
+            motor_data = client.receive_motor_data()
+            
+            # Non-blocking mode - for simulator event loops
+            motor_data = client.receive_motor_data(blocking=False)
+            if motor_data:
+                # Process commands
+                pass
+            ```
         """
         if not self._connected or self._client is None:
-            raise RuntimeError("Agent not connected. Call connect() first.")
+            if blocking:
+                raise RuntimeError("Agent not connected. Call connect() first.")
+            return None
         
         if self.agent_type == AgentType.SENSORY:
-            raise RuntimeError(
-                "Cannot receive motor data - agent is sensory-only",
-            )
+            if blocking:
+                raise RuntimeError(
+                    "Cannot receive motor data - agent is sensory-only",
+                )
+            return None
         
         try:
             motor_json = self._client.receive_motor_data()
@@ -717,14 +866,6 @@ class FeagiAgentClient:
             import json
             xyzp_data = json.loads(motor_json)
             
-            # TEMP DEBUG: Log to file
-            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
-                import time
-                f.write(
-                    f"\n[{time.time():.3f}] RAW XYZP: {motor_json[:200]}\n",
-                )
-                f.write(f"[{time.time():.3f}] PARSED: {xyzp_data}\n")
-            
             # Decode XYZP SoA to motor index → power mapping
             # Only decode cortical areas this agent subscribed to
             cortical_ids = (
@@ -734,26 +875,18 @@ class FeagiAgentClient:
             )
             motors = decode_motor_xyzp(xyzp_data, cortical_ids)
             
-            # TEMP DEBUG: Log decoded result
-            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
-                f.write(f"[{time.time():.3f}] DECODED: {motors}\n")
-                f.write(
-                    f"[{time.time():.3f}] RETURNING: {{'motor': {motors}}}\n",
-                )
-                f.flush()
-            
             # Return in simple format for controllers:
             # {"motor": {0: power, 1: power, ...}}
             return {"motor": motors} if motors else None
             
         except Exception as e:
-            # TEMP DEBUG: Log error
-            with open("/tmp/feagi_motor_debug--temp.log", "a") as f:
-                import traceback
-                f.write(f"\n[ERROR] {e}\n{traceback.format_exc()}\n")
-                f.flush()
-            logger.error("Failed to receive motor data: %s", e)
-            raise
+            if blocking:
+                logger.error("Failed to receive motor data: %s", e)
+                raise
+            else:
+                # Non-blocking mode: log debug but don't raise
+                logger.debug("Non-blocking receive failed (continuing): %s", e)
+                return None
     
     def is_connected(self) -> bool:
         """Check if agent is connected"""
