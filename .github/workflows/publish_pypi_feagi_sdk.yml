@@ -23,6 +23,9 @@ jobs:
   publish:
     name: Build and Publish to PyPI
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: feagi-python-sdk
     environment:
       name: pypi
       url: https://pypi.org/project/feagi-core/
@@ -237,7 +240,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
-          packages-dir: dist/
+          packages-dir: feagi-python-sdk/dist/
           verbose: true
       
       - name: Publish feagi (meta-package) to PyPI
@@ -245,7 +248,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
-          packages-dir: feagi-meta/dist/
+          packages-dir: feagi-python-sdk/feagi-meta/dist/
           verbose: true
       
       - name: Generate summary
