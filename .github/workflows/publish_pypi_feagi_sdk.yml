@@ -99,7 +99,6 @@ jobs:
           python-version: '3.11'
       
       - name: Verify required CLI modules
-        working-directory: feagi-python-sdk
         run: |
           echo "Verifying required feagi.cli modules are present..."
           if [ ! -f "feagi/cli/process_utils.py" ]; then
@@ -113,7 +112,6 @@ jobs:
           echo "feagi/cli/process_utils.py OK"
       
       - name: Verify binaries exist
-        working-directory: feagi-python-sdk
         run: |
           echo "Verifying all required binaries are present..."
           
@@ -163,7 +161,6 @@ jobs:
           du -h feagi/bin/*/*
       
       - name: Update version in files
-        working-directory: feagi-python-sdk
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
@@ -189,13 +186,11 @@ jobs:
           grep "^__version__ = " feagi/__init__.py
       
       - name: Install build dependencies
-        working-directory: feagi-python-sdk
         run: |
           python -m pip install --upgrade pip
           pip install build twine
       
       - name: Build packages
-        working-directory: feagi-python-sdk
         run: |
           echo "Building feagi-core (SDK without BV)..."
           python -m build
@@ -220,14 +215,40 @@ jobs:
           du -h feagi-meta/dist/*
       
       - name: Check package integrity
-        working-directory: feagi-python-sdk
         run: |
           echo "Checking feagi-core package integrity..."
           python -m twine check dist/*
           
           echo ""
-          echo "Verifying binaries are included in feagi-core..."
-          python -m zipfile -l dist/*.whl | grep "feagi/bin" || echo "WARNING: No binaries found in wheel"
+          echo "Verifying all 5 platform binaries are in feagi-core wheel..."
+          WHL="$(ls dist/feagi_core*.whl 2>/dev/null | head -1)"
+          if [ -z "$WHL" ]; then
+            echo "ERROR: No feagi_core wheel found in dist/"
+            exit 1
+          fi
+          REQUIRED=(
+            "feagi/bin/linux-x86_64/feagi"
+            "feagi/bin/linux-aarch64/feagi"
+            "feagi/bin/darwin-x86_64/feagi"
+            "feagi/bin/darwin-aarch64/feagi"
+            "feagi/bin/windows-x86_64/feagi.exe"
+          )
+          WHEEL_LIST="$(python -m zipfile -l "$WHL")"
+          MISSING=()
+          for path in "${REQUIRED[@]}"; do
+            if ! echo "$WHEEL_LIST" | grep -qF "$path"; then
+              MISSING+=("$path")
+            fi
+          done
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "ERROR: Wheel missing required binaries:"
+            for p in "${MISSING[@]}"; do echo "  - $p"; done
+            echo ""
+            echo "Wheel contents (feagi/bin):"
+            echo "$WHEEL_LIST" | grep "feagi/bin" || echo "  (none)"
+            exit 1
+          fi
+          echo "All 5 platform binaries verified in wheel"
           
           echo ""
           echo "Checking feagi meta-package integrity..."
@@ -243,7 +264,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
-          packages-dir: feagi-python-sdk/dist/
+          packages-dir: dist/
           verbose: true
       
       - name: Publish feagi (meta-package) to PyPI
@@ -251,11 +272,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_PASSWORD_TOKEN }}
-          packages-dir: feagi-python-sdk/feagi-meta/dist/
+          packages-dir: feagi-meta/dist/
           verbose: true
       
       - name: Generate summary
-        working-directory: feagi-python-sdk
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
