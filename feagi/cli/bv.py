@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import platform
+import sys
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -17,6 +18,24 @@ import requests
 import toml
 
 from feagi.cli.bv_process import BVProcessManager
+
+BV_RELEASES_URL = "https://github.com/feagi/brain-visualizer/releases"
+
+
+def _is_macos() -> bool:
+    """True if running on macOS (darwin)."""
+    return platform.system().lower() == "darwin"
+
+
+def _print_macos_bv_instructions() -> None:
+    """Print instructions for obtaining Brain Visualizer on macOS (not shipped on PyPI)."""
+    print("Brain Visualizer is not installed from PyPI on macOS (size limits).")
+    print("")
+    print("Download the Brain Visualizer for macOS from:")
+    print(f"  {BV_RELEASES_URL}")
+    print("")
+    print("Use release v2.2.1 or above. Download the asset for your architecture")
+    print("(macos-arm64 or macos-x86_64), extract the archive, and launch the .app file.")
 
 
 class BrainVisualizerLaunchError(RuntimeError):
@@ -260,6 +279,10 @@ def start_bv(config_path: str | None = None) -> int:
         BrainVisualizerLaunchError: If prerequisites not met
         BVProcessError: If process management fails
     """
+    if _is_macos():
+        _print_macos_bv_instructions()
+        sys.exit(0)
+    
     from feagi.config import ensure_default_config
     
     # Use default config if none specified
@@ -335,6 +358,10 @@ def restart_bv(config_path: str | None = None, timeout: float = 10.0) -> int:
         BrainVisualizerLaunchError: If prerequisites not met
         BVProcessError: If restart fails
     """
+    if _is_macos():
+        _print_macos_bv_instructions()
+        sys.exit(0)
+    
     from feagi.config import ensure_default_config
     
     # Use default config if none specified

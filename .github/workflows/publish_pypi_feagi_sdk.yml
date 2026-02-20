@@ -98,6 +98,19 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: Verify required CLI modules
+        run: |
+          echo "Verifying required feagi.cli modules are present..."
+          if [ ! -f "feagi/cli/process_utils.py" ]; then
+            echo "ERROR: feagi/cli/process_utils.py is missing."
+            echo "This module is required (Windows force-kill support). Ensure the ref you are"
+            echo "publishing from includes the commit that added process_utils.py."
+            echo "Current ref: ${{ steps.version.outputs.ref }}"
+            ls -la feagi/cli/ 2>/dev/null || true
+            exit 1
+          fi
+          echo "feagi/cli/process_utils.py OK"
+      
       - name: Verify binaries exist
         run: |
           echo "Verifying all required binaries are present..."
