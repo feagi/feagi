@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from feagi.paths import get_feagi_paths
+from feagi.cli.process_utils import force_kill_process
 
 
 class BVProcessError(RuntimeError):
@@ -199,9 +200,9 @@ class BVProcessManager:
                 return True
             time.sleep(0.1)
         
-        # Force kill if still running (SIGKILL)
+        # Force kill if still running (SIGKILL on Unix, taskkill on Windows)
         try:
-            os.kill(pid, signal.SIGKILL)
+            force_kill_process(pid)
             time.sleep(0.5)
         except ProcessLookupError:
             pass
