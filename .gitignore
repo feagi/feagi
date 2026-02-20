@@ -30,7 +30,7 @@ ENV/
 
 # Documentation
 site/
-docs/_build/
+Documentation/_build/
 
 # IDE files
 .idea/

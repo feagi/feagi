@@ -8,17 +8,23 @@
 
 ## Installation Options
 
-**Full Experience (Recommended for Development):**
+**Full Experience (Recommended for most users):**
 ```bash
 pip install feagi
 ```
-Includes Brain Visualizer for real-time 3D neural activity visualization (~196MB)
+Includes:
+- FEAGI itself, for running neuronal simulations 
+- Brain Visualizer, for real-time 3D neural activity visualization (~196MB)
+- Python bindings for FEAGI libraries (intended for advanced users)
+- FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
 **Slim/Core (Recommended for Production):**
 ```bash
 pip install feagi-core
 ```
-SDK only without Brain Visualizer - perfect for containers, CI/CD, and inference (~5MB)
+Includes:
+- Python bindings for FEAGI libraries (intended for advanced users)
+- FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
 > **Note:** Both packages use identical imports (`from feagi import ...`)
 
@@ -58,143 +64,25 @@ The FEAGI Python SDK provides the tools you need to:
 
 ---
 
-## Core Capabilities
-
-### Neural Processing
-
-* Large-scale spiking neural networks
-* Sparse connectivity and event-driven execution
-* Fire Candidate Lists (FCL) and optimized firing pipelines
-* Supports long-term and short-term memory constructs
-
-### Modular Brain Design
-
-* Pre-packaged micro-circuits (sensory, motor, cognitive)
-* Community-developed and shareable neural components
-* Easy composition into larger functional brains
-
-### Embodiment Integration
-
-FEAGI supports diverse embodiments through its flexible communication architecture:
-
-* **Physical Robots** – AMRs, manipulators, service robots, drones
-* **Virtual Simulations** – Webots, Gazebo, Unity, custom simulators
-* **Game Engines** – Real-time game AI and NPCs
-* **IoT Devices** – Sensors, actuators, embedded systems
-* **Research Platforms** – Custom experimental setups
-
-See the [embodiment-controllers repository](https://github.com/feagi/embodiment-controllers) for available integrations.
-
-### Performance & Portability
-
-* CPU multiprocessing support
-* GPU acceleration paths
-* Designed for future support of:
-  * Vulkan
-  * WebGPU
-  * WebAssembly (WASM)
-* Sparse matrix and bit-packed data representations
-
----
-
-## Typical Architecture
-
-```
-[Sensors]
-    ↓
-[FEAGI Sensory Cortical Areas]
-    ↓
-[Cognitive / Associative Circuits]
-    ↓
-[Motor Cortical Areas]
-    ↓
-[Actuators]
-```
-[Sensors]
-    ↓
-[FEAGI Sensory Cortical Areas]
-    ↓
-[Cognitive / Associative Circuits]
-    ↓
-[Motor Cortical Areas]
-    ↓
-[Actuators]
-```
-
-FEAGI runs as the **neural execution engine**, while adapters (built with this SDK) translate between FEAGI's neural signals and the embodiment's sensors and actuators.
-
----
-
-## Example Use Cases
-
-FEAGI runs as the **neural execution engine**, while adapters (built with this SDK) translate between FEAGI's neural signals and the embodiment's sensors and actuators.
-
----
-
-## Example Use Cases
-
-* Autonomous mobile robots (AMRs)
-* Service robots (cleaning, logistics, inspection)
-* Robotic manipulation and dexterous hands
-* AI-driven simulation agents
-* Research in biologically inspired AI
-* Education and rapid prototyping of embodied intelligence
-* Game AI that adapts to players
-* Educational neuroscience simulations
-
----
-
 ## Quick Start
 
 Get started with FEAGI in just 2 lines:
 
 ```bash
-pip install "feagi[bv]"
+pip install "feagi"
+feagi start 
 feagi bv start
 ```
 
 That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer.
 
-> **Note for zsh users (macOS default):** Use quotes around `"feagi[bv]"` to avoid shell glob expansion errors.
-
-**For detailed installation options, configuration, and platform-specific notes, see [DEPLOY.md](./DEPLOY.md).**
-
-### Build Your First Agent
-
-```python
-from feagi.agent import BaseAgent
-
-class MyRobotAgent(BaseAgent):
-    def initialize_hardware(self):
-        # Connect to your robot/simulator
-        pass
-    
-    def map_sensors(self, hw_data):
-        # Send sensor data to FEAGI
-        return {"camera": image_bytes}
-    
-    def map_motors(self, feagi_output):
-        # Control motors from FEAGI commands
-        return motor_commands
-
-# Run it
-agent = MyRobotAgent("my-robot")
-await agent.connect()
-await agent.run()
-```
-
----
 
 ## Documentation
 
-- **[Deployment Guide](./DEPLOY.md)** - Complete installation, configuration, and platform-specific notes
 - [Documentation](https://github.com/feagi/feagi/tree/main/docs)
 - [Examples](./examples/)
 
 ---
-
-<details>
-<summary><b>Advanced Usage</b></summary>
 
 ### Configuration Management
 
@@ -211,44 +99,6 @@ This creates:
 - Logs and cache directories
 
 **For complete configuration options and customization, see [DEPLOY.md](./DEPLOY.md).**
-
-### Optional Extras
-
-Install additional features as needed:
-
-```bash
-# Video processing (OpenCV)
-pip install "feagi[video]"
-
-# Bluetooth support
-pip install "feagi[bluetooth]"
-
-# All extras
-pip install "feagi[full]"
-```
-
-> **zsh users:** Always use quotes around package names with brackets.
-
-### Direct PNS Communication
-
-For low-level control over FEAGI communication:
-
-```python
-from feagi.pns import FeagiAgentClient, AgentType
-
-client = FeagiAgentClient("my-agent", AgentType.SENSORY)
-client.configure(feagi_host="localhost", feagi_api_port=8000)
-await client.connect()
-
-# Send sensory data
-await client.send_sensory_data({
-    "camera": image_data,
-    "lidar": distance_readings
-})
-
-# Receive motor commands
-motor_data = await client.receive_motor_data()
-```
 
 ### Start FEAGI Engine from Python
 
@@ -282,26 +132,6 @@ feagi/
 └── packaging/       # Marketplace packages (coming soon)
 ```
 
-### Migration from 1.x
-
-If you're upgrading from `feagi_connector`:
-
-```python
-# Old (feagi_connector)
-from feagi_connector import FeagiAgentClient
-
-# New (feagi 2.x)
-from feagi.pns import FeagiAgentClient
-```
-
-**Breaking changes:**
-- Package renamed: `feagi_connector` → `feagi`
-- Python 3.10+ required
-- Legacy APIs removed
-
-</details>
-
----
 
 ## Examples
 
@@ -313,40 +143,6 @@ See [`examples/`](./examples/) for complete agent implementations:
 
 ---
 
-## Neurorobotics Studio
-
-FEAGI's official desktop application, **Neurorobotics Studio**, provides an integrated development environment for building and deploying neural brains:
-
-* Visual brain design and editing tools
-* Brain marketplace for sharing and discovering neural components
-* Embodiment management and configuration
-* Experiment orchestration and monitoring
-* Community-driven neural circuit library
-
-While this SDK enables programmatic access and custom integrations, Neurorobotics Studio offers a complete graphical workflow for those who prefer visual development tools.
-
----
-
-## Design Philosophy
-
-* **Biology-inspired, not biology-constrained**
-* **Performance-aware from day one**
-* **Composable over monolithic**
-* **Embodiment-agnostic intelligence**
-* **Developer-first robotics AI**
-
----
-
-## Roadmap Highlights
-
-* Expanded GPU and Vulkan backends
-* WASM/WebGPU execution for browser-based robotics
-* Standardized neural component formats
-* Advanced long-term memory mechanisms
-* Deeper autonomy stack integrations
-* Native neuromorphic hardware support
-
----
 
 ## Community & Support
 
@@ -354,20 +150,6 @@ While this SDK enables programmatic access and custom integrations, Neurorobotic
 - **Issues**: [Report bugs](https://github.com/feagi/feagi-python-sdk/issues)
 - **Neurorobotics Studio**: [Cloud platform](https://brainsforrobots.com)
 - **Homepage**: [feagi.org](https://feagi.org)
-
----
-
-## Contributing
-
-Contributions are welcome! This includes:
-
-* Neural circuit modules
-* Performance optimizations
-* New embodiment adapters
-* Documentation and examples
-* Agent implementations and examples
-
-Please follow the contribution guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
