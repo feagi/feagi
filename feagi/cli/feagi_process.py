@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import os
 import signal
+import sys
 import time
 from typing import Optional
 
 from feagi.paths import get_feagi_paths
-from feagi.cli.process_utils import force_kill_process
+from feagi.cli.process_utils import check_process_exists_windows, force_kill_process
 
 
 class FeagiProcessError(RuntimeError):
@@ -85,46 +86,78 @@ class FeagiProcessManager:
             return False
         return self._is_process_running(pid)
     
-    def stop(self, timeout: float = 10.0) -> bool:
+    def _is_permission_error(self, exc: BaseException) -> bool:
+        """Check if exception is permission-related (e.g. WinError 5 Access denied)."""
+        if isinstance(exc, PermissionError):
+            return True
+        if isinstance(exc, OSError):
+            return getattr(exc, "winerror", None) == 5 or getattr(
+                exc, "errno", None
+            ) in (5, 13)
+        return False
+
+    def stop(
+        self, timeout: float = 10.0, force_clear_pid: bool = False
+    ) -> tuple[bool, bool]:
         """
         Stop FEAGI process gracefully.
-        
+
         Args:
             timeout: Seconds to wait before force kill
-        
+            force_clear_pid: If True, remove PID file when process cannot be
+                killed (e.g. Access denied on Windows). Unblocks feagi start.
+
         Returns:
-            True if stopped successfully, False if not running
-        
+            Tuple (success, cleared_only). success True if stopped or PID
+            cleared. cleared_only True when PID file was cleared because
+            process could not be killed.
+
         Raises:
-            FeagiProcessError: If stop fails
+            FeagiProcessError: If stop fails and force_clear_pid is False
         """
         pid = self.get_pid()
         if pid is None:
-            return False
-        
+            return False, False
+
         if not self.is_running():
             self._cleanup_pid_file()
-            return False
-        
+            return False, False
+
         # Try graceful shutdown first (SIGTERM)
         try:
             os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
             self._cleanup_pid_file()
-            return False
+            return False, False
         except Exception as exc:
-            raise FeagiProcessError(
-                f"Failed to send SIGTERM to PID {pid}: {exc}"
-            ) from exc
-        
+            if self._is_permission_error(exc):
+                try:
+                    force_kill_process(pid)
+                    time.sleep(0.5)
+                except ProcessLookupError:
+                    self._cleanup_pid_file()
+                    return True, False
+                except Exception as kill_exc:
+                    if self._is_permission_error(kill_exc) and force_clear_pid:
+                        self._cleanup_pid_file()
+                        return True, True
+                    raise FeagiProcessError(
+                        f"Failed to stop PID {pid}: {kill_exc}. "
+                        f"Try: feagi stop --force"
+                    ) from kill_exc
+            else:
+                raise FeagiProcessError(
+                    f"Failed to send SIGTERM to PID {pid}: {exc}"
+                ) from exc
+
         # Wait for graceful shutdown
         start_time = time.time()
         while time.time() - start_time < timeout:
             if not self._is_process_running(pid):
                 self._cleanup_pid_file()
-                return True
+                return True, False
             time.sleep(0.1)
-        
+
         # Force kill if still running (SIGKILL on Unix, taskkill on Windows)
         try:
             force_kill_process(pid)
@@ -132,19 +165,26 @@ class FeagiProcessManager:
         except ProcessLookupError:
             pass
         except Exception as exc:
+            if self._is_permission_error(exc) and force_clear_pid:
+                self._cleanup_pid_file()
+                return True, True
             raise FeagiProcessError(
-                f"Failed to force kill PID {pid}: {exc}"
+                f"Failed to force kill PID {pid}: {exc}. "
+                f"Try: feagi stop --force"
             ) from exc
-        
+
         self._cleanup_pid_file()
-        
+
         # Final verification
         if self._is_process_running(pid):
+            if force_clear_pid:
+                self._cleanup_pid_file()
+                return True, True
             raise FeagiProcessError(
                 f"Failed to stop FEAGI (PID: {pid})"
             )
-        
-        return True
+
+        return True, False
     
     def get_status(self) -> dict[str, object]:
         """
@@ -177,13 +217,16 @@ class FeagiProcessManager:
     def _is_process_running(pid: int) -> bool:
         """Check if process with given PID is running."""
         try:
-            # Send signal 0 to check if process exists
             os.kill(pid, 0)
             return True
         except ProcessLookupError:
             return False
         except PermissionError:
-            # Process exists but we don't have permission
+            # On Windows, os.kill(pid,0) can raise PermissionError for
+            # non-existent PIDs (reused) or processes we can't access.
+            # Use tasklist to verify - if not found, treat as gone.
+            if sys.platform == "win32" and not check_process_exists_windows(pid):
+                return False
             return True
         except Exception:
             return False

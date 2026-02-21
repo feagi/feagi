@@ -135,6 +135,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=10.0,
         help="Seconds to wait before force kill (default: 10).",
     )
+    stop_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Clear PID file when process cannot be killed (e.g. Access denied on Windows). "
+        "Use when stuck: feagi stop fails but feagi start says already running.",
+    )
     
     # feagi status
     subparsers.add_parser(
@@ -165,6 +171,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=10.0,
         help="Seconds to wait for stop before force kill (default: 10).",
+    )
+    restart_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Clear PID file when process cannot be killed (e.g. Access denied).",
     )
 
     init_parser = subparsers.add_parser(
@@ -326,9 +337,10 @@ def _handle_stop_command(args: argparse.Namespace) -> int:
     """Handle FEAGI stop command."""
     from feagi.cli.bv_process import BVProcessManager
     from feagi.cli.feagi_process import FeagiProcessError, FeagiProcessManager
-    
-    timeout = args.timeout if hasattr(args, 'timeout') else 10.0
-    
+
+    timeout = args.timeout if hasattr(args, "timeout") else 10.0
+    force = getattr(args, "force", False)
+
     # Stop Brain Visualizer first (depends on FEAGI)
     bv_manager = BVProcessManager()
     if bv_manager.is_running():
@@ -338,13 +350,19 @@ def _handle_stop_command(args: argparse.Namespace) -> int:
             print("Brain Visualizer stopped")
         except Exception as exc:
             print(f"Warning: Failed to stop Brain Visualizer: {exc}")
-    
+
     # Stop FEAGI
     try:
         feagi_manager = FeagiProcessManager()
-        stopped = feagi_manager.stop(timeout=timeout)
+        stopped, cleared_only = feagi_manager.stop(
+            timeout=timeout, force_clear_pid=force
+        )
         if stopped:
-            print("FEAGI stopped successfully")
+            if cleared_only:
+                print("PID file cleared (process could not be killed).")
+                print("You can now run: feagi start")
+            else:
+                print("FEAGI stopped successfully")
         else:
             print("FEAGI is not running")
         return 0
@@ -380,9 +398,10 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
     try:
         manager = FeagiProcessManager()
         if manager.is_running():
-            timeout = args.timeout if hasattr(args, 'timeout') else 10.0
+            timeout = args.timeout if hasattr(args, "timeout") else 10.0
+            force = getattr(args, "force", False)
             print("Stopping FEAGI...")
-            manager.stop(timeout=timeout)
+            manager.stop(timeout=timeout, force_clear_pid=force)
     except FeagiProcessError as exc:
         print(f"Failed to stop FEAGI: {exc}", file=sys.stderr)
         return 1

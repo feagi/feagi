@@ -12,6 +12,33 @@ import subprocess
 import sys
 
 
+def check_process_exists_windows(pid: int) -> bool:
+    """
+    Check if a process exists on Windows using tasklist.
+
+    More reliable than os.kill(pid, 0) when PID may have been reused
+    or when we get PermissionError from a non-FEAGI process.
+
+    Returns:
+        True if process exists, False if not found.
+    """
+    if sys.platform != "win32":
+        return True  # Caller should use os.kill on Unix
+    result = subprocess.run(
+        ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+        capture_output=True,
+        timeout=5,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False
+    out = (result.stdout or "").strip().lower()
+    # "INFO: No tasks are running..." = process not found
+    if "no tasks" in out or "info:" in out:
+        return False
+    return str(pid) in out
+
+
 def force_kill_process(pid: int) -> None:
     """
     Force kill a process by PID.
@@ -33,9 +60,20 @@ def force_kill_process(pid: int) -> None:
         )
         if result.returncode == 0:
             return
-        # Process already gone: taskkill often returns 128 or 1 with "not found"
         stderr_lower = (result.stderr or "").lower()
-        if result.returncode in (1, 128) or "not found" in stderr_lower:
+        # 128 = process not found; 1 with "not found" = process gone
+        # 1 with "access denied" = process exists but we cannot kill it
+        if result.returncode == 128 or "not found" in stderr_lower:
+            raise ProcessLookupError(pid)
+        if result.returncode == 1 and (
+            "access" in stderr_lower and "denied" in stderr_lower
+        ):
+            raise OSError(
+                result.returncode,
+                f"taskkill access denied: {result.stderr or result.stdout}",
+            )
+        # Other 1 or unknown: treat as process gone (e.g. already exited)
+        if result.returncode == 1:
             raise ProcessLookupError(pid)
         raise OSError(
             result.returncode,
