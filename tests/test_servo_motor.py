@@ -1,10 +1,5 @@
-"""
-Test ServoMotor registration and reading
-"""
-
 import pytest
 from feagi.pns.outputs import ServoMotor
-from feagi.pns import brain_output
 
 
 def test_servo_motor_registration():
@@ -43,6 +38,36 @@ def test_servo_motor_incremental():
     assert servo.max_angle == 270
 
 
+def test_servo_absolute_endpoint_mapping():
+    """Absolute mode should map -1/0/+1 to min/center/max."""
+    servo = ServoMotor(range=(-1.0, 1.0), encoding="absolute")
+    servo._on_motor_command(-1.0)
+    assert servo.get_angle() == pytest.approx(-1.0, abs=1e-6)
+    servo._on_motor_command(0.0)
+    assert servo.get_angle() == pytest.approx(0.0, abs=1e-6)
+    servo._on_motor_command(1.0)
+    assert servo.get_angle() == pytest.approx(1.0, abs=1e-6)
+
+
+def test_servo_incremental_applies_delta_and_clamps():
+    """Incremental mode should step from current state and clamp to range."""
+    servo = ServoMotor(range=(-1.0, 1.0), encoding="incremental")
+    servo.incremental_step_ratio = 0.5
+
+    # Starts at center (0.0)
+    servo._on_motor_command(1.0)
+    assert servo.get_angle() == pytest.approx(0.5, abs=1e-6)
+    servo._on_motor_command(1.0)
+    assert servo.get_angle() == pytest.approx(1.0, abs=1e-6)
+    servo._on_motor_command(1.0)
+    assert servo.get_angle() == pytest.approx(1.0, abs=1e-6)
+
+    servo._on_motor_command(-1.0)
+    assert servo.get_angle() == pytest.approx(0.5, abs=1e-6)
+    servo._on_motor_command(-1.0)
+    assert servo.get_angle() == pytest.approx(0.0, abs=1e-6)
+
+
 def test_servo_motor_cache_methods():
     """Test that servo motor calls correct Rust cache methods"""
     try:
@@ -57,8 +82,14 @@ def test_servo_motor_cache_methods():
     servo = ServoMotor(range=(0, 180), encoding="absolute")
     
     # Verify cache has the expected methods
-    assert hasattr(cache, "motor_positional_servo_absolute_linear_try_register")
-    assert hasattr(cache, "motor_positional_servo_absolute_linear_try_read_postprocessed_cached_value")
+    assert hasattr(
+        cache,
+        "motor_positional_servo_absolute_linear_try_register",
+    )
+    assert hasattr(
+        cache,
+        "motor_positional_servo_absolute_linear_try_read_postprocessed_cached_value",
+    )
     
     # Register with cache
     servo._register_with_cache(cache, group_id=0)

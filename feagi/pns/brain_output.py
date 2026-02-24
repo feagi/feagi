@@ -89,6 +89,8 @@ class BrainOutput:
         self._feagi_connection_timeout_ms: Optional[int] = None
         self._feagi_registration_retries: Optional[int] = None
         self._feagi_heartbeat_interval_s: Optional[float] = None
+        self._feagi_api_port: Optional[int] = None
+        self._feagi_http_timeout_s: Optional[float] = None
         self._auth_token_b64: Optional[str] = None
 
         # Motor output mapping (channel -> output instance)
@@ -268,6 +270,8 @@ class BrainOutput:
         feagi_connection_timeout_ms: int,
         feagi_registration_retries: int,
         feagi_heartbeat_interval_s: float,
+        feagi_api_port: Optional[int] = None,
+        feagi_http_timeout_s: Optional[float] = None,
         auth_token_b64: Optional[str] = None,
     ):
         """
@@ -310,8 +314,10 @@ class BrainOutput:
         self._feagi_connection_timeout_ms = feagi_connection_timeout_ms
         self._feagi_registration_retries = feagi_registration_retries
         self._feagi_heartbeat_interval_s = feagi_heartbeat_interval_s
+        self._feagi_api_port = feagi_api_port
+        self._feagi_http_timeout_s = feagi_http_timeout_s
         self._auth_token_b64 = auth_token_b64
-        
+
         logger.info(
             "[CFG] Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
             agent_id,
@@ -381,32 +387,50 @@ class BrainOutput:
                 )
 
             client = FeagiAgentClient(self._agent_id, AgentType.MOTOR)
-            resolved_auth_token_b64 = self._auth_token_b64 or os.environ.get(
-                "FEAGI_AUTH_TOKEN_B64"
-            )
+            resolved_auth_token_b64 = self._auth_token_b64
             if not resolved_auth_token_b64:
                 raise RuntimeError(
                     "Missing auth token base64. Provide auth_token_b64 in "
-                    "brain_output.configure(...) or set FEAGI_AUTH_TOKEN_B64."
+                    "brain_output.configure(...)."
                 )
             client.configure(
                 feagi_host=self._feagi_host,
                 registration_port=self._feagi_registration_port,
                 sensory_port=self._feagi_sensory_port,
                 motor_port=self._feagi_motor_port,
+                agent_descriptor_b64=self._agent_id,
                 motor_units=("motor", output_count, motor_units),
                 heartbeat_interval=self._feagi_heartbeat_interval_s,
                 connection_timeout_ms=self._feagi_connection_timeout_ms,
                 registration_retries=self._feagi_registration_retries,
+                feagi_api_port=self._feagi_api_port,
+                feagi_http_timeout_s=self._feagi_http_timeout_s,
                 auth_token_b64=resolved_auth_token_b64,
             )
             client.connect()
             self._client = client
+            # Send device registrations via ZMQ so motor cortical IDs are derived correctly
+            if self._motor_total_channels > 0 and self._cache:
+                if self._feagi_api_port is None or self._feagi_http_timeout_s is None:
+                    raise RuntimeError(
+                        "brain_output.configure(...) must include feagi_api_port "
+                        "and feagi_http_timeout_s for deterministic motor IO "
+                        "registration."
+                    )
+                device_regs_str = self._cache.export_capabilities_json()
+                if device_regs_str:
+                    client.send_device_configuration(
+                        device_regs_str,
+                        expected_cortical_ids=motor_cortical_ids,
+                    )
+                    logger.info(
+                        "[CFG] Sent and verified device_registrations via ZMQ"
+                    )
         else:
             raise NotImplementedError(f"Transport type '{self._transport_type}' not yet implemented")
-        
+
         self._connected = True
-    
+
     def disconnect(self):
         """Disconnect from FEAGI"""
         if self._client:

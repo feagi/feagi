@@ -36,7 +36,10 @@ Example:
 """
 
 import logging
-import os
+import json
+import time
+import urllib.error
+import urllib.request
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -57,8 +60,8 @@ except ImportError:
         _rust_sdk_available = True
     except ImportError:
         try:
-            # Legacy/packaged layout (an external wheel may provide this top-level
-            # module).
+            # Legacy/packaged layout
+            # (an external wheel may provide this top-level module).
             import feagi_agent_sdk as rust_sdk
             _rust_sdk_available = True
         except ImportError as e2:
@@ -141,7 +144,8 @@ class FeagiAgentClient:
         )
         
         # Connect (with automatic retry)
-        success = client.connect(graceful=True)  # Returns False instead of raising
+        success = client.connect(graceful=True)
+        # Returns False instead of raising.
         if not success:
             # Handle connection failure gracefully
             pass
@@ -155,9 +159,9 @@ class FeagiAgentClient:
     
     @staticmethod
     def is_feagi_reachable(
-        host: str, 
-        port: int = 30001, 
-        timeout: float = 1.0
+        host: str,
+        port: int,
+        timeout: float,
     ) -> bool:
         """
         Quick lightweight check if FEAGI is reachable
@@ -167,9 +171,9 @@ class FeagiAgentClient:
         a client to determine if FEAGI is available.
         
         Args:
-            host: FEAGI hostname or IP address (default: "localhost")
-            port: FEAGI registration port (default: 30001)
-            timeout: Connection timeout in seconds (default: 1.0)
+            host: FEAGI hostname or IP address.
+            port: FEAGI registration port.
+            timeout: Connection timeout in seconds.
         
         Returns:
             True if FEAGI registration port is reachable, False otherwise
@@ -232,6 +236,10 @@ class FeagiAgentClient:
         self._feagi_host = None
         self._registration_port = None
         self._sensory_port = None
+        self._feagi_api_port: Optional[int] = None
+        self._feagi_http_timeout_s: Optional[float] = None
+        self._motor_registration_retries: Optional[int] = None
+        self._motor_registration_retry_interval_s: Optional[float] = None
         
         logger.info(
             "Created agent client: %s (type: %s)",
@@ -299,10 +307,13 @@ class FeagiAgentClient:
     
     def configure(
         self,
-        feagi_host: str = "localhost",
-        registration_port: int = 30001,
-        sensory_port: int = 5555,
-        motor_port: int = 5564,
+        feagi_host: str,
+        registration_port: int,
+        sensory_port: int,
+        motor_port: int,
+        agent_descriptor_b64: str,
+        auth_token_b64: str,
+        *,
         vision_unit: Optional[Tuple[str, int, int, int, str, int]] = None,
         motor_unit: Optional[Tuple[str, int, str, int]] = None,
         motor_units: Optional[Tuple[str, int, List[Tuple[str, int]]]] = None,
@@ -313,17 +324,17 @@ class FeagiAgentClient:
         sensory_socket_hwm: Optional[int] = None,
         sensory_socket_linger_ms: Optional[int] = None,
         sensory_socket_immediate: Optional[bool] = None,
-        agent_descriptor_b64: Optional[str] = None,
-        auth_token_b64: Optional[str] = None,
+        feagi_api_port: Optional[int] = None,
+        feagi_http_timeout_s: Optional[float] = None,
     ):
         """
         Configure the agent
         
         Args:
             feagi_host: FEAGI hostname or IP address.
-            registration_port: Registration/heartbeat port (default: 30001).
-            sensory_port: Sensory data input port (default: 5555).
-            motor_port: Motor data output port (default: 5564).
+            registration_port: Registration/heartbeat port.
+            sensory_port: Sensory data input port.
+            motor_port: Motor data output port.
             vision_unit: Vision capability tuple using semantic unit + group
                 (modality, width, height, channels, unit, group).
             motor_unit: Motor capability tuple using semantic unit + group
@@ -341,10 +352,29 @@ class FeagiAgentClient:
             sensory_socket_immediate: Optional immediate mode flag for the
                 sensory socket.
             agent_descriptor_b64: Base64 AgentDescriptor (48-byte payload).
-                If not provided, uses FEAGI_AGENT_DESCRIPTOR_B64 env var.
-            auth_token_b64: Base64 auth token (must decode to 32 bytes). If not
-                provided, uses FEAGI_AUTH_TOKEN_B64 env var.
+            auth_token_b64: Base64 auth token (must decode to 32 bytes).
         """
+        if not feagi_host:
+            raise ValueError("feagi_host must be provided explicitly.")
+        if registration_port <= 0:
+            raise ValueError("registration_port must be > 0.")
+        if sensory_port <= 0:
+            raise ValueError("sensory_port must be > 0.")
+        if motor_port <= 0:
+            raise ValueError("motor_port must be > 0.")
+        if heartbeat_interval <= 0:
+            raise ValueError("heartbeat_interval must be > 0.")
+        if connection_timeout_ms <= 0:
+            raise ValueError("connection_timeout_ms must be > 0.")
+        if registration_retries <= 0:
+            raise ValueError("registration_retries must be > 0.")
+        if not agent_descriptor_b64:
+            raise ValueError(
+                "agent_descriptor_b64 must be provided explicitly.",
+            )
+        if not auth_token_b64:
+            raise ValueError("auth_token_b64 must be provided explicitly.")
+
         # Map Python AgentType to Rust AgentType
         rust_agent_type = {
             AgentType.SENSORY: RustAgentType.sensory(),
@@ -364,17 +394,11 @@ class FeagiAgentClient:
         self._config.with_heartbeat_interval(heartbeat_interval)
         self._config.with_connection_timeout_ms(connection_timeout_ms)
         self._config.with_registration_retries(registration_retries)
+        self._motor_registration_retries = registration_retries
+        self._motor_registration_retry_interval_s = heartbeat_interval
 
-        descriptor_b64 = agent_descriptor_b64 or os.environ.get(
-            "FEAGI_AGENT_DESCRIPTOR_B64"
-        )
-        if not descriptor_b64:
-            raise ValueError(
-                "agent_descriptor_b64 must be provided "
-                "(or FEAGI_AGENT_DESCRIPTOR_B64 set)."
-            )
         manufacturer, descriptor_name, descriptor_version = (
-            self._parse_agent_descriptor_b64(descriptor_b64)
+            self._parse_agent_descriptor_b64(agent_descriptor_b64)
         )
         self._config.with_agent_descriptor(
             manufacturer,
@@ -382,15 +406,7 @@ class FeagiAgentClient:
             descriptor_version,
         )
 
-        resolved_auth_token_b64 = auth_token_b64 or os.environ.get(
-            "FEAGI_AUTH_TOKEN_B64"
-        )
-        if not resolved_auth_token_b64:
-            raise ValueError(
-                "auth_token_b64 must be provided "
-                "(or FEAGI_AUTH_TOKEN_B64 set)."
-            )
-        self._config.with_auth_token_base64(resolved_auth_token_b64)
+        self._config.with_auth_token_base64(auth_token_b64)
 
         if any(
             value is not None
@@ -454,6 +470,24 @@ class FeagiAgentClient:
         self._feagi_host = feagi_host
         self._registration_port = registration_port
         self._sensory_port = sensory_port
+        self._feagi_api_port = feagi_api_port
+        self._feagi_http_timeout_s = feagi_http_timeout_s
+
+        if (
+            feagi_api_port is None
+            and feagi_http_timeout_s is not None
+        ) or (
+            feagi_api_port is not None
+            and feagi_http_timeout_s is None
+        ):
+            raise ValueError(
+                "feagi_api_port and feagi_http_timeout_s must both be "
+                "provided together."
+            )
+        if feagi_api_port is not None and feagi_api_port <= 0:
+            raise ValueError("feagi_api_port must be > 0.")
+        if feagi_http_timeout_s is not None and feagi_http_timeout_s <= 0:
+            raise ValueError("feagi_http_timeout_s must be > 0.")
         
         if motor_unit and motor_units:
             raise ValueError("Provide only one of motor_unit or motor_units.")
@@ -603,14 +637,17 @@ class FeagiAgentClient:
         3. Start background heartbeat (only after successful registration)
         
         Args:
-            graceful: If True, returns False on failure instead of raising exceptions.
-                     Useful for controllers that can operate without FEAGI.
+            graceful: If True, returns False on failure instead of raising
+                exceptions. Useful for controllers that can operate without
+                FEAGI.
         
         Returns:
-            True if connection successful, False if failed (only when graceful=True)
+            True if connection successful, False if failed (only when
+            graceful=True)
         
         Raises:
-            RuntimeError: If not configured or connection fails (only when graceful=False)
+            RuntimeError: If not configured or connection fails (only when
+            graceful=False)
         
         Example:
             ```python
@@ -651,7 +688,7 @@ class FeagiAgentClient:
         # like regular TCP). Let the Rust SDK handle connection testing.
         
         try:
-            # Create client (NOTE: This may start background threads in Rust SDK)
+            # Create client (may start background threads in Rust SDK).
             logger.debug("Creating Rust-backed agent client...")
             self._client = PyAgentClient(self._config)
             
@@ -755,20 +792,26 @@ class FeagiAgentClient:
                 "Connection failed with unexpected error: %s" % e
             ) from e
     
-    def send_sensory_data(self, neuron_pairs: List[Tuple[int, float]], blocking: bool = True):
+    def send_sensory_data(
+        self,
+        neuron_pairs: List[Tuple[int, float]],
+        blocking: bool = True,
+    ):
         """
         Send sensory data to FEAGI in binary XYZP format
         
         Args:
             neuron_pairs: List of (neuron_id, potential) tuples
                          Example: [(0, 50.0), (1, 75.0), (2, 30.0)]
-            blocking: If False, silently ignores errors (for event loop compatibility)
+            blocking: If False, silently ignores errors (for event loop
+                compatibility)
         
         Raises:
             RuntimeError: If not connected (only when blocking=True)
         
         Returns:
-            bool: True if send succeeded, False if failed (only relevant when blocking=False)
+            bool: True if send succeeded, False if failed (only relevant when
+            blocking=False)
         
         Example:
             ```python
@@ -785,7 +828,9 @@ class FeagiAgentClient:
         """
         if not self._connected or self._client is None:
             if blocking:
-                raise RuntimeError("Agent not connected. Call connect() first.")
+                raise RuntimeError(
+                    "Agent not connected. Call connect() first.",
+                )
             return False
         
         try:
@@ -820,7 +865,10 @@ class FeagiAgentClient:
             logger.error("Failed to send sensory bytes: %s", e)
             raise
     
-    def receive_motor_data(self, blocking: bool = True) -> Optional[Dict[str, Any]]:
+    def receive_motor_data(
+        self,
+        blocking: bool = True,
+    ) -> Optional[Dict[str, Any]]:
         """
         Receive motor data from FEAGI (non-blocking)
         
@@ -831,7 +879,8 @@ class FeagiAgentClient:
             Motor data as dictionary if available, None otherwise
             
         Raises:
-            RuntimeError: If not connected or not a motor agent (only when blocking=True)
+            RuntimeError: If not connected or not a motor agent
+                (only when blocking=True)
         
         Example:
             ```python
@@ -847,7 +896,9 @@ class FeagiAgentClient:
         """
         if not self._connected or self._client is None:
             if blocking:
-                raise RuntimeError("Agent not connected. Call connect() first.")
+                raise RuntimeError(
+                    "Agent not connected. Call connect() first.",
+                )
             return None
         
         if self.agent_type == AgentType.SENSORY:
@@ -887,7 +938,131 @@ class FeagiAgentClient:
                 # Non-blocking mode: log debug but don't raise
                 logger.debug("Non-blocking receive failed (continuing): %s", e)
                 return None
-    
+
+    def _fetch_existing_cortical_areas(
+        self,
+        cortical_ids: List[str],
+    ) -> set[str]:
+        """Fetch available cortical areas from FEAGI API."""
+        if not self._feagi_host:
+            raise RuntimeError("FEAGI host is not configured.")
+        if self._feagi_api_port is None:
+            raise RuntimeError(
+                "feagi_api_port is required for cortical checks.",
+            )
+        if self._feagi_http_timeout_s is None:
+            raise RuntimeError(
+                "feagi_http_timeout_s is required for cortical checks.",
+            )
+
+        endpoint = (
+            f"http://{self._feagi_host}:{self._feagi_api_port}/v1/cortical_area/"
+            "multi/cortical_area_properties"
+        )
+        payload = json.dumps(cortical_ids).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=self._feagi_http_timeout_s,
+            ) as response:
+                body = response.read().decode("utf-8")
+        except urllib.error.URLError as e:
+            raise RuntimeError(
+                f"Failed to query FEAGI cortical areas: {e}",
+            ) from e
+
+        try:
+            properties = json.loads(body)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                "Invalid FEAGI cortical response (JSON decode failed).",
+            ) from e
+        if not isinstance(properties, dict):
+            raise RuntimeError("Invalid FEAGI cortical response format.")
+
+        available = set()
+        for cortical_id, cortical_props in properties.items():
+            if cortical_id in cortical_ids and cortical_props is not None:
+                available.add(cortical_id)
+        return available
+
+    def send_device_configuration(
+        self,
+        device_registrations_json: str,
+        expected_cortical_ids: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Send device/capability registrations to FEAGI via
+        ZMQ AgentConfiguration.
+
+        Args:
+            device_registrations_json: JSON string matching
+                JSONInputOutputDefinition
+                (e.g. from ConnectorAgent.export_capabilities_json()).
+            expected_cortical_ids: Optional cortical IDs that must exist before
+                returning. If provided, device registration is retried and
+                verified against FEAGI API.
+
+        Raises:
+            RuntimeError: If not connected.
+        """
+        if not self._connected or self._client is None:
+            raise RuntimeError("Agent not connected. Call connect() first.")
+        if not expected_cortical_ids:
+            self._client.send_device_configuration(device_registrations_json)
+            return
+
+        retries = self._motor_registration_retries
+        retry_interval_s = self._motor_registration_retry_interval_s
+        if retries is None or retries <= 0:
+            raise RuntimeError(
+                "registration_retries must be configured (> 0).",
+            )
+        if retry_interval_s is None or retry_interval_s <= 0:
+            raise RuntimeError(
+                "heartbeat_interval must be configured (> 0).",
+            )
+
+        expected_set = sorted(set(expected_cortical_ids))
+        missing_set = expected_set
+        for attempt in range(1, retries + 1):
+            self._client.send_device_configuration(device_registrations_json)
+            logger.info(
+                "[CFG] Sent device_registrations (attempt %d/%d)",
+                attempt,
+                retries,
+            )
+
+            available = self._fetch_existing_cortical_areas(expected_set)
+            missing_set = sorted(set(expected_set) - available)
+            if not missing_set:
+                logger.info(
+                    "[CFG] Device registration verified (%d cortical areas).",
+                    len(expected_set),
+                )
+                return
+
+            logger.warning(
+                "[CFG] Missing cortical areas after attempt %d/%d: %s",
+                attempt,
+                retries,
+                missing_set,
+            )
+            if attempt < retries:
+                time.sleep(retry_interval_s)
+
+        raise RuntimeError(
+            "Device registration incomplete; missing cortical areas: "
+            f"{missing_set}",
+        )
+
     def is_connected(self) -> bool:
         """Check if agent is connected"""
         return (
@@ -996,7 +1171,7 @@ class FeagiAgentClient:
 def create_agent(
     agent_id: str,
     agent_type: AgentType,
-    feagi_host: str = "localhost",
+    feagi_host: str,
     **kwargs
 ) -> FeagiAgentClient:
     """
