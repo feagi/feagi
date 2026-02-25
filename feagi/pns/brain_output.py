@@ -562,13 +562,30 @@ class BrainOutput:
                 if value is None:
                     continue
                 key_str = str(key)
-                if ":" in key_str:
-                    group_str, channel_str = key_str.split(":", 1)
+                command_mode = None
+                parts = key_str.split(":")
+                if len(parts) == 3:
+                    group_str, channel_str, command_mode = parts
                     try:
                         group_id = int(group_str)
                         channel_index = int(channel_str)
                     except ValueError:
                         continue
+                elif len(parts) == 2:
+                    left, right = parts
+                    if right in ("absolute", "incremental"):
+                        group_id = 0
+                        command_mode = right
+                        try:
+                            channel_index = int(left)
+                        except ValueError:
+                            continue
+                    else:
+                        try:
+                            group_id = int(left)
+                            channel_index = int(right)
+                        except ValueError:
+                            continue
                 else:
                     group_id = 0
                     try:
@@ -582,6 +599,12 @@ class BrainOutput:
                 if output is None:
                     continue
                 try:
+                    output._on_motor_command(
+                        float(value),
+                        command_mode=command_mode,
+                    )
+                except TypeError:
+                    # Backward compatibility for output classes with old callback signature.
                     output._on_motor_command(float(value))
                 except Exception as e:
                     logger.debug(f"Error updating motor output {key_str}: {e}")

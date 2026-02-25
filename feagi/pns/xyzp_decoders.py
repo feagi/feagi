@@ -179,7 +179,9 @@ def decode_motor_xyzp(
             unit_ref = raw_cid[1:4]
             data_type_flag = raw_cid[4] | (raw_cid[5] << 8)
             variant = data_type_flag & 0xFF
+            frame_incremental = ((data_type_flag >> 8) & 0x01) == 1
             positioning_fractional = ((data_type_flag >> 9) & 0x01) == 1
+            command_mode = "incremental" if frame_incremental else "absolute"
 
             # PositionalServo/RotaryMotor SignedPercentage decode:
             # even X -> positive lane, odd X -> negative lane, Z -> magnitude.
@@ -226,7 +228,11 @@ def decode_motor_xyzp(
                         )
                     channel_key = str(channel_idx)
                     if use_group_keys and group_id is not None:
-                        channel_key = f"{group_id}:{channel_key}"
+                        channel_key = (
+                            f"{group_id}:{channel_key}:{command_mode}"
+                        )
+                    else:
+                        channel_key = f"{channel_key}:{command_mode}"
                     motors[channel_key] = decoded
                 continue
 

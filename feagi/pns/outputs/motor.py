@@ -137,7 +137,11 @@ class ServoMotor(BaseOutput):
         except Exception as e:
             raise RuntimeError(f"Failed to register ServoMotor: {e}") from e
 
-    def _on_motor_command(self, value: float):
+    def _on_motor_command(
+        self,
+        value: float,
+        command_mode: Optional[str] = None,
+    ):
         """Callback invoked when FEAGI sends a motor command"""
         # Value is SignedPercentage (-1.0 to 1.0) from FEAGI
         # Store raw value for debugging
@@ -150,7 +154,8 @@ class ServoMotor(BaseOutput):
 
         center = (self.min_angle + self.max_angle) / 2.0
         half_range = (self.max_angle - self.min_angle) / 2.0
-        if self.encoding == "incremental":
+        effective_mode = command_mode or self.encoding
+        if effective_mode == "incremental":
             step = half_range * self.incremental_step_ratio
             next_angle = self._current_angle + (value * step)
             self._current_angle = max(
@@ -298,7 +303,11 @@ class RotaryMotor(BaseOutput):
         except Exception as e:
             raise RuntimeError(f"Failed to register RotaryMotor: {e}") from e
 
-    def _on_motor_command(self, value: float):
+    def _on_motor_command(
+        self,
+        value: float,
+        command_mode: Optional[str] = None,
+    ):
         """Callback invoked when FEAGI sends a motor command"""
         # Value is signed percentage (-1.0 to 1.0)
         if self.bidirectional:

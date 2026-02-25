@@ -36,7 +36,7 @@ def test_decode_motor_xyzp_signed_linear_endpoints():
         }
     }
     out = decode_motor_xyzp(xyzp, [cid], include_groups=True)
-    assert out["0:0"] == 1.0
+    assert out["0:0:absolute"] == 1.0
 
     # Channel 0 negative lane (x=1), z=0 -> -1.0
     xyzp = {
@@ -48,7 +48,22 @@ def test_decode_motor_xyzp_signed_linear_endpoints():
         }
     }
     out = decode_motor_xyzp(xyzp, [cid], include_groups=True)
-    assert out["0:0"] == -1.0
+    assert out["0:0:absolute"] == -1.0
+
+
+def test_decode_motor_xyzp_signed_incremental_keys():
+    """Signed incremental IDs should produce incremental command keys."""
+    cid = _make_cortical_id(b"pse", data_type_flag=(5 | (1 << 8)), group=3)
+    xyzp = {
+        cid: {
+            "x": [0],
+            "y": [0],
+            "z": [0],
+            "p": [1.0],
+        }
+    }
+    out = decode_motor_xyzp(xyzp, [cid], include_groups=True)
+    assert out["3:0:incremental"] == 1.0
 
 
 def test_decode_motor_xyzp_legacy_p_scaling():
