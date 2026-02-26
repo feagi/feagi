@@ -46,8 +46,17 @@ class Camera(BaseInput):
             position="center"
         )
         
-        # Configure connection
-        brain_input.configure(feagi_host="localhost")
+        # Configure (all params required; see examples/video_streamer)
+        brain_input.configure(
+            feagi_host="localhost",
+            feagi_port=5558,
+            motor_port=5564,
+            transport="zmq",
+            api_port=8000,
+            feagi_http_timeout_s=10.0,
+            heartbeat_interval_s=5.0,
+            heartbeat_join_timeout_s=2.0,
+        )
         brain_input.connect()
         
         # Main loop

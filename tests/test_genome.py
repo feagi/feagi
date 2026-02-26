@@ -2,6 +2,7 @@
 Tests for feagi.genome module: GenomeLoader, validate_genome, auto_fix_genome, GenomeAPI.
 """
 
+import importlib.util
 from unittest.mock import patch
 
 import pytest
@@ -44,7 +45,7 @@ def test_genome_loader_load_file_not_found():
 
 
 @pytest.mark.skipif(
-    __import__("importlib.util").find_spec("feagi_rust_py_libs") is None
+    importlib.util.find_spec("feagi_rust_py_libs") is None
     or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
     reason="feagi_rust_py_libs.genome not available",
 )
@@ -66,7 +67,7 @@ def test_validate_genome_valid():
 
 
 @pytest.mark.skipif(
-    __import__("importlib.util").find_spec("feagi_rust_py_libs") is None
+    importlib.util.find_spec("feagi_rust_py_libs") is None
     or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
     reason="feagi_rust_py_libs.genome not available",
 )
@@ -76,6 +77,24 @@ def test_auto_fix_genome_returns_tuple():
     fixed, num_fixes = auto_fix_genome(genome)
     assert isinstance(fixed, dict)
     assert isinstance(num_fixes, int)
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("feagi_rust_py_libs") is None
+    or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
+    reason="feagi_rust_py_libs.genome not available",
+)
+def test_validate_repair_workflow_produces_valid_genome():
+    """validate -> auto_fix -> validate workflow produces valid genome (recovery flow)."""
+    genome = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
+    fixed, num_fixes = auto_fix_genome(genome)
+    valid, errors = validate_genome(fixed)
+    assert valid is True, f"Repaired genome should be valid: {errors}"
+    assert isinstance(fixed, dict)
+    assert "version" in fixed
+    assert "blueprint" in fixed
+    assert "neuron_morphologies" in fixed
+    assert "physiology" in fixed
 
 
 # -------------------------------------------------------------------------

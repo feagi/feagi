@@ -52,8 +52,19 @@ def main():
     feagi_connection_timeout_ms = parse_env_int("FEAGI_CONNECTION_TIMEOUT_MS")
     feagi_registration_retries = parse_env_int("FEAGI_REGISTRATION_RETRIES")
     feagi_heartbeat_interval_s = parse_env_float("FEAGI_HEARTBEAT_INTERVAL_S")
+    feagi_api_port = parse_env_int("FEAGI_API_PORT")
+    feagi_http_timeout_s = parse_env_float("FEAGI_HTTP_TIMEOUT_S")
 
-    brain_input.configure(feagi_host=feagi_host, feagi_port=feagi_sensory_port, transport="zmq")
+    brain_input.configure(
+        feagi_host=feagi_host,
+        feagi_port=feagi_sensory_port,
+        motor_port=feagi_motor_port,
+        transport="zmq",
+        api_port=feagi_api_port,
+        feagi_http_timeout_s=feagi_http_timeout_s,
+        heartbeat_interval_s=feagi_heartbeat_interval_s,
+        heartbeat_join_timeout_s=2.0,
+    )
     brain_output.configure(
         agent_id=agent_id,
         feagi_host=feagi_host,

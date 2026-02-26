@@ -4,12 +4,28 @@ Example 3: Data Validation
 Demonstrates how to validate data and detect anomalies.
 """
 
+import os
 from feagi.pns.inputs import Camera
 from feagi.pns import brain_input
 from feagi.pns.observability import DataInspector
 
 import numpy as np
 import time
+
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def parse_env_int(name: str) -> int:
+    return int(require_env(name))
+
+
+def parse_env_float(name: str) -> float:
+    return float(require_env(name))
 
 
 def main():
@@ -24,7 +40,31 @@ def main():
     
     # === Configure connection ===
     print("\nConfiguring connection...")
-    brain_input.configure(feagi_host="localhost")
+    feagi_host = require_env("FEAGI_HOST")
+    feagi_sensory_port = parse_env_int("FEAGI_SENSORY_PORT")
+    feagi_motor_port = parse_env_int("FEAGI_MOTOR_PORT")
+    feagi_api_port = parse_env_int("FEAGI_API_PORT")
+    feagi_http_timeout_s = parse_env_float("FEAGI_HTTP_TIMEOUT_S")
+    feagi_heartbeat_interval_s = parse_env_float("FEAGI_HEARTBEAT_INTERVAL_S")
+    feagi_registration_port = parse_env_int("FEAGI_REGISTRATION_PORT")
+    feagi_connection_timeout_ms = parse_env_int("FEAGI_CONNECTION_TIMEOUT_MS")
+    feagi_registration_retries = parse_env_int("FEAGI_REGISTRATION_RETRIES")
+    feagi_auth_token_b64 = require_env("FEAGI_AUTH_TOKEN_B64")
+
+    brain_input.configure(
+        feagi_host=feagi_host,
+        feagi_port=feagi_sensory_port,
+        motor_port=feagi_motor_port,
+        transport="zmq",
+        api_port=feagi_api_port,
+        feagi_http_timeout_s=feagi_http_timeout_s,
+        heartbeat_interval_s=feagi_heartbeat_interval_s,
+        heartbeat_join_timeout_s=2.0,
+        registration_port=feagi_registration_port,
+        connection_timeout_ms=feagi_connection_timeout_ms,
+        registration_retries=feagi_registration_retries,
+        auth_token_b64=feagi_auth_token_b64,
+    )
     brain_input.connect()
     print("Connected to FEAGI")
     

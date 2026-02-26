@@ -20,9 +20,29 @@ Example - Robotics:
     servo = ServoMotor.register(range=(0, 180))
     motor = RotaryMotor.register()
     
-    # Configure
-    brain_input.configure(feagi_host="localhost")
-    brain_output.configure(feagi_host="localhost")
+    # Configure (see examples/simple_robot for full usage)
+    agent_id = "..."  # from FEAGI_AGENT_DESCRIPTOR_B64
+    brain_input.configure(
+        feagi_host="localhost",
+        feagi_port=5558,
+        motor_port=5564,
+        transport="zmq",
+        api_port=8000,
+        feagi_http_timeout_s=10.0,
+        heartbeat_interval_s=5.0,
+        heartbeat_join_timeout_s=2.0,
+    )
+    brain_output.configure(
+        agent_id=agent_id,
+        feagi_host="localhost",
+        feagi_registration_port=30001,
+        feagi_sensory_port=5558,
+        feagi_motor_port=5564,
+        transport="zmq",
+        feagi_connection_timeout_ms=5000,
+        feagi_registration_retries=3,
+        feagi_heartbeat_interval_s=5.0,
+    )
     brain_input.connect()
     brain_output.connect()
     
@@ -44,8 +64,20 @@ Example - Language Learning:
     text_in = TextInput.register(max_length=100)
     text_out = TextOutput.register(max_length=100)
     
-    brain_input.configure()
-    brain_output.configure()
+    agent_id = "..."  # from FEAGI_AGENT_DESCRIPTOR_B64
+    # Configure (same params as Robotics example)
+    brain_input.configure(
+        feagi_host="localhost", feagi_port=5558, motor_port=5564,
+        transport="zmq", api_port=8000, feagi_http_timeout_s=10.0,
+        heartbeat_interval_s=5.0, heartbeat_join_timeout_s=2.0,
+    )
+    brain_output.configure(
+        agent_id=agent_id, feagi_host="localhost",
+        feagi_registration_port=30001, feagi_sensory_port=5558,
+        feagi_motor_port=5564, transport="zmq",
+        feagi_connection_timeout_ms=5000, feagi_registration_retries=3,
+        feagi_heartbeat_interval_s=5.0,
+    )
     brain_input.connect()
     brain_output.connect()
     

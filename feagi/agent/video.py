@@ -90,7 +90,7 @@ class VideoStreamAgent(BaseAgent):
             agent_id: Unique agent identifier (default: "video_stream_agent")
             feagi_host: FEAGI hostname (default: "localhost")
             connection_params: Optional dict passed to start() in context manager.
-                Must include: feagi_host, feagi_port, api_port, transport,
+                Must include: feagi_host, feagi_port, motor_port, api_port, transport,
                 feagi_http_timeout_s, heartbeat_interval_s, heartbeat_join_timeout_s.
         """
         super().__init__(agent_id=agent_id, feagi_host=feagi_host)
@@ -153,6 +153,7 @@ class VideoStreamAgent(BaseAgent):
         *,
         feagi_host: str,
         feagi_port: int,
+        motor_port: int,
         api_port: int,
         transport: str,
         feagi_http_timeout_s: float,
@@ -171,6 +172,7 @@ class VideoStreamAgent(BaseAgent):
         Args:
             feagi_host: FEAGI hostname (required; no defaults in safety mode)
             feagi_port: FEAGI sensory port (required; no defaults in safety mode)
+            motor_port: FEAGI motor port (required by FeagiAgentClient)
             api_port: FEAGI HTTP API port (required; no defaults in safety mode)
             transport: Transport protocol (required; no defaults in safety mode)
             feagi_http_timeout_s: HTTP timeout in seconds (required; no defaults in safety mode)
@@ -200,6 +202,7 @@ class VideoStreamAgent(BaseAgent):
         brain_input.configure(
             feagi_host=feagi_host,
             feagi_port=feagi_port,
+            motor_port=motor_port,
             registration_port=registration_port,
             transport=transport,
             api_port=api_port,

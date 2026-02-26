@@ -39,8 +39,17 @@ class BrainInput:
         # Register inputs
         camera = Camera.register(resolution=(1920, 1080))
         
-        # Configure and connect
-        brain_input.configure(feagi_host="localhost")
+        # Configure and connect (all params required; see examples/video_streamer)
+        brain_input.configure(
+            feagi_host="localhost",
+            feagi_port=5558,
+            motor_port=5564,
+            transport="zmq",
+            api_port=8000,
+            feagi_http_timeout_s=10.0,
+            heartbeat_interval_s=5.0,
+            heartbeat_join_timeout_s=2.0,
+        )
         brain_input.connect()
         
         # Main loop
@@ -84,6 +93,7 @@ class BrainInput:
         self._connection_timeout_ms: Optional[int] = None
         self._registration_retries: Optional[int] = None
         self._auth_token_b64: Optional[str] = None
+        self._feagi_motor_port: Optional[int] = None
         
         # Agent registration (REQUIRED in FEAGI 2.0)
         self._agent_registered = False
@@ -279,6 +289,7 @@ class BrainInput:
         *,
         feagi_host: str,
         feagi_port: int,
+        motor_port: int,
         registration_port: Optional[int] = None,
         transport: str,
         api_port: int,
@@ -295,6 +306,7 @@ class BrainInput:
         Args:
             feagi_host: FEAGI server hostname or IP
             feagi_port: Sensory input port (default: 5558)
+            motor_port: Motor output port (required by FeagiAgentClient)
             transport: Transport type - "zmq" or "websocket"
             api_port: FEAGI API port for registration (default: 8000)
         """
@@ -302,6 +314,8 @@ class BrainInput:
             raise ValueError("feagi_host must be provided (no defaults in safety mode).")
         if feagi_port <= 0:
             raise ValueError("feagi_port must be a positive integer (no defaults in safety mode).")
+        if motor_port <= 0:
+            raise ValueError("motor_port must be a positive integer (no defaults in safety mode).")
         if api_port <= 0:
             raise ValueError("api_port must be a positive integer (no defaults in safety mode).")
         if not transport:
@@ -315,6 +329,7 @@ class BrainInput:
 
         self._feagi_host = feagi_host
         self._feagi_port = feagi_port
+        self._feagi_motor_port = motor_port
         self._registration_port = registration_port
         self._transport_type = transport
         self._api_port = api_port
@@ -427,6 +442,12 @@ class BrainInput:
         if self._transport_type == "zmq":
             from feagi.pns.client import AgentType, FeagiAgentClient  # noqa: PLC0415
 
+            motor_port = self._feagi_motor_port
+            if motor_port is None or motor_port <= 0:
+                raise RuntimeError(
+                    "Missing motor port. Provide motor_port in brain_input.configure(...) "
+                    "(required by FeagiAgentClient even for sensory-only agents)."
+                )
             registration_port = self._registration_port
             if registration_port is None:
                 env_registration_port = os.environ.get("FEAGI_REGISTRATION_PORT")
@@ -480,6 +501,7 @@ class BrainInput:
                 feagi_host=self._feagi_host,
                 registration_port=int(registration_port),
                 sensory_port=int(self._feagi_port),
+                motor_port=int(motor_port),
                 vision_unit=(
                     modality,
                     int(dims[0]),

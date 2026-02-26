@@ -107,11 +107,13 @@ def load_connection_params():
     timeouts = config.get("timeouts", {})
     # Sensory port: agent.sensory_port or zmq_sensory_port
     feagi_port = agent_cfg.get("sensory_port") or ports.get("zmq_sensory_port", 5558)
+    motor_port = agent_cfg.get("motor_port") or ports.get("zmq_motor_port", 5564)
     registration_port = agent_cfg.get("registration_port")
     connection_timeout_ms = zmq_cfg.get("socket_connect_timeout", 1000)
     return {
         "feagi_host": agent_cfg.get("advertised_host", api.get("advertised_host", "127.0.0.1")),
         "feagi_port": int(feagi_port),
+        "motor_port": int(motor_port),
         "api_port": int(api.get("port", 8000)),
         "transport": "zmq",
         "feagi_http_timeout_s": float(timeouts.get("service_startup", 10.0)),

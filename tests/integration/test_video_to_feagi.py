@@ -190,6 +190,7 @@ class TestVideoToFEAGI:
         brain_input.configure(
             feagi_host=feagi_config["host"],
             feagi_port=feagi_config["sensory_port"],
+            motor_port=feagi_config["motor_port"],
             registration_port=30001,
             transport="zmq",
             api_port=feagi_config["rest_port"],
