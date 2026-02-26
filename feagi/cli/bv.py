@@ -34,7 +34,7 @@ def _print_macos_bv_instructions() -> None:
     print("Download the Brain Visualizer for macOS from:")
     print(f"  {BV_RELEASES_URL}")
     print("")
-    print("Use release v2.3.0 or above. Download the asset for your architecture")
+    print("Use release v2.3.3 or above. Download the asset for your architecture")
     print("(macos-arm64 or macos-x86_64), extract the archive, and launch the .app file.")
 
 

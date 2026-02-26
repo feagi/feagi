@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi-core"
-version = "2.1.25"
+version = "2.1.26"
 description = "Core SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages (without Brain Visualizer)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,11 +34,11 @@ dependencies = [
 
 [project.optional-dependencies]
 bv = [
-    "feagi-bv>=2.3.0,<3.0.0",
-    "feagi-bv-linux>=2.3.0,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos-arm64>=2.3.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "feagi-bv-macos-x86_64>=2.3.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-    "feagi-bv-windows>=2.3.0,<3.0.0 ; sys_platform == 'win32'",
+    "feagi-bv>=2.3.3,<3.0.0",
+    "feagi-bv-linux>=2.3.3,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.3.3,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.3.3,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.3.3,<3.0.0 ; sys_platform == 'win32'",
 ]
 video = [
     "opencv-python>=4.9.0",
@@ -72,11 +72,11 @@ docs = [
     "mkdocstrings-python>=1.0.0",
 ]
 full = [
-    "feagi-bv>=2.3.0,<3.0.0",
-    "feagi-bv-linux>=2.3.0,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos-arm64>=2.3.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "feagi-bv-macos-x86_64>=2.3.0,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-    "feagi-bv-windows>=2.3.0,<3.0.0 ; sys_platform == 'win32'",
+    "feagi-bv>=2.3.3,<3.0.0",
+    "feagi-bv-linux>=2.3.3,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.3.3,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.3.3,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.3.3,<3.0.0 ; sys_platform == 'win32'",
     "opencv-python>=4.9.0",
     "bleak>=0.21.0",
     "websockets>=12.0",
