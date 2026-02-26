@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi"
-version = "2.1.26"
+version = "2.1.27"
 description = "Complete FEAGI SDK with Brain Visualizer - Framework for Evolutionary Artificial General Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
