@@ -123,6 +123,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         help="Seconds to wait for readiness (required with --wait).",
     )
+    start_parser.add_argument(
+        "--feagi-path",
+        default=None,
+        help="Path to feagi-rs binary (overrides bundled binary). Use when bundled binary is outdated.",
+    )
     
     # feagi stop
     stop_parser = subparsers.add_parser(
@@ -176,6 +181,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Clear PID file when process cannot be killed (e.g. Access denied).",
+    )
+    restart_parser.add_argument(
+        "--feagi-path",
+        default=None,
+        help="Path to feagi-rs binary (overrides bundled binary). Use when bundled binary is outdated.",
     )
 
     init_parser = subparsers.add_parser(
@@ -415,7 +425,8 @@ def _handle_restart_command(args: argparse.Namespace) -> int:
     import os
     os.environ["FEAGI_DAEMON_MODE"] = "1"
 
-    engine = FeagiEngine()
+    feagi_path = getattr(args, "feagi_path", None) or os.environ.get("FEAGI_PATH")
+    engine = FeagiEngine(feagi_path=feagi_path)
     engine.load_config(config_path)
     config = engine.config
     try:
@@ -580,7 +591,8 @@ def _handle_start_command(args: argparse.Namespace) -> int:
     import os
     os.environ["FEAGI_DAEMON_MODE"] = "1"
 
-    engine = FeagiEngine()
+    feagi_path = getattr(args, "feagi_path", None) or os.environ.get("FEAGI_PATH")
+    engine = FeagiEngine(feagi_path=feagi_path)
     engine.load_config(config_path)
 
     config = engine.config

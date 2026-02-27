@@ -50,23 +50,36 @@ _rust_sdk_available = False
 _rust_import_error = None
 
 try:
-    # When installed via maturin, the Rust extension module is nested under
-    # `feagi_rust_py_libs.feagi_rust_py_libs`.
-    from feagi_rust_py_libs.feagi_rust_py_libs import feagi_agent as rust_sdk
+    # Preferred: feagi_agent submodule (feagi-rust-py-libs 0.0.90+)
+    from feagi_rust_py_libs.feagi_agent import (
+        PyAgentClient as _PyAgentClient,
+        PyAgentConfig as _PyAgentConfig,
+        AgentType as _RustAgentType,
+        init_rust_logging as _init_rust_logging,
+    )
+    rust_sdk = type("rust_sdk", (), {
+        "PyAgentClient": _PyAgentClient,
+        "PyAgentConfig": _PyAgentConfig,
+        "AgentType": _RustAgentType,
+        "init_rust_logging": _init_rust_logging,
+    })()
     _rust_sdk_available = True
 except ImportError:
     try:
-        from feagi_rust_py_libs import feagi_agent_sdk as rust_sdk
+        # Fallback: nested layout (some wheel builds)
+        from feagi_rust_py_libs.feagi_rust_py_libs import feagi_agent as rust_sdk
         _rust_sdk_available = True
     except ImportError:
         try:
-            # Legacy/packaged layout
-            # (an external wheel may provide this top-level module).
-            import feagi_agent_sdk as rust_sdk
+            from feagi_rust_py_libs import feagi_agent_sdk as rust_sdk
             _rust_sdk_available = True
-        except ImportError as e2:
-            _rust_import_error = str(e2)
-            rust_sdk = None
+        except ImportError:
+            try:
+                import feagi_agent_sdk as rust_sdk
+                _rust_sdk_available = True
+            except ImportError as e2:
+                _rust_import_error = str(e2)
+                rust_sdk = None
 
 # Only define these if Rust SDK is available
 if _rust_sdk_available:
@@ -400,6 +413,12 @@ class FeagiAgentClient:
         manufacturer, descriptor_name, descriptor_version = (
             self._parse_agent_descriptor_b64(agent_descriptor_b64)
         )
+        if not hasattr(self._config, "with_agent_descriptor"):
+            raise RuntimeError(
+                "PyAgentConfig from feagi_rust_py_libs does not have "
+                "with_agent_descriptor. Rebuild feagi-rust-py-libs from source: "
+                "cd feagi-rust-py-libs && maturin develop --release"
+            )
         self._config.with_agent_descriptor(
             manufacturer,
             descriptor_name,

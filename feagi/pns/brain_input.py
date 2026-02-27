@@ -22,6 +22,151 @@ logger = logging.getLogger("feagi.pns.brain_input")
 
 # @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-input
 
+# Cortical ID subtype (bytes 1-3) -> candidate sensor register method names
+# Rust macro exposes PascalCase; try both for compatibility
+_SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES = {
+    b"svi": ["sensor_segmented_vision_register", "sensor_SegmentedVision_register"],
+    b"img": ["sensor_vision_register", "sensor_Vision_register"],
+    b"mis": ["sensor_misc_data_register", "sensor_MiscData_register"],
+}
+
+
+def decode_cortical_id_to_subtype(cortical_area_id: str) -> bytes:
+    """
+    Decode base64 cortical ID to subtype bytes (bytes 1-3).
+
+    Cortical ID layout: byte 0 = category (i/o), bytes 1-3 = unit identifier.
+    e.g. aXN2aQkAAAA= (vision_LL) -> b'svi' (SegmentedVision)
+
+    Args:
+        cortical_area_id: Base64-encoded cortical ID string.
+
+    Returns:
+        3-byte subtype (e.g. b'svi', b'img', b'mis').
+    """
+    decoded = base64.b64decode(cortical_area_id)
+    if len(decoded) < 4:
+        raise ValueError(
+            f"Cortical ID must be at least 4 bytes, got {len(decoded)}"
+        )
+    return bytes(decoded[1:4])
+
+
+def register_cortical_areas_with_cache(cache: Any, cortical_area_ids: List[str]) -> None:
+    """
+    Register cortical areas with ConnectorAgent cache by decoding each ID
+    to subtype and calling the appropriate sensor_*_register method.
+
+    Groups areas by subtype; each unique subtype gets one registration (group_id).
+    e.g. vision_LL (aXN2aQkAAAA=) -> svi -> sensor_SegmentedVision_register
+
+    Args:
+        cache: ConnectorAgent instance from feagi_rust_py_libs.
+        cortical_area_ids: List of base64 cortical area IDs to register.
+    """
+    import feagi_rust_py_libs as frpl
+
+    subtype_to_ids: Dict[bytes, List[str]] = {}
+    for cid in cortical_area_ids:
+        subtype = decode_cortical_id_to_subtype(cid)
+        if subtype not in subtype_to_ids:
+            subtype_to_ids[subtype] = []
+        subtype_to_ids[subtype].append(cid)
+
+    cc_desc = frpl.connector_core.data_types.descriptors
+    cc_data_types = frpl.connector_core.data_types
+    frame_enum = frpl.data_structures.genomic.cortical_area.FrameChangeHandling
+    frame = frame_enum.Absolute()
+
+    for group_id, (subtype, ids) in enumerate(subtype_to_ids.items()):
+        candidates = _SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES.get(subtype)
+        if candidates is None:
+            subtype_str = subtype.decode("ascii", errors="replace")
+            logger.warning(
+                "Unknown cortical subtype '%s' (from %s), skipping cache registration",
+                subtype_str,
+                ids[0][:12],
+            )
+            continue
+
+        method_name = None
+        for candidate in candidates:
+            if hasattr(cache, candidate):
+                method_name = candidate
+                break
+        if method_name is None:
+            subtype_str = subtype.decode("ascii", errors="replace")
+            raise AttributeError(
+                f"ConnectorAgent has no sensor registration for subtype '{subtype_str}' "
+                f"(tried: {candidates}). Rebuild feagi-rust-py-libs from source: "
+                "cd feagi-rust-py-libs && maturin develop --release"
+            )
+
+        register_method = getattr(cache, method_name)
+        if subtype == b"svi":
+            input_props = cc_desc.ImageFrameProperties(
+                cc_desc.ImageXYResolution(32, 32),
+                cc_desc.ColorSpace.Gamma,
+                cc_desc.ColorChannelLayout.RGB,
+            )
+            center_res = cc_desc.ImageXYResolution(32, 32)
+            peripheral_res = cc_desc.ImageXYResolution(32, 32)
+            segmented_res = cc_desc.SegmentedXYImageResolutions.create_with_same_sized_peripheral(
+                center_res, peripheral_res
+            )
+            segmented_props = cc_desc.SegmentedImageFrameProperties(
+                segmented_res,
+                input_props.channel_layout,
+                input_props.channel_layout,
+                input_props.color_space,
+            )
+            pct = cc_data_types.Percentage.new_from_0_1
+            gaze = cc_data_types.GazeProperties(
+                cc_data_types.Percentage2D(pct(0.5), pct(0.5)),
+                pct(1.0),
+            )
+            register_method(
+                group=group_id,
+                number_channels=1,
+                frame_change_handling=frame,
+                input_image_properties=input_props,
+                segmented_image_properties=segmented_props,
+                initial_gaze=gaze,
+            )
+        elif subtype == b"img":
+            input_props = cc_desc.ImageFrameProperties(
+                cc_desc.ImageXYResolution(32, 32),
+                cc_desc.ColorSpace.Gamma,
+                cc_desc.ColorChannelLayout.RGB,
+            )
+            register_method(
+                group=group_id,
+                number_channels=1,
+                frame_change_handling=frame,
+                image_properties=input_props,
+            )
+        elif subtype == b"mis":
+            dims = cc_desc.MiscDataDimensions(1, 1, 1)
+            register_method(
+                group=group_id,
+                number_channels=1,
+                frame_change_handling=frame,
+                misc_data_dimensions=dims,
+            )
+        else:
+            subtype_str = subtype.decode("ascii", errors="replace")
+            raise NotImplementedError(
+                f"Cache registration for subtype '{subtype_str}' not implemented"
+            )
+
+        subtype_str = subtype.decode("ascii", errors="replace")
+        logger.info(
+            "Registered cortical area(s) with cache: subtype=%s, group=%d, method=%s",
+            subtype_str,
+            group_id,
+            method_name,
+        )
+
 
 class BrainInput:
     """
@@ -165,6 +310,21 @@ class BrainInput:
                 "Rust SDK (feagi_rust_py_libs) is required for brain_input.\n"
                 "Install with: pip install feagi_rust_py_libs"
             ) from e
+
+    def register_cortical_areas(self, cortical_area_ids: List[str]) -> None:
+        """
+        Register cortical areas with the ConnectorAgent cache.
+
+        Decodes each base64 cortical ID to subtype and calls the appropriate
+        sensor_*_register method. Use for agents that send to specific cortical
+        areas (e.g. spike train, MuJoCo) without using standard inputs like Camera.
+
+        Args:
+            cortical_area_ids: List of base64 cortical area IDs to register.
+        """
+        self._init_cache()
+        if self._cache is not None:
+            register_cortical_areas_with_cache(self._cache, cortical_area_ids)
 
     def _resolve_agent_descriptor_b64(self) -> str:
         """

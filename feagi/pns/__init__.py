@@ -89,8 +89,12 @@ Example - Language Learning:
         generated_text = text_out.get_text()
 """
 
-# Global singletons
-from feagi.pns.brain_input import brain_input
+# Global singletons and helpers
+from feagi.pns.brain_input import (
+    brain_input,
+    decode_cortical_id_to_subtype,
+    register_cortical_areas_with_cache,
+)
 from feagi.pns.brain_output import brain_output
 
 # Import submodules for convenient access
@@ -108,6 +112,9 @@ __all__ = [
     # Global singletons
     "brain_input",
     "brain_output",
+    # Cortical cache helpers
+    "decode_cortical_id_to_subtype",
+    "register_cortical_areas_with_cache",
     # Client
     "FeagiAgentClient",
     "AgentType",
