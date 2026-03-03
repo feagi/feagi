@@ -171,10 +171,10 @@ class BrainOutput:
                 from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
                 group_id = int(getattr(output, "group_id", 0) or 0)
                 if isinstance(output, ServoMotor):
-                    # PositionalServo with SignedPercentage, Absolute, Linear, group=0
-                    # Bytes: [111, 112, 115, 101, 4, 0, 0, 0]
-                    # Byte 4 = 4 (SignedPercentage), Byte 5 = 0, Byte 6 = 0, Byte 7 = 0 (group)
-                    cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, group_id & 0xFF])
+                    # PositionalServo with SignedPercentage, Absolute, Linear
+                    # CorticalID: [o,p,s,e, config_lo, config_hi, sub_unit, unit_index]
+                    # SignedPercentage = variant 5 (see IOCorticalAreaConfigurationFlag)
+                    cid_bytes = bytes([111, 112, 115, 101, 5, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
                     # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
@@ -184,8 +184,8 @@ class BrainOutput:
 
         # If no specific IDs, subscribe to common positional servo area with SignedPercentage
         if not cortical_ids:
-            # Default: PositionalServo with SignedPercentage (data_type_config=4)
-            cid_bytes = bytes([111, 112, 115, 101, 4, 0, 0, 0])
+            # Default: PositionalServo with SignedPercentage (variant=5)
+            cid_bytes = bytes([111, 112, 115, 101, 5, 0, 0, 0])
             cortical_ids = {base64.b64encode(cid_bytes).decode()}
 
         return list(cortical_ids)
@@ -374,7 +374,16 @@ class BrainOutput:
         if self._transport_type == "zmq":
             from feagi.pns.client import AgentType, FeagiAgentClient
 
-            motor_cortical_ids = self._collect_motor_cortical_ids()
+            # Derive expected cortical IDs from capabilities (same source as FEAGI)
+            if self._cache and hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
+                motor_cortical_ids = self._cache.get_motor_cortical_ids_for_verification()
+                sensory_cortical_ids = []
+                if hasattr(self._cache, "get_sensory_cortical_ids_for_verification"):
+                    sensory_cortical_ids = self._cache.get_sensory_cortical_ids_for_verification()
+                expected_cortical_ids = list(motor_cortical_ids) + list(sensory_cortical_ids)
+            else:
+                motor_cortical_ids = self._collect_motor_cortical_ids()
+                expected_cortical_ids = motor_cortical_ids
             output_count = self._motor_total_channels or len(motor_cortical_ids)
             if output_count <= 0:
                 raise RuntimeError(
@@ -421,7 +430,7 @@ class BrainOutput:
                 if device_regs_str:
                     client.send_device_configuration(
                         device_regs_str,
-                        expected_cortical_ids=motor_cortical_ids,
+                        expected_cortical_ids=expected_cortical_ids,
                     )
                     logger.info(
                         "[CFG] Sent and verified device_registrations via ZMQ"
