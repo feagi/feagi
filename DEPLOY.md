@@ -138,9 +138,6 @@ With either package, add extra features:
 # Video processing (OpenCV)
 python -m pip install feagi-core[video]  # or feagi[video]
 
-# Bluetooth support
-python -m pip install feagi-core[bluetooth]  # or feagi[bluetooth]
-
 # Everything
 python -m pip install feagi[full]
 ```
