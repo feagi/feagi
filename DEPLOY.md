@@ -6,7 +6,8 @@ Complete guide to installing, configuring, and deploying FEAGI across different 
 
 ## Table of Contents
 
-- [Quick Start (2 Lines)](#quick-start-2-lines)
+- [Prerequisites and Virtual Environment (Required)](#prerequisites-and-virtual-environment-required)
+- [Quick Start](#quick-start)
 - [Installation Options](#installation-options)
 - [Directory Structure](#directory-structure)
 - [Configuration](#configuration)
@@ -16,12 +17,72 @@ Complete guide to installing, configuring, and deploying FEAGI across different 
 
 ---
 
-## Quick Start (2 Lines)
+## Prerequisites and Virtual Environment (Required)
+
+Use an isolated Python virtual environment for every FEAGI deployment.
+
+### 1) Verify Python
+
+FEAGI SDK requires Python 3.10+.
+
+```bash
+# Linux/macOS
+python3 --version
+
+# Windows (PowerShell or CMD)
+python --version
+```
+
+### 2) Create Virtual Environment
+
+From your project directory:
+
+```bash
+# Linux/macOS
+python3 -m venv .venv
+
+# Windows (PowerShell or CMD)
+python -m venv .venv
+```
+
+### 3) Activate Virtual Environment
+
+```bash
+# Linux/macOS
+source .venv/bin/activate
+```
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bat
+:: Windows CMD
+.\.venv\Scripts\activate.bat
+```
+
+### 4) Upgrade pip (inside active venv)
+
+```bash
+python -m pip install --upgrade pip
+```
+
+### 5) Deactivate When Done
+
+```bash
+deactivate
+```
+
+---
+
+## Quick Start
 
 The fastest way to get started with FEAGI and Brain Visualizer:
 
 ```bash
-pip install feagi
+python -m pip install feagi
+feagi start
 feagi bv start
 ```
 
@@ -42,7 +103,7 @@ That's it! This will:
 ### Full (Recommended for Development)
 
 ```bash
-pip install feagi
+python -m pip install feagi
 ```
 
 Includes Brain Visualizer for real-time neural activity visualization (~196MB). **Recommended for most users.**
@@ -56,7 +117,7 @@ Use this for:
 ### Slim/Core (Recommended for Production)
 
 ```bash
-pip install feagi-core
+python -m pip install feagi-core
 ```
 
 SDK only without Brain Visualizer (~5MB). Use this for:
@@ -75,13 +136,13 @@ With either package, add extra features:
 
 ```bash
 # Video processing (OpenCV)
-pip install feagi-core[video]  # or feagi[video]
+python -m pip install feagi-core[video]  # or feagi[video]
 
 # Bluetooth support
-pip install feagi-core[bluetooth]  # or feagi[bluetooth]
+python -m pip install feagi-core[bluetooth]  # or feagi[bluetooth]
 
 # Everything
-pip install feagi[full]
+python -m pip install feagi[full]
 ```
 
 ---
@@ -344,16 +405,24 @@ Or enable "Show Hidden Files" in your file manager.
 ```bash
 # Install Python and pip first
 sudo apt update
-sudo apt install python3 python3-pip
+sudo apt install python3 python3-venv
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
 # Then install FEAGI
-pip3 install feagi[bv]
+python -m pip install --upgrade pip
+python -m pip install feagi
 ```
 
 **Fedora/RHEL:**
 ```bash
-sudo dnf install python3 python3-pip
-pip3 install feagi[bv]
+sudo dnf install python3
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install feagi
 ```
 
 ### macOS
@@ -397,7 +466,30 @@ If using Windows Subsystem for Linux (WSL), install FEAGI inside WSL for better 
 
 ```bash
 # Inside WSL
-pip install feagi[bv]
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install feagi
+```
+
+#### Windows Native Installation
+
+Use a virtual environment and install from an activated shell.
+
+```powershell
+# PowerShell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install feagi
+```
+
+```bat
+:: CMD
+python -m venv .venv
+.\.venv\Scripts\activate.bat
+python -m pip install --upgrade pip
+python -m pip install feagi
 ```
 
 ---
@@ -430,7 +522,10 @@ Use a custom configuration file:
 # Generate custom config
 feagi init --output ./my_project/config.toml
 
-# Start with custom config
+# Start FEAGI with custom config
+feagi start --config ./my_project/config.toml
+
+# Then start Brain Visualizer with the same config
 feagi bv start --config ./my_project/config.toml
 ```
 
@@ -463,9 +558,14 @@ Save genomes in the standard directory:
 cp my_brain.json ~/FEAGI/genomes/
 ```
 
-**macOS/Windows:**
+**macOS:**
 ```bash
 cp my_brain.json ~/Documents/FEAGI/Genomes/
+```
+
+**Windows (PowerShell):**
+```powershell
+Copy-Item .\my_brain.json "$HOME\Documents\FEAGI\Genomes\"
 ```
 
 #### Loading Genomes
@@ -497,9 +597,14 @@ Connectomes are saved brain states (trained neural networks). Save them to the s
 mv trained_v1.connectome ~/FEAGI/connectomes/
 ```
 
-**macOS/Windows:**
+**macOS:**
 ```bash
 mv trained_v1.connectome ~/Documents/FEAGI/Connectomes/
+```
+
+**Windows (PowerShell):**
+```powershell
+Move-Item .\trained_v1.connectome "$HOME\Documents\FEAGI\Connectomes\"
 ```
 
 #### Loading Connectomes
@@ -612,23 +717,45 @@ feagi init
 
 1. **Check installation:**
 ```bash
-pip list | grep feagi
-# Should show: feagi, feagi-bv-{platform}
+# Linux/macOS
+python -m pip list | grep feagi
+```
+
+```powershell
+# Windows PowerShell
+python -m pip list | Select-String feagi
+```
+
+```bat
+:: Windows CMD
+python -m pip list
+# Verify feagi package is listed
 ```
 
 2. **Reinstall Brain Visualizer:**
 ```bash
-pip install --force-reinstall feagi[bv]
+python -m pip install --force-reinstall feagi
 ```
 
 3. **Check configuration:**
 ```bash
+# Linux/macOS
 cat ~/.feagi/config/feagi_configuration.toml
+# Verify [api] and [websocket] sections exist
+```
+
+```powershell
+# Windows PowerShell
+Get-Content "$HOME\.feagi\config\feagi_configuration.toml"
 # Verify [api] and [websocket] sections exist
 ```
 
 4. **Run with explicit config:**
 ```bash
+# Start FEAGI first
+feagi start --config ~/.feagi/config/feagi_configuration.toml
+
+# Then start Brain Visualizer
 feagi bv start --config ~/.feagi/config/feagi_configuration.toml
 ```
 
@@ -643,8 +770,13 @@ feagi bv start --config ~/.feagi/config/feagi_configuration.toml
 # Linux
 ls ~/FEAGI/genomes/
 
-# macOS/Windows
+# macOS
 ls ~/Documents/FEAGI/Genomes/
+```
+
+```powershell
+# Windows PowerShell
+Get-ChildItem "$HOME\Documents\FEAGI\Genomes\"
 ```
 
 2. **Use absolute path:**
@@ -657,8 +789,13 @@ engine.load_genome("/full/path/to/genome.json")
 # Linux
 cp genome.json ~/FEAGI/genomes/
 
-# macOS/Windows
+# macOS
 cp genome.json ~/Documents/FEAGI/Genomes/
+```
+
+```powershell
+# Windows PowerShell
+Copy-Item .\genome.json "$HOME\Documents\FEAGI\Genomes\"
 ```
 
 ### Port Already in Use
