@@ -16,12 +16,13 @@ Complete guide to installing, configuring, and deploying FEAGI across different 
 
 ---
 
-## Quick Start (2 Lines)
+## Quick Start (3 Lines)
 
 The fastest way to get started with FEAGI and Brain Visualizer:
 
 ```bash
 pip install feagi
+feagi start
 feagi bv start
 ```
 
