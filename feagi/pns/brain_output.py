@@ -5,9 +5,10 @@ Global manager for all FEAGI outputs (motor/action targets).
 Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
-from typing import List, Optional, TYPE_CHECKING, Dict, Any
+from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any
 import base64
 import binascii
+import json
 import logging
 import os
 import sys
@@ -96,9 +97,214 @@ class BrainOutput:
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
         self._motor_outputs_by_group_channel: Dict[tuple[int, int], 'BaseOutput'] = {}
+        self._device_registration_enricher: Optional[
+            Callable[[Dict[str, Any]], Dict[str, Any]]
+        ] = None
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
+
+    def set_device_registration_enricher(
+        self, enricher: Callable[[Dict[str, Any]], Dict[str, Any]]
+    ) -> None:
+        """
+        Register a deterministic enricher for exported device_registrations JSON.
+
+        The enricher receives decoded capability JSON and must return the updated payload.
+        It is applied immediately before registration payload validation and transmission.
+        """
+        self._device_registration_enricher = enricher
+
+    @staticmethod
+    def _decode_device_property_text(value: Any) -> Optional[str]:
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
+        if isinstance(value, dict):
+            value_type = value.get("type")
+            value_content = value.get("value")
+            if value_type == "String" and isinstance(value_content, str):
+                normalized = value_content.strip()
+                return normalized or None
+        return None
+
+    @classmethod
+    def _normalize_device_property_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            if "type" in value and "value" in value:
+                if value["type"] == "Dictionary" and isinstance(value["value"], dict):
+                    return {
+                        "type": "Dictionary",
+                        "value": {
+                            key: cls._normalize_device_property_value(nested)
+                            for key, nested in value["value"].items()
+                        },
+                    }
+                return value
+            return {
+                "type": "Dictionary",
+                "value": {
+                    key: cls._normalize_device_property_value(nested)
+                    for key, nested in value.items()
+                },
+            }
+        if isinstance(value, bool):
+            return {"type": "Integer", "value": int(value)}
+        if isinstance(value, int):
+            return {"type": "Integer", "value": value}
+        if isinstance(value, float):
+            return {"type": "Float", "value": value}
+        return {"type": "String", "value": str(value)}
+
+    @classmethod
+    def _normalize_device_registration_properties(cls, registrations: Dict[str, Any]) -> Dict[str, Any]:
+        def normalize_section(section_key: str) -> None:
+            section = registrations.get(section_key)
+            if not isinstance(section, dict):
+                return
+            for unit_entries in section.values():
+                if not isinstance(unit_entries, list):
+                    continue
+                for entry in unit_entries:
+                    if not isinstance(entry, list) or not entry:
+                        continue
+                    unit_def = entry[0]
+                    if not isinstance(unit_def, dict):
+                        continue
+                    grouping = unit_def.get("device_grouping")
+                    if not isinstance(grouping, list):
+                        continue
+                    for channel in grouping:
+                        if not isinstance(channel, dict):
+                            continue
+                        props = channel.get("device_properties")
+                        if not isinstance(props, dict):
+                            continue
+                        channel["device_properties"] = {
+                            key: cls._normalize_device_property_value(raw)
+                            for key, raw in props.items()
+                        }
+
+        normalize_section("output_units_and_decoder_properties")
+        normalize_section("input_units_and_encoder_properties")
+        return registrations
+
+    @staticmethod
+    def _validate_non_empty_text(
+        value: Any, field_path: str, errors: List[str]
+    ) -> Optional[str]:
+        normalized = BrainOutput._decode_device_property_text(value)
+        if normalized is None:
+            errors.append(f"{field_path} must be a string")
+            return None
+        return normalized
+
+    def _validate_registration_units(
+        self, section: Any, section_name: str, errors: List[str]
+    ) -> None:
+        if section is None:
+            return
+        if not isinstance(section, dict):
+            errors.append(f"{section_name} must be an object")
+            return
+
+        required_device_properties = (
+            "bundle_type",
+            "bundle_id",
+            "modality",
+            "signal_type",
+            "source_model",
+            "source_entity",
+        )
+        seen_unit_names: set[str] = set()
+
+        for unit_key in sorted(section):
+            unit_entries = section.get(unit_key)
+            if not isinstance(unit_entries, list):
+                errors.append(f"{section_name}.{unit_key} must be an array")
+                continue
+            for unit_idx, entry in enumerate(unit_entries):
+                unit_path = f"{section_name}.{unit_key}[{unit_idx}]"
+                if not isinstance(entry, list) or not entry:
+                    errors.append(
+                        f"{unit_path} must be [unit_definition, coder_properties]"
+                    )
+                    continue
+                unit_def = entry[0]
+                if not isinstance(unit_def, dict):
+                    errors.append(f"{unit_path}[0] must be an object")
+                    continue
+
+                unit_name = self._validate_non_empty_text(
+                    unit_def.get("friendly_name"),
+                    f"{unit_path}[0].friendly_name",
+                    errors,
+                )
+                if unit_name:
+                    scoped_name = (
+                        f"{section_name}:{unit_key}:"
+                        f"{unit_def.get('cortical_unit_index')}:{unit_name.lower()}"
+                    )
+                    if scoped_name in seen_unit_names:
+                        errors.append(
+                            f"Duplicate unit friendly_name '{unit_name}' in {section_name}.{unit_key}"
+                        )
+                    seen_unit_names.add(scoped_name)
+
+                grouping = unit_def.get("device_grouping")
+                if not isinstance(grouping, list) or not grouping:
+                    errors.append(f"{unit_path}[0].device_grouping must be a non-empty array")
+                    continue
+
+                seen_channel_names: set[str] = set()
+                for channel_idx, channel in enumerate(grouping):
+                    channel_path = f"{unit_path}[0].device_grouping[{channel_idx}]"
+                    if not isinstance(channel, dict):
+                        errors.append(f"{channel_path} must be an object")
+                        continue
+                    channel_name = self._validate_non_empty_text(
+                        channel.get("friendly_name"),
+                        f"{channel_path}.friendly_name",
+                        errors,
+                    )
+                    if channel_name:
+                        key = channel_name.lower()
+                        if key in seen_channel_names:
+                            errors.append(
+                                f"Duplicate channel friendly_name '{channel_name}' in {unit_path}"
+                            )
+                        seen_channel_names.add(key)
+
+                    device_properties = channel.get("device_properties")
+                    if not isinstance(device_properties, dict):
+                        errors.append(f"{channel_path}.device_properties must be an object")
+                        continue
+                    for required_key in required_device_properties:
+                        self._validate_non_empty_text(
+                            device_properties.get(required_key),
+                            f"{channel_path}.device_properties.{required_key}",
+                            errors,
+                        )
+
+    def _validate_device_registration_contract(
+        self, registrations: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        errors: List[str] = []
+        self._validate_registration_units(
+            registrations.get("output_units_and_decoder_properties"),
+            "output_units_and_decoder_properties",
+            errors,
+        )
+        self._validate_registration_units(
+            registrations.get("input_units_and_encoder_properties"),
+            "input_units_and_encoder_properties",
+            errors,
+        )
+        if errors:
+            raise RuntimeError(
+                "Invalid device_registrations contract:\n- " + "\n- ".join(errors)
+            )
+        return registrations
     
     def _init_cache(self):
         """Initialize Rust ConnectorAgent (lazy)."""
@@ -428,8 +634,13 @@ class BrainOutput:
                     )
                 device_regs_str = self._cache.export_capabilities_json()
                 if device_regs_str:
+                    device_regs = json.loads(device_regs_str)
+                    if self._device_registration_enricher is not None:
+                        device_regs = self._device_registration_enricher(device_regs)
+                    device_regs = self._normalize_device_registration_properties(device_regs)
+                    device_regs = self._validate_device_registration_contract(device_regs)
                     client.send_device_configuration(
-                        device_regs_str,
+                        json.dumps(device_regs, sort_keys=True),
                         expected_cortical_ids=expected_cortical_ids,
                     )
                     logger.info(

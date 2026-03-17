@@ -13,8 +13,8 @@
 pip install feagi
 ```
 Includes:
-- FEAGI itself, for running neuronal simulations 
-- Brain Visualizer, for real-time 3D neural activity visualization (~196MB)
+- FEAGI itself, for running neuronal simulations
+- Brain Visualizer, for real-time 3D neural activity visualization (~196MB) on Linux, macOS, and Windows
 - Python bindings for FEAGI libraries (intended for advanced users)
 - FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
@@ -74,7 +74,7 @@ feagi start
 feagi bv start
 ```
 
-That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer.
+That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer. The same `feagi bv start` command works on Linux, macOS, and Windows.
 
 
 ## Documentation
