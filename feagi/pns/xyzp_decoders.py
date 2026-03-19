@@ -99,6 +99,20 @@ def _decode_signed_percentage_fractional(
     return max(-1.0, min(1.0, positive - negative))
 
 
+def _decode_unsigned_percentage_linear(z_values: List[int], z_depth: int) -> float:
+    """Decode unsigned percentage (linear) from z bins."""
+    if z_depth <= 0 or not z_values:
+        return 0.0
+    return max(0.0, min(1.0, 1.0 - (sum(z_values) / (z_depth * len(z_values)))))
+
+
+def _decode_unsigned_percentage_fractional(z_values: List[int]) -> float:
+    """Decode unsigned percentage (fractional/exponential) from z bins."""
+    if not z_values:
+        return 0.0
+    return max(0.0, min(1.0, sum(0.5 ** z for z in z_values)))
+
+
 def decode_motor_xyzp(
     xyzp_data: dict,
     cortical_ids: Optional[List[str]] = None,
@@ -183,9 +197,19 @@ def decode_motor_xyzp(
             positioning_fractional = ((data_type_flag >> 9) & 0x01) == 1
             command_mode = "incremental" if frame_incremental else "absolute"
 
-            # PositionalServo/RotaryMotor SignedPercentage decode:
-            # even X -> positive lane, odd X -> negative lane, Z -> magnitude.
-            if unit_ref in (b"pse", b"mot") and variant == 5:
+            # PositionalServo/RotaryMotor lane decode:
+            # even X -> forward/positive lane, odd X -> backward/negative lane.
+            # For signed percentage (variant=5), decode as signed [-1..1].
+            # For incremental unsigned percentage (variant=1 + incremental),
+            # decode each lane as unsigned [0..1] then apply forward-backward.
+            should_decode_lanes = (
+                unit_ref in (b"pse", b"mot")
+                and (
+                    variant == 5
+                    or (variant == 1 and frame_incremental)
+                )
+            )
+            if should_decode_lanes:
                 positive_by_channel: Dict[int, List[int]] = {}
                 negative_by_channel: Dict[int, List[int]] = {}
                 max_z_seen = 0
@@ -215,17 +239,36 @@ def decode_motor_xyzp(
                 for channel_idx in channel_ids:
                     z_pos = positive_by_channel.get(channel_idx, [])
                     z_neg = negative_by_channel.get(channel_idx, [])
-                    if positioning_fractional:
-                        decoded = _decode_signed_percentage_fractional(
-                            z_pos,
-                            z_neg,
-                        )
+                    if variant == 5:
+                        if positioning_fractional:
+                            decoded = _decode_signed_percentage_fractional(
+                                z_pos,
+                                z_neg,
+                            )
+                        else:
+                            decoded = _decode_signed_percentage_linear(
+                                z_pos,
+                                z_neg,
+                                z_depth,
+                            )
                     else:
-                        decoded = _decode_signed_percentage_linear(
-                            z_pos,
-                            z_neg,
-                            z_depth,
-                        )
+                        if positioning_fractional:
+                            positive = _decode_unsigned_percentage_fractional(
+                                z_pos
+                            )
+                            negative = _decode_unsigned_percentage_fractional(
+                                z_neg
+                            )
+                        else:
+                            positive = _decode_unsigned_percentage_linear(
+                                z_pos,
+                                z_depth,
+                            )
+                            negative = _decode_unsigned_percentage_linear(
+                                z_neg,
+                                z_depth,
+                            )
+                        decoded = max(-1.0, min(1.0, positive - negative))
                     channel_key = str(channel_idx)
                     if use_group_keys and group_id is not None:
                         channel_key = (

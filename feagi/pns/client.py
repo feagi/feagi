@@ -253,6 +253,9 @@ class FeagiAgentClient:
         self._feagi_http_timeout_s: Optional[float] = None
         self._motor_registration_retries: Optional[int] = None
         self._motor_registration_retry_interval_s: Optional[float] = None
+        # Motor decode subscription filter (base64 cortical IDs).
+        # When set, receive_motor_data decodes only these motor cortical areas.
+        self._motor_cortical_ids: Optional[List[str]] = None
         
         logger.info(
             "Created agent client: %s (type: %s)",
@@ -883,6 +886,23 @@ class FeagiAgentClient:
         except Exception as e:
             logger.error("Failed to send sensory bytes: %s", e)
             raise
+
+    def set_motor_cortical_ids(self, cortical_ids: List[str]) -> None:
+        """
+        Configure the motor cortical-ID filter used by receive_motor_data().
+
+        Args:
+            cortical_ids: Base64 cortical IDs expected for this agent's motor outputs.
+        """
+        normalized: List[str] = []
+        seen: set[str] = set()
+        for cortical_id in cortical_ids:
+            cid = str(cortical_id).strip()
+            if not cid or cid in seen:
+                continue
+            seen.add(cid)
+            normalized.append(cid)
+        self._motor_cortical_ids = normalized or None
     
     def receive_motor_data(
         self,
@@ -938,11 +958,7 @@ class FeagiAgentClient:
             
             # Decode XYZP SoA to motor index → power mapping
             # Only decode cortical areas this agent subscribed to
-            cortical_ids = (
-                self._motor_cortical_ids
-                if hasattr(self, "_motor_cortical_ids")
-                else None
-            )
+            cortical_ids = self._motor_cortical_ids
             motors = decode_motor_xyzp(xyzp_data, cortical_ids)
             
             # Return in simple format for controllers:

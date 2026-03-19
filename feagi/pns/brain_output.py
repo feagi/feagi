@@ -377,22 +377,38 @@ class BrainOutput:
                 from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
                 group_id = int(getattr(output, "group_id", 0) or 0)
                 if isinstance(output, ServoMotor):
-                    # PositionalServo with SignedPercentage, Absolute, Linear
+                    # PositionalServo uses Percentage in registration payload.
+                    # FEAGI auto-create yields both Absolute and Incremental areas.
                     # CorticalID: [o,p,s,e, config_lo, config_hi, sub_unit, unit_index]
-                    # SignedPercentage = variant 5 (see IOCorticalAreaConfigurationFlag)
-                    cid_bytes = bytes([111, 112, 115, 101, 5, 0, 0, group_id & 0xFF])
-                    cortical_ids.add(base64.b64encode(cid_bytes).decode())
+                    for sub in (0, 1):  # 0=Absolute, 1=Incremental
+                        cfg = 1 | (sub << 8)  # variant=1 (Percentage), frame=sub
+                        cid_bytes = bytes(
+                            [
+                                111,
+                                112,
+                                115,
+                                101,
+                                cfg & 0xFF,
+                                (cfg >> 8) & 0xFF,
+                                sub,
+                                group_id & 0xFF,
+                            ]
+                        )
+                        cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
                     # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
                     # For now, use default "omot" format
                     cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
-        # If no specific IDs, subscribe to common positional servo area with SignedPercentage
+        # If no specific IDs, use default PositionalServo Percentage areas
         if not cortical_ids:
-            # Default: PositionalServo with SignedPercentage (variant=5)
-            cid_bytes = bytes([111, 112, 115, 101, 5, 0, 0, 0])
-            cortical_ids = {base64.b64encode(cid_bytes).decode()}
+            for sub in (0, 1):  # 0=Absolute, 1=Incremental
+                cfg = 1 | (sub << 8)
+                cid_bytes = bytes(
+                    [111, 112, 115, 101, cfg & 0xFF, (cfg >> 8) & 0xFF, sub, 0]
+                )
+                cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
         return list(cortical_ids)
 
@@ -580,16 +596,11 @@ class BrainOutput:
         if self._transport_type == "zmq":
             from feagi.pns.client import AgentType, FeagiAgentClient
 
-            # Derive expected cortical IDs from capabilities (same source as FEAGI)
-            if self._cache and hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
-                motor_cortical_ids = self._cache.get_motor_cortical_ids_for_verification()
-                sensory_cortical_ids = []
-                if hasattr(self._cache, "get_sensory_cortical_ids_for_verification"):
-                    sensory_cortical_ids = self._cache.get_sensory_cortical_ids_for_verification()
-                expected_cortical_ids = list(motor_cortical_ids) + list(sensory_cortical_ids)
-            else:
-                motor_cortical_ids = self._collect_motor_cortical_ids()
-                expected_cortical_ids = motor_cortical_ids
+            # Use output-derived IDs for deterministic registration verification.
+            # This keeps verification aligned with active decoder expectations even
+            # when local Rust/Python package versions differ across deployments.
+            motor_cortical_ids = self._collect_motor_cortical_ids()
+            expected_cortical_ids = list(motor_cortical_ids)
             output_count = self._motor_total_channels or len(motor_cortical_ids)
             if output_count <= 0:
                 raise RuntimeError(
@@ -623,6 +634,8 @@ class BrainOutput:
                 auth_token_b64=resolved_auth_token_b64,
             )
             client.connect()
+            if hasattr(client, "set_motor_cortical_ids"):
+                client.set_motor_cortical_ids(expected_cortical_ids)
             self._client = client
             # Send device registrations via ZMQ so motor cortical IDs are derived correctly
             if self._motor_total_channels > 0 and self._cache:

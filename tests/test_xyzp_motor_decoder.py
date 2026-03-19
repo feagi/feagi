@@ -66,6 +66,26 @@ def test_decode_motor_xyzp_signed_incremental_keys():
     assert out["3:0:incremental"] == 1.0
 
 
+def test_decode_motor_xyzp_unsigned_incremental_two_lane_decode():
+    """
+    Unsigned incremental motor areas use two X lanes per channel.
+
+    Even X is forward lane, odd X is backward lane.
+    """
+    # Percentage + incremental + linear => variant=1, frame=1, pos=0
+    cid = _make_cortical_id(b"pse", data_type_flag=(1 | (1 << 8)), group=4)
+    xyzp = {
+        cid: {
+            "x": [0, 1],
+            "y": [0, 0],
+            "z": [0, 0],
+            "p": [1.0, 0.0],
+        }
+    }
+    out = decode_motor_xyzp(xyzp, [cid], include_groups=True)
+    assert out["4:0:incremental"] == 1.0
+
+
 def test_decode_motor_xyzp_legacy_p_scaling():
     """Fallback path supports legacy p-based scaling."""
     cid = _make_cortical_id(b"mis", data_type_flag=10, group=2)

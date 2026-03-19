@@ -39,8 +39,8 @@ class ServoMotor(BaseOutput):
             set_servo_hardware(angle)  # Your hardware API
     
     Note:
-        The servo reads values as SignedPercentage (-1.0 to 1.0) from FEAGI
-        and automatically maps them to your specified angle range.
+        The servo reads values from FEAGI: Percentage (0-100%) for PositionalServo
+        or SignedPercentage (-1.0 to 1.0) for RotaryMotor, and maps to your angle range.
     """
     
     def __init__(
@@ -142,29 +142,52 @@ class ServoMotor(BaseOutput):
         value: float,
         command_mode: Optional[str] = None,
     ):
-        """Callback invoked when FEAGI sends a motor command"""
-        # Value is SignedPercentage (-1.0 to 1.0) from FEAGI
-        # Store raw value for debugging
-        raw_value = value
+        """Callback invoked when FEAGI sends a motor command.
 
-        # Apply gain to amplify/dampen the signal
+        Value may be:
+        - Percentage (0.0 to 1.0): PositionalServo uses unsigned 0-100%
+        - SignedPercentage (-1.0 to 1.0): RotaryMotor uses signed
+        """
+        # Normalize to float: support PyPercentage (0-1) or PySignedPercentage (-1 to 1)
+        raw_value = value
+        is_percentage = False
+        if not isinstance(value, (int, float)):
+            if hasattr(value, "get_as_0_1"):
+                raw_value = float(value.get_as_0_1())
+                is_percentage = True
+            elif hasattr(value, "get_as_m1_1"):
+                raw_value = float(value.get_as_m1_1())
+                is_percentage = False
+            else:
+                raw_value = float(value)
+        value = raw_value
+
+        # Apply gain
         value = value * self.gain
-        # Clamp to [-1.0, 1.0] after gain application
-        value = max(-1.0, min(1.0, value))
+        if is_percentage:
+            value = max(0.0, min(1.0, value))
+        else:
+            value = max(-1.0, min(1.0, value))
 
         center = (self.min_angle + self.max_angle) / 2.0
         half_range = (self.max_angle - self.min_angle) / 2.0
         effective_mode = command_mode or self.encoding
         if effective_mode == "incremental":
             step = half_range * self.incremental_step_ratio
-            next_angle = self._current_angle + (value * step)
+            if is_percentage:
+                delta = (value - 0.5) * 2.0 * step
+            else:
+                delta = value * step
+            next_angle = self._current_angle + delta
             self._current_angle = max(
                 self.min_angle,
                 min(self.max_angle, next_angle),
             )
         else:
-            # Absolute mode: -1.0 -> min, 0.0 -> center, 1.0 -> max.
-            self._current_angle = center + (value * half_range)
+            if is_percentage:
+                self._current_angle = self.min_angle + (self.max_angle - self.min_angle) * value
+            else:
+                self._current_angle = center + (value * half_range)
 
         # Debug logging for first motor only (rate-limited).
         if self.channel == 0 and abs(raw_value) > 0.001:

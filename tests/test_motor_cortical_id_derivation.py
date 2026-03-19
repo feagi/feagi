@@ -39,9 +39,10 @@ def test_get_motor_cortical_ids_for_verification_positional_servo() -> None:
     for cid in ids:
         assert isinstance(cid, str)
         assert len(cid) > 0
-    # Expected: b3BzZQUAAAA= (group 0 abs), b3BzZQUAAAE= (group 1 abs), etc.
-    assert "b3BzZQUAAAA=" in ids
-    assert "b3BzZQUAAAE=" in ids
+    # PositionalServo uses Percentage (0-100%); cortical IDs encode variant 1.
+    # Expected: b3BzZQEAAAA= (group 0 abs), b3BzZQEAAAE= (group 1 abs), etc.
+    assert "b3BzZQEAAAA=" in ids
+    assert "b3BzZQEAAAE=" in ids
 
 
 @pytest.mark.skipif(
