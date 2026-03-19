@@ -76,13 +76,15 @@ def _decode_signed_percentage_linear(
     if z_depth <= 0:
         return 0.0
 
+    z_span = max(1, z_depth - 1)
+
     if z_positive:
-        positive = 1.0 - (sum(z_positive) / (z_depth * len(z_positive)))
+        positive = 1.0 - (sum(z_positive) / (z_span * len(z_positive)))
     else:
         positive = 0.0
 
     if z_negative:
-        negative = 1.0 - (sum(z_negative) / (z_depth * len(z_negative)))
+        negative = 1.0 - (sum(z_negative) / (z_span * len(z_negative)))
     else:
         negative = 0.0
 
@@ -103,7 +105,8 @@ def _decode_unsigned_percentage_linear(z_values: List[int], z_depth: int) -> flo
     """Decode unsigned percentage (linear) from z bins."""
     if z_depth <= 0 or not z_values:
         return 0.0
-    return max(0.0, min(1.0, 1.0 - (sum(z_values) / (z_depth * len(z_values)))))
+    z_span = max(1, z_depth - 1)
+    return max(0.0, min(1.0, 1.0 - (sum(z_values) / (z_span * len(z_values)))))
 
 
 def _decode_unsigned_percentage_fractional(z_values: List[int]) -> float:
@@ -111,6 +114,24 @@ def _decode_unsigned_percentage_fractional(z_values: List[int]) -> float:
     if not z_values:
         return 0.0
     return max(0.0, min(1.0, sum(0.5 ** z for z in z_values)))
+
+
+def _normalize_unsigned_to_signed(value_0_1: float) -> float:
+    """Map [0,1] percentage to signed normalized range [-1,1]."""
+    return max(-1.0, min(1.0, (value_0_1 * 2.0) - 1.0))
+
+
+def _resolve_motor_linear_depth(unit_ref: bytes, observed_depth: int) -> int:
+    """
+    Resolve stable Z depth for linear motor decode.
+
+    Motor templates use 10 Z bins by default. When only a subset of bins fire in
+    a single packet, deriving depth from observed max Z can collapse scaling.
+    Keep decode depth stable at least at template default.
+    """
+    if unit_ref in (b"pse", b"mot"):
+        return max(10, observed_depth)
+    return max(1, observed_depth)
 
 
 def decode_motor_xyzp(
@@ -232,7 +253,10 @@ def decode_motor_xyzp(
                             [],
                         ).append(z_int)
 
-                z_depth = max_z_seen + 1
+                z_depth = _resolve_motor_linear_depth(
+                    unit_ref,
+                    max_z_seen + 1,
+                )
                 channel_ids = set(positive_by_channel).union(
                     set(negative_by_channel),
                 )
@@ -269,6 +293,47 @@ def decode_motor_xyzp(
                                 z_depth,
                             )
                         decoded = max(-1.0, min(1.0, positive - negative))
+                    channel_key = str(channel_idx)
+                    if use_group_keys and group_id is not None:
+                        channel_key = (
+                            f"{group_id}:{channel_key}:{command_mode}"
+                        )
+                    else:
+                        channel_key = f"{channel_key}:{command_mode}"
+                    motors[channel_key] = decoded
+                continue
+
+            # Unsigned percentage absolute decode (single lane per channel):
+            # X -> channel index, Z -> magnitude, Y must be 0.
+            # This path is required for PositionalServo absolute areas.
+            if unit_ref in (b"pse", b"mot") and variant == 1 and not frame_incremental:
+                z_by_channel: Dict[int, List[int]] = {}
+                max_z_seen = 0
+                for x, y, z, p in zip(x_coords, y_coords, z_coords, p_values):
+                    if int(y) != 0 or float(p) == 0.0:
+                        continue
+                    channel_idx = int(x)
+                    z_int = int(z)
+                    max_z_seen = max(max_z_seen, z_int)
+                    z_by_channel.setdefault(channel_idx, []).append(z_int)
+
+                z_depth = _resolve_motor_linear_depth(
+                    unit_ref,
+                    max_z_seen + 1,
+                )
+                for channel_idx, z_values in z_by_channel.items():
+                    if positioning_fractional:
+                        decoded_unsigned = _decode_unsigned_percentage_fractional(
+                            z_values
+                        )
+                    else:
+                        decoded_unsigned = _decode_unsigned_percentage_linear(
+                            z_values,
+                            z_depth,
+                        )
+                    # Normalize absolute unsigned percentage to signed motor command
+                    # so ServoMotor absolute mapping can span full joint range.
+                    decoded = _normalize_unsigned_to_signed(decoded_unsigned)
                     channel_key = str(channel_idx)
                     if use_group_keys and group_id is not None:
                         channel_key = (
