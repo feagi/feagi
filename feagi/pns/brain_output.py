@@ -78,6 +78,7 @@ class BrainOutput:
         
         # Latest motor data (for debugging)
         self._motor_data: Dict[str, Any] = {}
+        self._last_logged_motor_values: Dict[str, float] = {}
         
         # Configuration
         self._agent_id = None
@@ -790,6 +791,9 @@ class BrainOutput:
             motor_map = motor_data.get("motor")
             if not isinstance(motor_map, dict):
                 raise RuntimeError("Motor data format invalid (expected dict).")
+            # Canonical snapshot keyed by normalized "group:channel:mode".
+            # Keep this deterministic for controller-side diagnostics.
+            self._motor_data = {}
 
             for key, value in motor_map.items():
                 if value is None:
@@ -831,14 +835,29 @@ class BrainOutput:
                     output = self._motor_outputs_by_channel.get(channel_index)
                 if output is None:
                     continue
+                value_f = float(value)
+                canonical_key = f"{group_id}:{channel_index}:{command_mode or 'none'}"
+                self._motor_data[canonical_key] = value_f
+                log_key = f"{group_id}:{channel_index}:{command_mode or 'none'}"
+                prev_value = self._last_logged_motor_values.get(log_key)
+                if prev_value is None or abs(value_f - prev_value) > 1e-6:
+                    logger.info(
+                        "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f key=%s",
+                        group_id,
+                        channel_index,
+                        command_mode or "none",
+                        value_f,
+                        key_str,
+                    )
+                    self._last_logged_motor_values[log_key] = value_f
                 try:
                     output._on_motor_command(
-                        float(value),
+                        value_f,
                         command_mode=command_mode,
                     )
                 except TypeError:
                     # Backward compatibility for output classes with old callback signature.
-                    output._on_motor_command(float(value))
+                    output._on_motor_command(value_f)
                 except Exception as e:
                     logger.debug(f"Error updating motor output {key_str}: {e}")
             

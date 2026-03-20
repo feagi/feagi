@@ -951,15 +951,37 @@ class FeagiAgentClient:
             motor_json = self._client.receive_motor_data()
             if motor_json is None:
                 return None
+            logger.info("[RAW-MOTOR-JSON] %s", str(motor_json)[:500])
             
             # Parse raw XYZP SoA JSON from Rust SDK
             import json
             xyzp_data = json.loads(motor_json)
+            # Deterministic debug view of incoming motor packet shape/content.
+            # Keep this concise to avoid log spam.
+            try:
+                for cid, nd in xyzp_data.items():
+                    if not isinstance(nd, dict):
+                        continue
+                    x_vals = nd.get("x", []) or []
+                    z_vals = nd.get("z", []) or []
+                    p_vals = nd.get("p", []) or []
+                    logger.info(
+                        "[RAW-MOTOR] cid=%s n=%d x=%s z=%s p=%s",
+                        cid,
+                        len(x_vals),
+                        x_vals[:12],
+                        z_vals[:12],
+                        p_vals[:12],
+                    )
+            except Exception:
+                pass
             
             # Decode XYZP SoA to motor index → power mapping
             # Only decode cortical areas this agent subscribed to
             cortical_ids = self._motor_cortical_ids
             motors = decode_motor_xyzp(xyzp_data, cortical_ids)
+            if motors:
+                logger.info("[RAW-MOTOR-DECODED] %s", motors)
             
             # Return in simple format for controllers:
             # {"motor": {0: power, 1: power, ...}}

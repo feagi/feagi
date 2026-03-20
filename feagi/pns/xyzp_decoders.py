@@ -23,6 +23,7 @@ import binascii
 import logging
 
 logger = logging.getLogger(__name__)
+_last_decode_log: Dict[str, float] = {}
 
 
 def _parse_cortical_unit_index_from_b64(cortical_id: str) -> Optional[int]:
@@ -57,14 +58,30 @@ def _parse_cortical_unit_index_from_b64(cortical_id: str) -> Optional[int]:
 
 
 def _parse_cortical_id_bytes(cortical_id: str) -> Optional[bytes]:
-    """Decode cortical ID from base64 to raw 8-byte ID."""
+    """
+    Decode cortical ID to raw 8-byte ID.
+
+    Accepts either:
+    - Base64 cortical ID (preferred wire format), or
+    - Legacy raw 8-byte string where bytes were converted via latin-1.
+    """
     try:
         raw = base64.b64decode(cortical_id, validate=True)
     except (binascii.Error, ValueError):
-        return None
-    if len(raw) != 8:
-        return None
-    return raw
+        raw = None
+    if raw is not None and len(raw) == 8:
+        return raw
+
+    # Fallback for legacy raw 8-byte string keys.
+    if len(cortical_id) == 8:
+        try:
+            raw_legacy = cortical_id.encode("latin-1")
+            if len(raw_legacy) == 8:
+                return raw_legacy
+        except UnicodeEncodeError:
+            pass
+
+    return None
 
 
 def _decode_signed_percentage_linear(
@@ -204,10 +221,59 @@ def decode_motor_xyzp(
 
             raw_cid = _parse_cortical_id_bytes(cortical_id)
             if raw_cid is None:
+                # Robust fallback: decode by XYZ lanes/depth instead of p/100,
+                # so incremental magnitude remains z-dependent even when CID parsing fails.
+                positive_by_channel: Dict[int, List[int]] = {}
+                negative_by_channel: Dict[int, List[int]] = {}
+                max_z_seen = 0
+                for x, y, z, p in zip(x_coords, y_coords, z_coords, p_values):
+                    # Do not hard-gate on y==0 in Python path; some streams may
+                    # carry non-zero y for 1D motor channels.
+                    if float(p) == 0.0:
+                        continue
+                    x_int = int(x)
+                    z_int = int(z)
+                    max_z_seen = max(max_z_seen, z_int)
+                    channel_idx = x_int // 2
+                    if x_int % 2 == 0:
+                        positive_by_channel.setdefault(channel_idx, []).append(z_int)
+                    else:
+                        negative_by_channel.setdefault(channel_idx, []).append(z_int)
+
+                if positive_by_channel or negative_by_channel:
+                    z_depth = max(10, max_z_seen + 1)
+                    channel_ids = set(positive_by_channel).union(set(negative_by_channel))
+                    for channel_idx in channel_ids:
+                        z_pos = positive_by_channel.get(channel_idx, [])
+                        z_neg = negative_by_channel.get(channel_idx, [])
+                        if positioning_fractional:
+                            pos = _decode_unsigned_percentage_fractional(z_pos)
+                            neg = _decode_unsigned_percentage_fractional(z_neg)
+                        else:
+                            pos = _decode_unsigned_percentage_linear(z_pos, z_depth)
+                            neg = _decode_unsigned_percentage_linear(z_neg, z_depth)
+                        decoded = max(-1.0, min(1.0, pos - neg))
+                        channel_key = str(channel_idx)
+                        if use_group_keys and group_id is not None:
+                            channel_key = f"{group_id}:{channel_key}:incremental"
+                        else:
+                            channel_key = f"{channel_key}:incremental"
+                        motors[channel_key] = decoded
+                        print(
+                            f"[XYZP-FALLBACK] cid={cortical_id!r} ch={channel_idx} "
+                            f"pos={pos:.4f} neg={neg:.4f} decoded={decoded:.4f} "
+                            f"x={x_coords[:8]} z={z_coords[:8]}",
+                            flush=True,
+                        )
+                    continue
+
+                # Last resort when no usable XYZ lanes are present.
                 for motor_idx, power in zip(x_coords, p_values):
                     channel_key = str(int(motor_idx))
                     if use_group_keys and group_id is not None:
-                        channel_key = f"{group_id}:{channel_key}"
+                        channel_key = f"{group_id}:{channel_key}:incremental"
+                    else:
+                        channel_key = f"{channel_key}:incremental"
                     motors[channel_key] = float(power) / 100.0
                 continue
 
@@ -236,7 +302,9 @@ def decode_motor_xyzp(
                 max_z_seen = 0
 
                 for x, y, z, p in zip(x_coords, y_coords, z_coords, p_values):
-                    if int(y) != 0 or float(p) == 0.0:
+                    # Do not hard-gate on y==0 in Python path; some streams may
+                    # carry non-zero y for 1D motor channels.
+                    if float(p) == 0.0:
                         continue
                     x_int = int(x)
                     z_int = int(z)
@@ -301,6 +369,17 @@ def decode_motor_xyzp(
                     else:
                         channel_key = f"{channel_key}:{command_mode}"
                     motors[channel_key] = decoded
+                    prev = _last_decode_log.get(channel_key)
+                    if prev is None or abs(prev - decoded) > 1e-6:
+                        logger.info(
+                            "[XYZP-DECODE] cid=%s mode=%s lane=paired channel=%d decoded=%.6f x_pairs=%s",
+                            cortical_id,
+                            command_mode,
+                            channel_idx,
+                            decoded,
+                            [x for x in x_coords[:12]],
+                        )
+                        _last_decode_log[channel_key] = decoded
                 continue
 
             # Unsigned percentage absolute decode (single lane per channel):
@@ -310,7 +389,9 @@ def decode_motor_xyzp(
                 z_by_channel: Dict[int, List[int]] = {}
                 max_z_seen = 0
                 for x, y, z, p in zip(x_coords, y_coords, z_coords, p_values):
-                    if int(y) != 0 or float(p) == 0.0:
+                    # Do not hard-gate on y==0 in Python path; some streams may
+                    # carry non-zero y for 1D motor channels.
+                    if float(p) == 0.0:
                         continue
                     channel_idx = int(x)
                     z_int = int(z)
@@ -342,6 +423,17 @@ def decode_motor_xyzp(
                     else:
                         channel_key = f"{channel_key}:{command_mode}"
                     motors[channel_key] = decoded
+                    prev = _last_decode_log.get(channel_key)
+                    if prev is None or abs(prev - decoded) > 1e-6:
+                        logger.info(
+                            "[XYZP-DECODE] cid=%s mode=%s lane=single channel=%d decoded=%.6f x_vals=%s",
+                            cortical_id,
+                            command_mode,
+                            channel_idx,
+                            decoded,
+                            [x for x in x_coords[:12]],
+                        )
+                        _last_decode_log[channel_key] = decoded
                 continue
 
             # Fallback decoder for non-signed-percentage motor formats.

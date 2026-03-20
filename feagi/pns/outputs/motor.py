@@ -63,6 +63,10 @@ class ServoMotor(BaseOutput):
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
         # Incremental mode uses normalized delta-per-update.
         self.incremental_step_ratio: float = 0.05
+        # Diagnostics state for controller-side logging
+        self._last_rx_raw_value: Optional[float] = None
+        self._last_rx_value: Optional[float] = None
+        self._last_rx_mode: Optional[str] = None
     
     @classmethod
     def register(
@@ -148,6 +152,9 @@ class ServoMotor(BaseOutput):
         - Percentage (0.0 to 1.0): PositionalServo uses unsigned 0-100%
         - SignedPercentage (-1.0 to 1.0): RotaryMotor uses signed
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Normalize to float: support PyPercentage (0-1) or PySignedPercentage (-1 to 1)
         raw_value = value
         is_percentage = False
@@ -171,7 +178,19 @@ class ServoMotor(BaseOutput):
 
         center = (self.min_angle + self.max_angle) / 2.0
         half_range = (self.max_angle - self.min_angle) / 2.0
-        effective_mode = command_mode or self.encoding
+        
+        # For PositionalServo: The Rust decoder outputs different value ranges:
+        # - Incremental: 0.0-1.0 with 0.5 as neutral (from incremental cortical area)
+        # - Absolute: 0.0-1.0 as position (from absolute cortical area)
+        # Use command_mode if provided, otherwise use self.encoding
+        effective_mode = command_mode if command_mode is not None else self.encoding
+        # Persist latest RX for controller-side diagnostics.
+        self._last_rx_raw_value = float(raw_value)
+        self._last_rx_value = float(value)
+        self._last_rx_mode = effective_mode
+        
+        old_angle = self._current_angle
+        
         if effective_mode == "incremental":
             step = half_range * self.incremental_step_ratio
             if is_percentage:
@@ -189,29 +208,13 @@ class ServoMotor(BaseOutput):
             else:
                 self._current_angle = center + (value * half_range)
 
-        # Debug logging for first motor only (rate-limited).
-        if self.channel == 0 and abs(raw_value) > 0.001:
-            if not hasattr(self, "_debug_counter"):
-                self._debug_counter = 0
-            self._debug_counter += 1
-            if self._debug_counter % 10 == 0:
-                print(
-                    (
-                        "[MOTOR] Motor[0]: raw={raw:.4f}, "
-                        "gain={gain}, scaled={scaled:.4f}, "
-                        "enc={enc}, angle={angle:.4f} rad "
-                        "(range=[{mn:.4f}, {mx:.4f}] rad)"
-                    ).format(
-                        raw=raw_value,
-                        gain=self.gain,
-                        scaled=value,
-                        enc=self.encoding,
-                        angle=self._current_angle,
-                        mn=self.min_angle,
-                        mx=self.max_angle,
-                    ),
-                    flush=True,
-                )
+        # DETAILED LOGGING for debugging
+        print(f"[SERVO-DEBUG] Channel {self.channel} received value {raw_value:.4f}", flush=True)
+        logger.info(
+            f"[SERVO] Ch={self.channel}, raw={raw_value:.4f}, value={value:.4f}, "
+            f"mode={effective_mode}, old_angle={old_angle:.2f}, new_angle={self._current_angle:.2f}, "
+            f"delta={self._current_angle - old_angle:.4f}"
+        )
 
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""
