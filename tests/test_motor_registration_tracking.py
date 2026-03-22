@@ -17,7 +17,7 @@ def test_motor_registration_tracking():
     feagi_agent.brain_output.miscellaneous_absolute.register(
         cortical_group=0,
         number_of_channels=10,
-        misc_dimensions=frpl.connector_core.data.descriptors.MiscDataDimensions(10, 1, 1)
+        misc_dimensions=frpl.connector_core.data_types.descriptors.MiscDataDimensions(10, 1, 1)
     )
     
     motor_areas = feagi_agent.brain_output.get_registered_cortical_areas()
@@ -51,17 +51,17 @@ def test_multiple_cortical_groups():
     feagi_agent.brain_output.miscellaneous_absolute.register(
         cortical_group=0,
         number_of_channels=10,
-        misc_dimensions=frpl.connector_core.data.descriptors.MiscDataDimensions(10, 1, 1)
+        misc_dimensions=frpl.connector_core.data_types.descriptors.MiscDataDimensions(10, 1, 1)
     )
     feagi_agent.brain_output.miscellaneous_absolute.register(
         cortical_group=1,
         number_of_channels=10,
-        misc_dimensions=frpl.connector_core.data.descriptors.MiscDataDimensions(10, 1, 1)
+        misc_dimensions=frpl.connector_core.data_types.descriptors.MiscDataDimensions(10, 1, 1)
     )
     feagi_agent.brain_output.miscellaneous_absolute.register(
         cortical_group=2,
         number_of_channels=10,
-        misc_dimensions=frpl.connector_core.data.descriptors.MiscDataDimensions(10, 1, 1)
+        misc_dimensions=frpl.connector_core.data_types.descriptors.MiscDataDimensions(10, 1, 1)
     )
     
     motor_areas = feagi_agent.brain_output.get_registered_cortical_areas()

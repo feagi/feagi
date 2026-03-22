@@ -9,6 +9,8 @@ Version 3.0.0 - Clean architecture, no legacy code.
 Main modules:
 - feagi.engine: Start/stop FEAGI neural engine
 - feagi.agent: Agent framework (BaseAgent templates)
+- feagi.config: Configuration management and generation
+- feagi.paths: Cross-platform directory management
 - feagi.genome: Runtime genome manipulation
 - feagi.connectome: Runtime connectome operations
 - feagi.packaging: Build marketplace packages
@@ -16,32 +18,50 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "3.0.0"
+__version__ = "2.1.31"
 
-# Import key classes for convenience
-# Note: FeagiAgentClient requires feagi_rust_py_libs to be installed
-try:
-    from feagi.pns import FeagiAgentClient, AgentType
-    _pns_available = True
-except ImportError:
-    _pns_available = False
-    FeagiAgentClient = None
-    AgentType = None
+# Import key classes for convenience, but keep optional dependencies lazy so
+# `import feagi` does not require platform-specific extras (e.g., pyserial).
+from typing import TYPE_CHECKING
 
-from feagi.agent import BaseAgent
+if TYPE_CHECKING:
+    from feagi.agent import BaseAgent, VideoStreamAgent
+    from feagi.engine import FeagiEngine
+    from feagi.pns import AgentType, FeagiAgentClient
 
 __all__ = [
     "FeagiAgentClient",
     "AgentType",
     "BaseAgent",
+    "VideoStreamAgent",
+    "FeagiEngine",
     "__version__",
 ]
 
+def __getattr__(name: str):
+    """Lazy attribute access to avoid optional imports at import time."""
+    if name in {"FeagiAgentClient", "AgentType"}:
+        from feagi.pns import AgentType as _AgentType
+        from feagi.pns import FeagiAgentClient as _FeagiAgentClient
+
+        return _FeagiAgentClient if name == "FeagiAgentClient" else _AgentType
+    if name in {"BaseAgent", "VideoStreamAgent"}:
+        from feagi.agent import BaseAgent as _BaseAgent
+        from feagi.agent import VideoStreamAgent as _VideoStreamAgent
+
+        return _BaseAgent if name == "BaseAgent" else _VideoStreamAgent
+    if name == "FeagiEngine":
+        from feagi.engine import FeagiEngine as _FeagiEngine
+
+        return _FeagiEngine
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 def check_rust_sdk():
     """Check if Rust SDK is installed and print status"""
-    if _pns_available:
-        print("✅ FEAGI Rust SDK is available")
-    else:
-        print("⚠️  FEAGI Rust SDK not installed")
+    try:
+        _ = __getattr__("FeagiAgentClient")
+        print("[OK] FEAGI Rust SDK is available")
+    except Exception:
+        print("[WARN]  FEAGI Rust SDK not installed")
         print("   Install with: pip install feagi_rust_py_libs")
 

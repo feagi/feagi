@@ -30,7 +30,7 @@ ENV/
 
 # Documentation
 site/
-docs/_build/
+Documentation/_build/
 
 # IDE files
 .idea/
@@ -53,3 +53,7 @@ htmlcov/
 # Temporary files
 tmp/
 *--temp.* 
+# Bundled binaries (built during CI/CD)
+feagi/bin/*/feagi
+feagi/bin/*/feagi.exe
+feagi-bv/feagi_bv/bin/**

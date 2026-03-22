@@ -24,7 +24,30 @@ Example:
             return {"camera": hw_data.camera_image}
 """
 
-from feagi.agent.base import BaseAgent
+from typing import TYPE_CHECKING
 
-__all__ = ["BaseAgent"]
+from feagi.agent.base import BaseAgent
+from feagi.agent.video import VideoStreamAgent
+
+# Optional dependency: pyserial. Keep import lazy; SDK can be used without
+# embedded support.
+if TYPE_CHECKING:
+    from feagi.agent.esp32 import Esp32SerialController
+
+__all__ = ["BaseAgent", "VideoStreamAgent", "Esp32SerialController"]
+
+# Optional Bluetooth support
+try:
+    from feagi.agent.bluetooth import BluetoothRobot
+    __all__.append("BluetoothRobot")
+except ImportError:
+    BluetoothRobot = None
+
+def __getattr__(name: str):
+    """Lazy attribute access for optional agent helpers."""
+    if name == "Esp32SerialController":
+        from feagi.agent.esp32 import Esp32SerialController
+
+        return Esp32SerialController
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

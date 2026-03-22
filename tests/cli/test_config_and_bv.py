@@ -1,0 +1,323 @@
+"""
+Tests for FEAGI config generation and Brain Visualizer config reading.
+
+Verifies that:
+1. Default config uses 127.0.0.1 (not 0.0.0.0) for security
+2. BV reads config correctly without hardcoded conversions
+3. Config is the single source of truth
+"""
+
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+import toml
+
+from feagi.cli.bv import (
+    BrainVisualizerLaunchError,
+    _extract_network_settings,
+    _load_feagi_config,
+    _resolve_bv_binary,
+)
+from feagi.config import ensure_default_config, generate_default_config
+
+
+class TestConfigGeneration:
+    """Test default config generation."""
+
+    def test_default_config_uses_localhost(self, tmp_path):
+        """Verify default config uses 127.0.0.1 for API and websocket."""
+        config_path = generate_default_config(tmp_path / "test_config.toml", force=True)
+        
+        config = toml.load(config_path)
+        
+        # API should use 127.0.0.1
+        assert config["api"]["host"] == "127.0.0.1", (
+            "Default API host should be 127.0.0.1 for security (no firewall prompts)"
+        )
+        
+        # WebSocket should use 127.0.0.1
+        assert config["websocket"]["host"] == "127.0.0.1", (
+            "Default WebSocket host should be 127.0.0.1 for security (no firewall prompts)"
+        )
+
+    def test_default_config_has_correct_structure(self, tmp_path):
+        """Verify default config has all required sections."""
+        config_path = generate_default_config(tmp_path / "test_config.toml", force=True)
+        config = toml.load(config_path)
+        
+        # Required sections
+        assert "api" in config, "Config must have [api] section"
+        assert "websocket" in config, "Config must have [websocket] section"
+        
+        # Required fields
+        assert "host" in config["api"], "API section must have host"
+        assert "port" in config["api"], "API section must have port"
+        assert "host" in config["websocket"], "WebSocket section must have host"
+        assert "visualization_port" in config["websocket"], (
+            "WebSocket section must have visualization_port"
+        )
+
+    def test_default_config_has_timeouts(self, tmp_path):
+        """Verify default config includes startup timeout settings."""
+        config_path = generate_default_config(tmp_path / "test_config.toml", force=True)
+        config = toml.load(config_path)
+
+        assert "timeouts" in config, "Config must have [timeouts] section"
+        assert "service_startup" in config["timeouts"], (
+            "Config must define timeouts.service_startup"
+        )
+        assert isinstance(config["timeouts"]["service_startup"], (int, float))
+
+
+class TestBVConfigReading:
+    """Test Brain Visualizer config reading."""
+
+    def test_bv_reads_config_directly(self, tmp_path):
+        """Verify BV reads config values directly without hardcoded conversions."""
+        # Create a test config with 127.0.0.1
+        config_path = tmp_path / "test_config.toml"
+        config_content = """[api]
+host = "127.0.0.1"
+port = 8000
+
+[websocket]
+host = "127.0.0.1"
+visualization_port = 9050
+"""
+        config_path.write_text(config_content)
+        
+        config = _load_feagi_config(config_path)
+        api_host, api_port, ws_host, ws_port = _extract_network_settings(config)
+        
+        # Should read exactly what's in config
+        assert api_host == "127.0.0.1", "Should read 127.0.0.1 directly from config"
+        assert ws_host == "127.0.0.1", "Should read 127.0.0.1 directly from config"
+        assert api_port == 8000
+        assert ws_port == 9050
+
+    def test_bv_reads_custom_host(self, tmp_path):
+        """Verify BV can read custom host addresses from config."""
+        # Create a test config with custom host (for network deployments)
+        config_path = tmp_path / "test_config.toml"
+        config_content = """[api]
+host = "192.168.1.100"
+port = 8000
+
+[websocket]
+host = "192.168.1.100"
+visualization_port = 9050
+"""
+        config_path.write_text(config_content)
+        
+        config = _load_feagi_config(config_path)
+        api_host, api_port, ws_host, ws_port = _extract_network_settings(config)
+        
+        # Should read custom host directly
+        assert api_host == "192.168.1.100", "Should read custom host from config"
+        assert ws_host == "192.168.1.100", "Should read custom host from config"
+
+    def test_bv_no_hardcoded_conversions(self, tmp_path):
+        """Verify BV does NOT convert 0.0.0.0 to 127.0.0.1 (config is source of truth)."""
+        # Create a test config with 0.0.0.0 (old config format)
+        config_path = tmp_path / "test_config.toml"
+        config_content = """[api]
+host = "0.0.0.0"
+port = 8000
+
+[websocket]
+host = "0.0.0.0"
+visualization_port = 9050
+"""
+        config_path.write_text(config_content)
+        
+        config = _load_feagi_config(config_path)
+        api_host, api_port, ws_host, ws_port = _extract_network_settings(config)
+        
+        # Should read 0.0.0.0 as-is (no conversion)
+        # This tests that config is source of truth, even if value is suboptimal
+        assert api_host == "0.0.0.0", (
+            "Should read 0.0.0.0 as-is from config (no hardcoded conversion)"
+        )
+        assert ws_host == "0.0.0.0", (
+            "Should read 0.0.0.0 as-is from config (no hardcoded conversion)"
+        )
+
+    def test_bv_requires_api_and_websocket_sections(self, tmp_path):
+        """Verify BV raises error if required sections are missing."""
+        # Config missing websocket section
+        config_path = tmp_path / "test_config.toml"
+        config_content = """[api]
+host = "127.0.0.1"
+port = 8000
+"""
+        config_path.write_text(config_content)
+        
+        config = _load_feagi_config(config_path)
+        
+        with pytest.raises(Exception):  # Should raise BrainVisualizerLaunchError
+            _extract_network_settings(config)
+
+    def test_bv_requires_host_fields(self, tmp_path):
+        """Verify BV raises error if host fields are missing."""
+        config_path = tmp_path / "test_config.toml"
+        config_content = """[api]
+port = 8000
+
+[websocket]
+visualization_port = 9050
+"""
+        config_path.write_text(config_content)
+        
+        config = _load_feagi_config(config_path)
+        
+        with pytest.raises(Exception):  # Should raise BrainVisualizerLaunchError
+            _extract_network_settings(config)
+
+
+class TestConfigConsistency:
+    """Test consistency between default config and example config."""
+
+    def test_example_config_api_host(self):
+        """Verify example config uses 127.0.0.1 for API."""
+        example_config_path = Path(__file__).parent.parent.parent / "examples" / "feagi_configuration.toml"
+        
+        if not example_config_path.exists():
+            pytest.skip("Example config file not found")
+        
+        config = toml.load(example_config_path)
+        
+        # API should use 127.0.0.1 (for BV compatibility)
+        assert config["api"]["host"] == "127.0.0.1", (
+            "Example config API host should be 127.0.0.1 for security"
+        )
+
+    def test_example_config_websocket_host(self):
+        """Verify example config uses 127.0.0.1 for WebSocket."""
+        example_config_path = Path(__file__).parent.parent.parent / "examples" / "feagi_configuration.toml"
+        
+        if not example_config_path.exists():
+            pytest.skip("Example config file not found")
+        
+        config = toml.load(example_config_path)
+        
+        # WebSocket should use 127.0.0.1 (for BV compatibility)
+        assert config["websocket"]["host"] == "127.0.0.1", (
+            "Example config WebSocket host should be 127.0.0.1 for security"
+        )
+
+
+class TestEnsureDefaultConfigMigration:
+    """Test migration of existing configs missing required sections."""
+
+    def test_migrates_existing_config_missing_timeouts_section(self, tmp_path):
+        """ensure_default_config adds [timeouts] when section is missing."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text('[api]\nhost = "127.0.0.1"\nport = 8000\n')
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+        mock_paths.ensure_config_dir.side_effect = lambda: config_path.parent.mkdir(
+            parents=True, exist_ok=True
+        )
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert "timeouts" in config
+        assert config["timeouts"]["service_startup"] == 3.0
+        assert config["api"]["host"] == "127.0.0.1"
+        assert config["api"]["port"] == 8000
+
+    def test_migrates_existing_config_timeouts_section_missing_service_startup(self, tmp_path):
+        """ensure_default_config adds service_startup when [timeouts] exists but key is missing."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text(
+            '[api]\nhost = "127.0.0.1"\nport = 8000\n\n[timeouts]\n# empty\n'
+        )
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert config["timeouts"]["service_startup"] == 3.0
+
+    def test_does_not_overwrite_existing_timeouts_values(self, tmp_path):
+        """ensure_default_config does not overwrite existing timeouts.service_startup."""
+        config_path = tmp_path / "feagi_configuration.toml"
+        config_path.write_text(
+            '[api]\nhost = "127.0.0.1"\nport = 8000\n\n[timeouts]\nservice_startup = 10.0\n'
+        )
+        mock_paths = MagicMock()
+        mock_paths.get_default_config.return_value = config_path
+
+        with patch("feagi.config.get_feagi_paths", return_value=mock_paths):
+            result = ensure_default_config()
+
+        assert result == config_path
+        config = toml.load(config_path)
+        assert config["timeouts"]["service_startup"] == 10.0
+
+
+class TestWindowsBVBinaryResolution:
+    """Test Windows Brain Visualizer binary/PCK resolution."""
+
+    def test_resolves_remote_windows_binary_with_remote_pck(self, tmp_path):
+        """Resolve BrainVisualizer-Remote executable and matching PCK."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+        remote_exe = windows_bin / "BrainVisualizer-Remote.exe"
+        remote_pck = windows_bin / "BrainVisualizer-Remote.pck"
+        remote_exe.write_text("")
+        remote_pck.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == remote_exe
+        assert working_dir == windows_bin
+
+    def test_prefers_valid_binary_pck_pair_when_one_pair_incomplete(self, tmp_path):
+        """Select complete pair when another executable lacks its PCK."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+
+        (windows_bin / "BrainVisualizer.exe").write_text("")
+        # Intentionally omit BrainVisualizer.pck
+        remote_exe = windows_bin / "BrainVisualizer-Remote.exe"
+        remote_pck = windows_bin / "BrainVisualizer-Remote.pck"
+        remote_exe.write_text("")
+        remote_pck.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == remote_exe
+        assert working_dir == windows_bin
+
+    def test_raises_error_when_no_valid_windows_binary_pck_pair_exists(self, tmp_path):
+        """Raise launch error when no complete Windows runtime pair exists."""
+        package_dir = tmp_path / "feagi_bv_windows"
+        windows_bin = package_dir / "bin" / "windows"
+        windows_bin.mkdir(parents=True, exist_ok=True)
+        (windows_bin / "BrainVisualizer-Remote.exe").write_text("")
+        # PCK intentionally missing
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Windows"), patch(
+            "feagi.cli.bv.importlib.util.find_spec", return_value=spec
+        ), pytest.raises(BrainVisualizerLaunchError, match="BV Windows runtime not found"):
+            _resolve_bv_binary()

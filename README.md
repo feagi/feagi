@@ -1,241 +1,173 @@
 # FEAGI Python SDK
 
-**Complete SDK for building FEAGI agents, controlling the neural engine, and creating marketplace packages**
+**Build AI agents that learn like biological brains**
 
-Version 3.0.0 - Clean architecture, no legacy code.
+[![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## Overview
+---
 
-FEAGI SDK provides everything needed to:
-- Build agents for robots, simulators, and embedded devices
-- Start and stop the FEAGI neural engine from Python
-- Manipulate genomes and connectomes at runtime
-- Create packages for the FEAGI marketplace
+## Installation Options
 
-## Installation
-
+**Full Experience (Recommended for most users):**
 ```bash
 pip install feagi
 ```
+Includes:
+- FEAGI itself, for running neuronal simulations
+- Brain Visualizer, for real-time 3D neural activity visualization (~196MB) on Linux, macOS, and Windows
+- Python bindings for FEAGI libraries (intended for advanced users)
+- FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
-For video processing support:
+**Slim/Core (Recommended for Production):**
 ```bash
-pip install feagi[video]
+pip install feagi-core
 ```
+Includes:
+- Python bindings for FEAGI libraries (intended for advanced users)
+- FEAGI Agent Python SDK for rapidly making agents for FEAGI
+
+> **Note:** Both packages use identical imports (`from feagi import ...`)
+
+---
+
+## What is FEAGI?
+
+**FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables spiking-neural-circuit-driven perception, cognition, and control across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.
+
+FEAGI serves as the core neural runtime behind **Neurorobotics Studio**, powering a growing ecosystem of reusable neural components ("brains"), tools, and integrations for robotics and physical AI.
+
+### The FEAGI Python SDK
+
+The FEAGI Python SDK provides the tools you need to:
+
+- **Connect robots and devices** to FEAGI's neural network
+- **Build learning agents** for robots, simulators, and games
+- **Visualize neural activity** in real-time with Brain Visualizer
+- **Control and manage FEAGI** from Python code
+- **Interface with diverse embodiments** through standardized communication protocols
+
+---
+
+## Key Concepts
+
+* **Neuromorphic by Design** – FEAGI is built as a neuromorphic framework inspired by biological neural computation. While it currently runs on conventional CPUs and GPUs, **native support for neuromorphic hardware is a near-term roadmap item**, enabling direct execution on event-driven, spike-based accelerators as they mature.
+
+* **Embodied Intelligence First** – FEAGI is designed to control bodies (robots, agents, simulations), not just process static data.
+
+* **Spiking Neural Networks (SNNs)** – Uses event-driven neuron firing rather than frame-based inference.
+
+* **Modular Neural Architecture** – Neural circuits can be composed like building blocks (Lego-like micro-circuits).
+
+* **Real-Time Closed Loop** – Continuous perception → cognition → action loop.
+
+* **Cross-Simulator & Hardware Support** – One brain, many bodies.
+
+---
 
 ## Quick Start
 
-### Basic Agent
+Get started with FEAGI in just 2 lines:
 
-```python
-from feagi.agent import BaseAgent
-from feagi.pns import FeagiAgentClient, AgentType
-
-class MyRobotAgent(BaseAgent):
-    def initialize_hardware(self):
-        # Connect to your robot/simulator
-        pass
-    
-    def map_sensors(self, hw_data):
-        # Convert robot sensors → FEAGI format
-        return {"camera": image_bytes}
-    
-    def map_motors(self, feagi_output):
-        # Convert FEAGI commands → robot format
-        return motor_commands
-
-# Run the agent
-agent = MyRobotAgent("my-robot-01")
-await agent.connect()
-await agent.run()
-```
-
-### Direct PNS Communication
-
-```python
-from feagi.pns import FeagiAgentClient, AgentType
-
-# Create client
-client = FeagiAgentClient("my-agent", AgentType.SENSORY)
-client.configure(feagi_host="localhost")
-await client.connect()
-
-# Send sensory data
-await client.send_sensory_data(sensor_data)
-```
-
-## Architecture
-
-```
-feagi/
-├── engine/          # Engine control (start/stop FEAGI)
-├── agent/           # Agent framework (BaseAgent templates)
-├── genome/          # Runtime genome manipulation
-├── connectome/      # Runtime connectome operations
-├── packaging/       # Build marketplace packages
-├── pns/             # Peripheral Nervous System (communication)
-└── cli/             # Command-line tools
-```
-
-## Modules
-
-### `feagi.engine`
-Start and stop the FEAGI neural engine from Python.
-- `FeagiEngine` - Control local FEAGI instance
-- PyO3 bindings to Rust `feagi::FeagiInstance`
-
-**Status:** Planned for Phase 2
-
-### `feagi.agent`
-Agent framework with base classes and templates.
-- `BaseAgent` - Abstract base class
-- `SDKRobotAgent` - For SDK-based robots (Cozmo, NAO)
-- `SimulatorAgent` - For physics simulators (Webots, Gazebo)
-- `EmbeddedAgent` - For embedded devices (ESP32, Arduino)
-- `VirtualAgent` - For game engines (Unity, Unreal)
-
-**Status:** ✅ BaseAgent implemented
-
-### `feagi.genome`
-Manipulate genomes on a running FEAGI instance via REST API.
-- `GenomeAPI` - Add/remove cortical areas, modify parameters
-- `GenomeLoader` - Load genome from local file
-- `GenomeValidator` - Validate genome structure
-
-**Status:** Planned for Phase 3
-
-### `feagi.connectome`
-Download and upload connectomes via REST API.
-- `ConnectomeAPI` - Snapshot/restore trained brain state
-- Download from running instance for backup
-- Upload pre-trained connectomes
-
-**Status:** Planned for Phase 3
-
-### `feagi.packaging`
-Build marketplace packages locally.
-- `PackageBuilder` - Create `.feagi-personality`, `.feagi-firmware`, etc.
-- `PackageValidator` - Validate package structure
-- `ManifestGenerator` - Generate manifest.json
-
-**Status:** Planned for Phase 4
-
-### `feagi.pns`
-Peripheral Nervous System - Communication layer.
-- `FeagiAgentClient` - Modern Rust-backed client (RECOMMENDED)
-- `CapabilitiesManager` - Device capability management
-- `MotorProcessor` - Motor command processing
-- `VisionProcessor` - Vision data processing
-- `SegmentedVisionProcessor` - Advanced segmented vision
-- Supports ZMQ and WebSocket transports
-
-**Status:** ✅ Fully implemented
-
-### `feagi.cli`
-Command-line tools for development.
-- `feagi create-agent` - Scaffold new agent from template
-- `feagi build-package` - Build marketplace package locally
-
-**Status:** Planned for Phase 4
-
-## Development Workflow
-
-### 1. Create Agent
 ```bash
-# Scaffold new agent (future)
-feagi create-agent cozmo --template sdk_robot
-
-# Edit generated agent code
-vim cozmo_agent.py
+pip install "feagi"
+feagi start 
+feagi bv start
 ```
 
-### 2. Test Locally
-```python
-# Run agent with local FEAGI
-python cozmo_agent.py --genome ~/.feagi/genomes/vision_nav.json
-```
+That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer. The same `feagi bv start` command works on Linux, macOS, and Windows.
 
-### 3. Build Package
-```bash
-# Create marketplace package (future)
-feagi build-package \
-    --genome vision_nav.json \
-    --docs README.md \
-    --output vision_nav_v1.feagi-personality
-```
-
-### 4. Upload via UI
-Upload the package through Neurorobotics Studio or FEAGI Desktop.
-
-## Examples
-
-See `examples/` directory for complete agent implementations:
-- Basic sensory agent
-- SDK robot agent (Cozmo example)
-- Simulator agent (Webots example)
-- Vision processing examples
 
 ## Documentation
 
-- [API Reference](https://docs.feagi.org/api)
-- [Agent Development Guide](https://docs.feagi.org/agent-guide)
-- [Marketplace Guide](https://docs.feagi.org/marketplace)
+- [Documentation](https://github.com/feagi/feagi/tree/main/docs)
+- [Examples](./examples/)
 
-## What's New in 3.0.0
+---
 
-**Complete rewrite with clean architecture:**
-- ✅ Renamed from `feagi_connector` to `feagi`
-- ✅ Modular structure: `engine`, `agent`, `genome`, `connectome`, `packaging`, `pns`, `cli`
-- ✅ No legacy code, no deprecated APIs, no fallbacks
-- ✅ Modern `BaseAgent` framework for agent development
-- ✅ `feagi.pns` module for Peripheral Nervous System communication
-- ✅ Prepared for engine control (PyO3 bindings in Phase 2)
-- ✅ Prepared for runtime genome/connectome manipulation (Phase 3)
-- ✅ Prepared for marketplace package building (Phase 4)
+### Configuration Management
 
-**Breaking Changes:**
-- Package renamed: `feagi_connector` → `feagi`
-- All legacy clients removed (`FeagiClient`, `FeagiAgentConnector`)
-- Only modern `FeagiAgentClient` supported
-- Python 3.10+ required
-- Imports changed: `from feagi_connector import X` → `from feagi.pns import X`
+Initialize FEAGI environment with default configuration:
 
-## Migration from 2.x
+```bash
+feagi init
+```
+
+This creates:
+- Configuration: `~/.feagi/config/feagi_configuration.toml`
+- Genomes directory: `~/Documents/FEAGI/Genomes/` (macOS/Windows) or `~/FEAGI/genomes/` (Linux)
+- Connectomes directory: `~/Documents/FEAGI/Connectomes/` or `~/FEAGI/connectomes/`
+- Logs and cache directories
+
+**For complete configuration options and customization, see [DEPLOY.md](./DEPLOY.md).**
+
+### Start FEAGI Engine from Python
 
 ```python
-# Old (2.x)
-from feagi_connector import FeagiAgentClient
+from feagi.engine import FeagiEngine
 
-# New (3.0)
-from feagi.pns import FeagiAgentClient
+engine = FeagiEngine()
+engine.load_config()  # Uses default config
+engine.load_genome("my_brain.json")  # Loads from genomes directory
+engine.start()
 ```
+
+Or from command line:
+
+```bash
+feagi start --config ~/.feagi/config/feagi_configuration.toml --genome my_brain.json
+```
+
+### SDK Architecture
+
+```
+feagi/
+├── agent/           # Agent framework (BaseAgent)
+├── pns/             # Peripheral Nervous System (communication)
+├── engine/          # Engine control
+├── config/          # Configuration management
+├── paths/           # Cross-platform path utilities
+├── cli/             # Command-line tools
+├── genome/          # Runtime genome manipulation (coming soon)
+├── connectome/      # Brain state management (coming soon)
+└── packaging/       # Marketplace packages (coming soon)
+```
+
+
+## Examples
+
+See [`examples/`](./examples/) for complete agent implementations:
+- Basic sensory agent
+- Robot agent (SDK-based)
+- Simulator agent (Webots)
+- Vision processing
+
+---
+
+
+## Community & Support
+
+- **Discord**: [Join our community](https://discord.gg/PTVC8fyGN8)
+- **Issues**: [Report bugs](https://github.com/feagi/feagi-python-sdk/issues)
+- **Neurorobotics Studio**: [Cloud platform](https://brainsforrobots.com)
+- **Homepage**: [feagi.org](https://feagi.org)
+
+---
 
 ## Requirements
 
-- Python 3.10+
-- `feagi_rust_py_libs` (for Rust-backed performance)
-- NumPy 1.20+
-- PyZMQ 24.0+
-- aiohttp 3.9+
+- Python 3.10 or higher
+- Works on Linux, macOS, and Windows
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+---
 
 ## License
 
-Apache-2.0 - See [LICENSE.txt](LICENSE.txt) for details.
+Apache 2.0 - See [LICENSE](LICENSE) for details.
 
-## Links
+**Copyright 2016-2025 Neuraville Inc. All Rights Reserved.**
 
-- **Homepage**: https://feagi.org
-- **Repository**: https://github.com/Neuraville/FEAGI-2.0
-- **Issues**: https://github.com/Neuraville/FEAGI-2.0/issues
-- **Neurorobotics Studio**: https://neurorobotics.studio
-- **FEAGI Desktop**: Download from https://feagi.org
+---
 
-## Authors
+## About Neuraville
 
-Neuraville Inc. - <feagi@neuraville.com>
-
-Copyright 2016-2025 Neuraville Inc. All Rights Reserved.
+FEAGI is developed by **Neuraville**, a company focused on democratizing robotics and enabling the next generation of embodied AI through modular, biologically inspired intelligence systems.

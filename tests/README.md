@@ -115,7 +115,7 @@ pytest --cov=feagi --cov-report=html tests/
 
 ## Debugging During Testing
 
-FEAGI provides specialized debugging flags that can be helpful during test development and troubleshooting. For comprehensive debugging information, see the [FEAGI Debugging Guide](../docs/guide-how-to-debug.md).
+FEAGI provides specialized debugging flags that can be helpful during test development and troubleshooting. For comprehensive debugging information, see the [FEAGI Debugging Guide](../Documentation/guide-how-to-debug.md).
 
 ### Quick Debug Commands for Testing
 

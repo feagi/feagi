@@ -157,7 +157,7 @@ pytest tests/integration/ -v
 1. Start FEAGI manually
 2. Verify FEAGI is listening on correct ports:
    ```bash
-   curl http://localhost:8000/v1/feagi/status
+   curl http://localhost:8000/v1/system/health_check
    ```
 3. Check firewall settings
 

@@ -1,3 +1,6 @@
+# Include bundled FEAGI binaries
+recursive-include feagi/bin *
+
 # Include Rust source files and build configuration
 recursive-include feagi-rust *.rs
 recursive-include feagi-rust *.toml
@@ -36,3 +39,7 @@ prune cache
 prune tmp
 prune output
 
+# Exclude development files
+exclude .gitignore
+exclude .python-version
+prune .github

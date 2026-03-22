@@ -1,12 +1,10 @@
 """
 FEAGI Engine Control
 
-Start and stop the FEAGI neural engine from Python.
-Uses PyO3 bindings to Rust feagi::FeagiInstance.
-
-TODO: Implement in Phase 2
+Control the FEAGI neural engine from Python.
+Start, stop, configure, and monitor FEAGI instances.
 """
 
-# Placeholder for Phase 2
-__all__ = []
+from feagi.engine.manager import FeagiEngine
 
+__all__ = ["FeagiEngine"]

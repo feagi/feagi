@@ -18,28 +18,23 @@ Agents are external components that interface with FEAGI, allowing the neural ne
 
 ### ZeroMQ (ZMQ) Connection
 
-ZeroMQ provides high-performance, asynchronous messaging for agent connections:
+ZMQ transport is handled by the Rust SDK (no Python ZMQ bindings required):
 
 ```python
-import zmq
-import json
+import os
+from feagi.pns.client import AgentType, FeagiAgentClient
 
-# Connect to FEAGI
-context = zmq.Context()
-socket = context.socket(zmq.REQ)
-socket.connect("tcp://localhost:5570")
-
-# Send data to FEAGI
-message = {
-    "agent_name": "my_camera",
-    "cortical_area": "visual_input",
-    "data": [[0, 1, 0], [1, 0, 1], [0, 1, 0]]
-}
-socket.send_json(message)
-
-# Receive response
-response = socket.recv_json()
-print(response)
+client = FeagiAgentClient(os.environ["FEAGI_AGENT_DESCRIPTOR_B64"], AgentType.SENSORY)
+client.configure(
+    feagi_host=os.environ["FEAGI_HOST"],
+    registration_port=int(os.environ["FEAGI_REGISTRATION_PORT"]),
+    sensory_port=int(os.environ["FEAGI_SENSORY_PORT"]),
+    motor_port=int(os.environ["FEAGI_MOTOR_PORT"]),
+    heartbeat_interval=float(os.environ["FEAGI_HEARTBEAT_INTERVAL_S"]),
+    connection_timeout_ms=int(os.environ["FEAGI_CONNECTION_TIMEOUT_MS"]),
+    registration_retries=int(os.environ["FEAGI_REGISTRATION_RETRIES"]),
+)
+client.connect()
 ```
 
 ### FEAGI Connector Library
