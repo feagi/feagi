@@ -102,6 +102,10 @@ class BrainOutput:
         self._device_registration_enricher: Optional[
             Callable[[Dict[str, Any]], Dict[str, Any]]
         ] = None
+
+        # Lazy sensory write helpers (created only when needed)
+        self._sensory_percentage_factory = None
+        self._sensory_misc_factory = None
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -718,6 +722,239 @@ class BrainOutput:
                 logger.warning(f"Error disconnecting client: {e}")
             self._client = None
         self._connected = False
+
+    def register_sensor_units(
+        self,
+        unit_channel_counts: Dict[str, int],
+        *,
+        z_neuron_resolution: int,
+        image_resolution_xy: tuple[int, int] = (32, 32),
+        misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
+    ) -> Dict[str, int]:
+        """
+        Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
+
+        This exposes the cache registration surface to controllers so they can avoid
+        importing ``feagi_rust_py_libs`` directly.
+
+        Args:
+            unit_channel_counts: Mapping of FEAGI unit key -> channel count.
+                Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Shock``,
+                ``MiscData``.
+            z_neuron_resolution: Resolution parameter required by scalar sensory units.
+            image_resolution_xy: Vision registration resolution as (x, y).
+            misc_dimensions_xyz: MiscData registration dimensions as (x, y, z).
+
+        Returns:
+            Mapping of unit key -> assigned cache group index (deterministic sorted order).
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if z_neuron_resolution <= 0:
+            raise ValueError("z_neuron_resolution must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        descriptors = frpl.connector_core.data_types.descriptors
+        image_props = descriptors.ImageFrameProperties(
+            descriptors.ImageXYResolution(
+                int(image_resolution_xy[0]),
+                int(image_resolution_xy[1]),
+            ),
+            descriptors.ColorSpace.Gamma,
+            descriptors.ColorChannelLayout.RGB,
+        )
+        misc_dims = descriptors.MiscDataDimensions(
+            int(misc_dimensions_xyz[0]),
+            int(misc_dimensions_xyz[1]),
+            int(misc_dimensions_xyz[2]),
+        )
+
+        sensory_registers = {
+            "Vision": lambda group, count: self._cache.sensor_Vision_register(
+                group,
+                count,
+                frame_mode,
+                image_props,
+            ),
+            "Gyroscope": lambda group, count: self._cache.sensor_Gyroscope_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "Proximity": lambda group, count: self._cache.sensor_Proximity_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "Shock": lambda group, count: self._cache.sensor_Shock_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "MiscData": lambda group, count: self._cache.sensor_MiscData_register(
+                group,
+                count,
+                frame_mode,
+                misc_dims,
+            ),
+        }
+
+        unit_groups: Dict[str, int] = {}
+        for group_index, unit_key in enumerate(sorted(unit_channel_counts.keys())):
+            channel_count = int(unit_channel_counts[unit_key])
+            if channel_count <= 0:
+                continue
+            register = sensory_registers.get(unit_key)
+            if register is None:
+                raise ValueError(
+                    f"Unsupported sensory unit '{unit_key}'. "
+                    f"Supported units: {sorted(sensory_registers.keys())}"
+                )
+            register(group_index, channel_count)
+            unit_groups[unit_key] = group_index
+        return unit_groups
+
+    def register_motor_groups(
+        self,
+        group_channels: Dict[int, Dict[str, List[str]]],
+        *,
+        z_neuron_resolution: int,
+    ) -> None:
+        """
+        Register grouped motor channels in ConnectorAgent without exposing Rust APIs.
+
+        This supports advanced controllers that need deterministic group/channel
+        registration before FEAGI auto-creation verification.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if z_neuron_resolution <= 0:
+            raise ValueError("z_neuron_resolution must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+
+        for group_id, channels in sorted(group_channels.items()):
+            group_servo_count = len(channels.get("positional_servo", []))
+            group_rotary_count = len(channels.get("rotary_motor", []))
+            if group_servo_count > 0:
+                self._cache.motor_positional_servo_register(
+                    group_id,
+                    group_servo_count,
+                    frame_mode,
+                    z_neuron_resolution,
+                    positioning,
+                )
+            if group_rotary_count > 0:
+                self._cache.motor_rotary_motor_register(
+                    group_id,
+                    group_rotary_count,
+                    frame_mode,
+                    z_neuron_resolution,
+                    positioning,
+                )
+
+        # Mark as externally registered to avoid callback registration path that
+        # depends on removed MotorCorticalType symbols in some builds.
+        self._motor_decoder_registered = True
+
+    def _init_sensory_write_helpers(self) -> None:
+        """Lazy-init write helper factories for sensory cache writes."""
+        if (
+            self._sensory_percentage_factory is not None
+            and self._sensory_misc_factory is not None
+        ):
+            return
+        import feagi_rust_py_libs as frpl
+
+        self._sensory_percentage_factory = frpl.connector_core.data_types.Percentage
+        self._sensory_misc_factory = frpl.connector_core.data_types.MiscData
+
+    def write_sensor_scalar(
+        self,
+        *,
+        unit_key: str,
+        group: int,
+        channel_index: int,
+        scalar_0_1: float,
+    ) -> None:
+        """
+        Write one normalized scalar sample into the sensory cache.
+
+        Args:
+            unit_key: Sensory unit key (``Proximity``, ``Shock``, ``MiscData``).
+            group: Registered sensory group index.
+            channel_index: Channel index within group.
+            scalar_0_1: Normalized scalar value in ``[0.0, 1.0]``.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_sensory_write_helpers()
+        scalar = max(0.0, min(1.0, float(scalar_0_1)))
+
+        if unit_key == "Proximity":
+            self._cache.sensor_proximity_write(
+                group=int(group),
+                channel_index=int(channel_index),
+                data=self._sensory_percentage_factory.new_from_0_1(scalar),
+            )
+            return
+        if unit_key == "Shock":
+            self._cache.sensor_shock_write(
+                group=int(group),
+                channel_index=int(channel_index),
+                data=self._sensory_percentage_factory.new_from_0_1(scalar),
+            )
+            return
+        if unit_key == "MiscData":
+            import numpy as np
+
+            misc_data = self._sensory_misc_factory.new_from_array(
+                np.array([[[scalar]]], dtype=np.float32)
+            )
+            self._cache.sensor_misc_data_write(
+                group=int(group),
+                channel_index=int(channel_index),
+                data=misc_data,
+            )
+            return
+
+        raise ValueError(
+            f"Unsupported sensor write unit '{unit_key}'. "
+            "Supported units: ['Proximity', 'Shock', 'MiscData']"
+        )
+
+    def flush_sensory_bytes(self) -> int:
+        """
+        Encode cached sensory data and send it via active FEAGI client.
+
+        Returns:
+            Number of encoded bytes sent in this flush (0 when empty).
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if self._client is None:
+            raise RuntimeError("FEAGI client is not initialized. Call connect() first.")
+
+        self._cache.sensors_encode_cached_sensor_data_to_bytes()
+        encoded_bytes = bytes(self._cache.sensors_read_bytes())
+        if not encoded_bytes:
+            return 0
+        self._client.send_sensory_bytes(encoded_bytes)
+        return len(encoded_bytes)
     
     def register_output(self, output_instance: 'BaseOutput'):
         """
