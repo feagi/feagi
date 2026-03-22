@@ -980,6 +980,15 @@ class FeagiAgentClient:
             # Only decode cortical areas this agent subscribed to
             cortical_ids = self._motor_cortical_ids
             motors = decode_motor_xyzp(xyzp_data, cortical_ids)
+            if not motors and cortical_ids:
+                # If FEAGI created motor cortical IDs that differ from the
+                # locally-derived verification list, retry decoding without a
+                # filter to preserve motor control.
+                logger.warning(
+                    "[RAW-MOTOR-DECODE] No matches for configured motor cortical IDs; "
+                    "retrying decode without cortical filter."
+                )
+                motors = decode_motor_xyzp(xyzp_data, None)
             if motors:
                 logger.info("[RAW-MOTOR-DECODED] %s", motors)
             

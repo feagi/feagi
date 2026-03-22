@@ -94,6 +94,7 @@ class BrainOutput:
         self._feagi_api_port: Optional[int] = None
         self._feagi_http_timeout_s: Optional[float] = None
         self._auth_token_b64: Optional[str] = None
+        self._vision_unit: Optional[tuple[str, int, int, int, str, int]] = None
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
@@ -496,6 +497,7 @@ class BrainOutput:
         feagi_api_port: Optional[int] = None,
         feagi_http_timeout_s: Optional[float] = None,
         auth_token_b64: Optional[str] = None,
+        vision_unit: Optional[tuple[str, int, int, int, str, int]] = None,
     ):
         """
         Configure connection to FEAGI.
@@ -540,6 +542,7 @@ class BrainOutput:
         self._feagi_api_port = feagi_api_port
         self._feagi_http_timeout_s = feagi_http_timeout_s
         self._auth_token_b64 = auth_token_b64
+        self._vision_unit = vision_unit
 
         logger.info(
             "[CFG] Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
@@ -597,11 +600,39 @@ class BrainOutput:
         if self._transport_type == "zmq":
             from feagi.pns.client import AgentType, FeagiAgentClient
 
-            # Use output-derived IDs for deterministic registration verification.
-            # This keeps verification aligned with active decoder expectations even
-            # when local Rust/Python package versions differ across deployments.
+            # Build expected cortical IDs from the active ConnectorAgent when
+            # available, so registration verification can assert both motor and
+            # sensory auto-created areas.
             motor_cortical_ids = self._collect_motor_cortical_ids()
-            expected_cortical_ids = list(motor_cortical_ids)
+            expected_cortical_ids: list[str] = list(motor_cortical_ids)
+            if self._cache is not None:
+                if hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
+                    try:
+                        derived_motor_ids = list(
+                            self._cache.get_motor_cortical_ids_for_verification()
+                        )
+                        if derived_motor_ids:
+                            motor_cortical_ids = derived_motor_ids
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to derive motor cortical IDs from cache: %s",
+                            exc,
+                        )
+                if hasattr(self._cache, "get_sensory_cortical_ids_for_verification"):
+                    try:
+                        derived_sensory_ids = list(
+                            self._cache.get_sensory_cortical_ids_for_verification()
+                        )
+                        expected_cortical_ids = sorted(
+                            set(motor_cortical_ids) | set(derived_sensory_ids)
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to derive sensory cortical IDs from cache: %s",
+                            exc,
+                        )
+                else:
+                    expected_cortical_ids = list(motor_cortical_ids)
             output_count = self._motor_total_channels or len(motor_cortical_ids)
             if output_count <= 0:
                 raise RuntimeError(
@@ -613,7 +644,12 @@ class BrainOutput:
                     "Motor units are required for FEAGI 2.0 registration."
                 )
 
-            client = FeagiAgentClient(self._agent_id, AgentType.MOTOR)
+            agent_type = (
+                AgentType.BOTH
+                if self._vision_unit is not None
+                else AgentType.MOTOR
+            )
+            client = FeagiAgentClient(self._agent_id, agent_type)
             resolved_auth_token_b64 = self._auth_token_b64
             if not resolved_auth_token_b64:
                 raise RuntimeError(
@@ -633,10 +669,11 @@ class BrainOutput:
                 feagi_api_port=self._feagi_api_port,
                 feagi_http_timeout_s=self._feagi_http_timeout_s,
                 auth_token_b64=resolved_auth_token_b64,
+                vision_unit=self._vision_unit,
             )
             client.connect()
             if hasattr(client, "set_motor_cortical_ids"):
-                client.set_motor_cortical_ids(expected_cortical_ids)
+                client.set_motor_cortical_ids(motor_cortical_ids)
             self._client = client
             # Send device registrations via ZMQ so motor cortical IDs are derived correctly
             if self._motor_total_channels > 0 and self._cache:
@@ -653,6 +690,13 @@ class BrainOutput:
                         device_regs = self._device_registration_enricher(device_regs)
                     device_regs = self._normalize_device_registration_properties(device_regs)
                     device_regs = self._validate_device_registration_contract(device_regs)
+                    logger.info(
+                        "[CFG] Verifying cortical auto-create for %d IDs "
+                        "(motor=%d, sensory=%d).",
+                        len(expected_cortical_ids),
+                        len(motor_cortical_ids),
+                        max(0, len(expected_cortical_ids) - len(motor_cortical_ids)),
+                    )
                     client.send_device_configuration(
                         json.dumps(device_regs, sort_keys=True),
                         expected_cortical_ids=expected_cortical_ids,
