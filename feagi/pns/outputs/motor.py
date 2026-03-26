@@ -61,12 +61,18 @@ class ServoMotor(BaseOutput):
 
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
+        # Contract-level semantic controls used by both sim and real adapters.
+        self.control_semantics: str = "normalized_position"
+        self.absolute_command_scale: float = 1.0
+        self.incremental_command_scale: float = 1.0
         # Incremental mode uses normalized delta-per-update.
         self.incremental_step_ratio: float = 0.05
         # Diagnostics state for controller-side logging
         self._last_rx_raw_value: Optional[float] = None
         self._last_rx_value: Optional[float] = None
         self._last_rx_mode: Optional[str] = None
+        # Monotonic command sequence used by controllers to detect new events.
+        self._rx_command_seq: int = 0
     
     @classmethod
     def register(
@@ -188,6 +194,17 @@ class ServoMotor(BaseOutput):
         self._last_rx_raw_value = float(raw_value)
         self._last_rx_value = float(value)
         self._last_rx_mode = effective_mode
+        self._rx_command_seq += 1
+
+        # Apply contract-defined scaling only for incremental updates.
+        # Absolute mode is treated as a direct fixed-position target.
+        if effective_mode == "incremental":
+            scale = max(0.0, float(self.incremental_command_scale))
+            if is_percentage:
+                value = 0.5 + ((value - 0.5) * scale)
+                value = max(0.0, min(1.0, value))
+            else:
+                value = max(-1.0, min(1.0, value * scale))
         
         old_angle = self._current_angle
         
@@ -255,10 +272,20 @@ class RotaryMotor(BaseOutput):
         self.channel = 0
         self.preferred_group_id = unit_id
         self.preferred_channel_index = channel_index
+        # Contract-level semantic controls used by both sim and real adapters.
+        self.control_semantics: str = "normalized_velocity"
+        self.absolute_command_scale: float = 1.0
+        self.incremental_command_scale: float = 1.0
         
         # Current speed (from FEAGI)
         # Range: -1.0 to 1.0 if bidirectional, 0.0 to 1.0 if not
         self._current_speed: float = 0.0
+        # Diagnostics state for controller-side logging
+        self._last_rx_raw_value: Optional[float] = None
+        self._last_rx_value: Optional[float] = None
+        self._last_rx_mode: Optional[str] = None
+        # Monotonic command sequence used by controllers to detect new events.
+        self._rx_command_seq: int = 0
     
     @classmethod
     def register(
@@ -335,11 +362,32 @@ class RotaryMotor(BaseOutput):
         command_mode: Optional[str] = None,
     ):
         """Callback invoked when FEAGI sends a motor command"""
+        raw_value = value
+        if not isinstance(value, (int, float)):
+            if hasattr(value, "get_as_m1_1"):
+                raw_value = float(value.get_as_m1_1())
+            elif hasattr(value, "get_as_0_1"):
+                raw_value = (float(value.get_as_0_1()) * 2.0) - 1.0
+            else:
+                raw_value = float(value)
+        raw_value = float(raw_value)
+        effective_mode = command_mode if command_mode is not None else self.encoding
+        scale = (
+            max(0.0, float(self.incremental_command_scale))
+            if effective_mode == "incremental"
+            else max(0.0, float(self.absolute_command_scale))
+        )
+        scaled_value = max(-1.0, min(1.0, raw_value * scale))
+        self._last_rx_raw_value = raw_value
+        self._last_rx_value = scaled_value
+        self._last_rx_mode = effective_mode
+        self._rx_command_seq += 1
+
         # Value is signed percentage (-1.0 to 1.0)
         if self.bidirectional:
-            self._current_speed = value  # Already -1.0 to 1.0
+            self._current_speed = scaled_value  # Already -1.0 to 1.0
         else:
-            self._current_speed = (value + 1.0) / 2.0  # Map to 0.0 to 1.0
+            self._current_speed = (scaled_value + 1.0) / 2.0  # Map to 0.0 to 1.0
     
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""

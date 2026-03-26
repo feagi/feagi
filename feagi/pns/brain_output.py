@@ -95,6 +95,7 @@ class BrainOutput:
         self._feagi_http_timeout_s: Optional[float] = None
         self._auth_token_b64: Optional[str] = None
         self._vision_unit: Optional[tuple[str, int, int, int, str, int]] = None
+        self._vision_units: list[tuple[str, int, int, int, str, int]] = []
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
@@ -106,6 +107,9 @@ class BrainOutput:
         # Lazy sensory write helpers (created only when needed)
         self._sensory_percentage_factory = None
         self._sensory_misc_factory = None
+        self._vision_image_frame_factory = None
+        self._vision_color_space = None
+        self._vision_memory_layout = None
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -502,6 +506,7 @@ class BrainOutput:
         feagi_http_timeout_s: Optional[float] = None,
         auth_token_b64: Optional[str] = None,
         vision_unit: Optional[tuple[str, int, int, int, str, int]] = None,
+        vision_units: Optional[list[tuple[str, int, int, int, str, int]]] = None,
     ):
         """
         Configure connection to FEAGI.
@@ -547,6 +552,9 @@ class BrainOutput:
         self._feagi_http_timeout_s = feagi_http_timeout_s
         self._auth_token_b64 = auth_token_b64
         self._vision_unit = vision_unit
+        self._vision_units = list(vision_units or [])
+        if vision_unit is not None:
+            self._vision_units.append(vision_unit)
 
         logger.info(
             "[CFG] Configured: agent=%s, %s://%s (registration=%s, motor=%s)",
@@ -650,7 +658,7 @@ class BrainOutput:
 
             agent_type = (
                 AgentType.BOTH
-                if self._vision_unit is not None
+                if self._vision_units
                 else AgentType.MOTOR
             )
             client = FeagiAgentClient(self._agent_id, agent_type)
@@ -673,7 +681,8 @@ class BrainOutput:
                 feagi_api_port=self._feagi_api_port,
                 feagi_http_timeout_s=self._feagi_http_timeout_s,
                 auth_token_b64=resolved_auth_token_b64,
-                vision_unit=self._vision_unit,
+                vision_unit=None,
+                vision_units=self._vision_units,
             )
             client.connect()
             if hasattr(client, "set_motor_cortical_ids"):
@@ -728,6 +737,7 @@ class BrainOutput:
         unit_channel_counts: Dict[str, int],
         *,
         z_neuron_resolution: int,
+        group_index_start: int = 0,
         image_resolution_xy: tuple[int, int] = (32, 32),
         misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
     ) -> Dict[str, int]:
@@ -742,6 +752,8 @@ class BrainOutput:
                 Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Shock``,
                 ``MiscData``.
             z_neuron_resolution: Resolution parameter required by scalar sensory units.
+            group_index_start: Starting sensory group index. Use this to reserve
+                lower group IDs for other sensory unit families.
             image_resolution_xy: Vision registration resolution as (x, y).
             misc_dimensions_xyz: MiscData registration dimensions as (x, y, z).
 
@@ -753,6 +765,8 @@ class BrainOutput:
             raise RuntimeError("ConnectorAgent cache is not initialized.")
         if z_neuron_resolution <= 0:
             raise ValueError("z_neuron_resolution must be > 0.")
+        if group_index_start < 0:
+            raise ValueError("group_index_start must be >= 0.")
 
         import feagi_rust_py_libs as frpl
 
@@ -810,7 +824,8 @@ class BrainOutput:
         }
 
         unit_groups: Dict[str, int] = {}
-        for group_index, unit_key in enumerate(sorted(unit_channel_counts.keys())):
+        for relative_index, unit_key in enumerate(sorted(unit_channel_counts.keys())):
+            group_index = int(group_index_start) + int(relative_index)
             channel_count = int(unit_channel_counts[unit_key])
             if channel_count <= 0:
                 continue
@@ -883,6 +898,167 @@ class BrainOutput:
         self._sensory_percentage_factory = frpl.connector_core.data_types.Percentage
         self._sensory_misc_factory = frpl.connector_core.data_types.MiscData
 
+    def _init_vision_write_helpers(self) -> None:
+        """Lazy-init write helper factories for vision cache writes."""
+        if (
+            self._vision_image_frame_factory is not None
+            and self._vision_color_space is not None
+            and self._vision_memory_layout is not None
+        ):
+            return
+        import feagi_rust_py_libs as frpl
+
+        self._vision_image_frame_factory = frpl.connector_core.data_types.ImageFrame
+        self._vision_color_space = (
+            frpl.connector_core.data_types.descriptors.ColorSpace.Gamma
+        )
+        self._vision_memory_layout = (
+            frpl.connector_core.data_types.descriptors.MemoryOrderLayout
+            .HeightsWidthsChannels
+        )
+
+    def register_vision_groups(
+        self,
+        vision_units: list[tuple[str, int, int, int, str, int]],
+        peripheral_resolution: tuple[int, int] | None = None,
+    ) -> list[int]:
+        """
+        Register segmented vision groups with deterministic group IDs.
+
+        Uses FEAGI standard segmented topology:
+        - center: 128x128x3
+        - peripherals: 32x32x1
+
+        Args:
+            vision_units: Registered camera input units.
+            peripheral_resolution: Optional segmented peripheral resolution override
+                as ``(width, height)``. Defaults to ``(32, 32)``.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if not vision_units:
+            return []
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        descriptors = frpl.connector_core.data_types.descriptors
+        data_types = frpl.connector_core.data_types
+        register_method = None
+        for candidate in (
+            "sensor_segmented_vision_register",
+            "sensor_SegmentedVision_register",
+        ):
+            if hasattr(self._cache, candidate):
+                register_method = getattr(self._cache, candidate)
+                break
+        if register_method is None:
+            raise RuntimeError(
+                "ConnectorAgent cache does not expose segmented vision registration."
+            )
+
+        center_resolution = descriptors.ImageXYResolution(128, 128)
+        peripheral_width, peripheral_height = (32, 32)
+        if peripheral_resolution is not None:
+            raw_width, raw_height = peripheral_resolution
+            if int(raw_width) <= 0 or int(raw_height) <= 0:
+                raise ValueError(
+                    "peripheral_resolution values must be positive integers."
+                )
+            peripheral_width = int(raw_width)
+            peripheral_height = int(raw_height)
+        peripheral_resolution_descriptor = descriptors.ImageXYResolution(
+            peripheral_width,
+            peripheral_height,
+        )
+        segmented_resolutions = (
+            descriptors.SegmentedXYImageResolutions
+            .create_with_same_sized_peripheral(
+                center_resolution,
+                peripheral_resolution_descriptor,
+            )
+        )
+        center_layout = descriptors.ColorChannelLayout.RGB
+        peripheral_layout = descriptors.ColorChannelLayout.GrayScale
+        color_space = descriptors.ColorSpace.Gamma
+        segmented_properties = descriptors.SegmentedImageFrameProperties(
+            segmented_resolutions,
+            center_layout,
+            peripheral_layout,
+            color_space,
+        )
+        pct = data_types.Percentage.new_from_0_1
+        initial_gaze = data_types.GazeProperties(
+            data_types.Percentage2D(pct(0.5), pct(0.5)),
+            pct(1.0),
+        )
+        registered_groups: list[int] = []
+        for (
+            _modality,
+            width,
+            height,
+            _channels,
+            _unit,
+            group,
+        ) in vision_units:
+            image_props = descriptors.ImageFrameProperties(
+                descriptors.ImageXYResolution(int(width), int(height)),
+                color_space,
+                center_layout,
+            )
+            register_method(
+                group=int(group),
+                number_channels=1,
+                frame_change_handling=frame_mode,
+                input_image_properties=image_props,
+                segmented_image_properties=segmented_properties,
+                initial_gaze=initial_gaze,
+            )
+            registered_groups.append(int(group))
+        return registered_groups
+
+    def write_sensor_vision_frame(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        frame_rgb,
+    ) -> None:
+        """Write one RGB image frame into vision sensory cache."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_vision_write_helpers()
+
+        import numpy as np
+
+        frame_array = np.asarray(frame_rgb, dtype=np.uint8)
+        if frame_array.ndim != 3 or frame_array.shape[2] != 3:
+            raise ValueError(
+                f"Vision frame must be an RGB ndarray with shape (H, W, 3), got {frame_array.shape}"
+            )
+
+        vision_frame = self._vision_image_frame_factory.new_from_array(
+            frame_array,
+            self._vision_color_space,
+            self._vision_memory_layout,
+        )
+        write_method = None
+        for candidate in ("sensor_segmented_vision_write", "sensor_vision_write"):
+            if hasattr(self._cache, candidate):
+                write_method = getattr(self._cache, candidate)
+                break
+        if write_method is None:
+            raise RuntimeError("ConnectorAgent cache does not expose a vision write method.")
+
+        write_method(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=vision_frame,
+        )
+
     def write_sensor_scalar(
         self,
         *,
@@ -948,13 +1124,28 @@ class BrainOutput:
             raise RuntimeError("ConnectorAgent cache is not initialized.")
         if self._client is None:
             raise RuntimeError("FEAGI client is not initialized. Call connect() first.")
+        # Avoid noisy client-level errors in motor-only sessions: those
+        # connections intentionally have no sensory socket.
+        client_agent_type = getattr(self._client, "agent_type", None)
+        if (
+            hasattr(client_agent_type, "value")
+            and str(client_agent_type.value) == "motor"
+        ):
+            return 0
 
         self._cache.sensors_encode_cached_sensor_data_to_bytes()
         encoded_bytes = bytes(self._cache.sensors_read_bytes())
         if not encoded_bytes:
             return 0
-        self._client.send_sensory_bytes(encoded_bytes)
-        return len(encoded_bytes)
+        try:
+            self._client.send_sensory_bytes(encoded_bytes)
+            return len(encoded_bytes)
+        except Exception as exc:
+            # Motor-only agents do not expose a sensory socket. Keep the control
+            # loop running without noisy hard failures in those sessions.
+            if "Sensory socket is not available for this agent type" in str(exc):
+                return 0
+            raise
     
     def register_output(self, output_instance: 'BaseOutput'):
         """
@@ -1076,6 +1267,10 @@ class BrainOutput:
             # Keep this deterministic for controller-side diagnostics.
             self._motor_data = {}
 
+            # Aggregate commands by (group, channel) first so mixed mode updates
+            # in the same receive cycle can be resolved deterministically.
+            pending_by_channel: dict[tuple[int, int], dict[str, tuple[float, str]]] = {}
+
             for key, value in motor_map.items():
                 if value is None:
                     continue
@@ -1117,16 +1312,55 @@ class BrainOutput:
                 if output is None:
                     continue
                 value_f = float(value)
-                canonical_key = f"{group_id}:{channel_index}:{command_mode or 'none'}"
+                mode_key = (
+                    command_mode if command_mode in ("absolute", "incremental") else "none"
+                )
+                pending_by_channel.setdefault((group_id, channel_index), {})[mode_key] = (
+                    value_f,
+                    key_str,
+                )
+
+            for (group_id, channel_index), mode_entries in pending_by_channel.items():
+                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
+                if output is None and group_id == 0:
+                    output = self._motor_outputs_by_channel.get(channel_index)
+                if output is None:
+                    continue
+
+                # Arbitration: if both absolute and incremental are present
+                # for the same channel in this cycle, absolute takes precedence.
+                if "absolute" in mode_entries:
+                    selected_mode = "absolute"
+                elif "incremental" in mode_entries:
+                    selected_mode = "incremental"
+                else:
+                    selected_mode = "none"
+
+                value_f, key_str = mode_entries[selected_mode]
+                canonical_key = f"{group_id}:{channel_index}:{selected_mode}"
                 self._motor_data[canonical_key] = value_f
-                log_key = f"{group_id}:{channel_index}:{command_mode or 'none'}"
+
+                if "absolute" in mode_entries and "incremental" in mode_entries:
+                    inc_val, _ = mode_entries["incremental"]
+                    logger.info(
+                        (
+                            "[MOTOR-RX-ARBITRATION] group=%d channel=%d "
+                            "absolute=%.6f incremental=%.6f selected=absolute"
+                        ),
+                        group_id,
+                        channel_index,
+                        value_f,
+                        inc_val,
+                    )
+
+                log_key = f"{group_id}:{channel_index}:{selected_mode}"
                 prev_value = self._last_logged_motor_values.get(log_key)
                 if prev_value is None or abs(value_f - prev_value) > 1e-6:
                     logger.info(
                         "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f key=%s",
                         group_id,
                         channel_index,
-                        command_mode or "none",
+                        selected_mode,
                         value_f,
                         key_str,
                     )
@@ -1134,7 +1368,7 @@ class BrainOutput:
                 try:
                     output._on_motor_command(
                         value_f,
-                        command_mode=command_mode,
+                        command_mode=None if selected_mode == "none" else selected_mode,
                     )
                 except TypeError:
                     # Backward compatibility for output classes with old callback signature.
