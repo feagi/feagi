@@ -75,7 +75,9 @@ class BrainOutput:
         # Motor decoder tracking
         self._motor_total_channels = 0
         self._motor_decoder_registered = False
-        
+        #: True when ``connect()`` used :class:`~feagi.pns.client.AgentType.SENSORY` (no motor OPUs).
+        self._sensory_only_mode: bool = False
+
         # Latest motor data (for debugging)
         self._motor_data: Dict[str, Any] = {}
         self._last_logged_motor_values: Dict[str, float] = {}
@@ -602,7 +604,9 @@ class BrainOutput:
                 "brain_output.configure(...) must be called with explicit ZMQ timing "
                 "before connect() (no defaults in safety mode)."
             )
-        
+
+        self._sensory_only_mode = False
+
         # Step 0: Register motor decoder with total channel count (if motors were registered)
         if self._motor_total_channels > 0 and not self._motor_decoder_registered:
             self._register_motor_decoder()
@@ -617,6 +621,7 @@ class BrainOutput:
             # sensory auto-created areas.
             motor_cortical_ids = self._collect_motor_cortical_ids()
             expected_cortical_ids: list[str] = list(motor_cortical_ids)
+            derived_sensory_ids: list[str] = []
             if self._cache is not None:
                 if hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
                     try:
@@ -646,21 +651,35 @@ class BrainOutput:
                 else:
                     expected_cortical_ids = list(motor_cortical_ids)
             output_count = self._motor_total_channels or len(motor_cortical_ids)
-            if output_count <= 0:
+            has_vision = bool(self._vision_units)
+            has_sensory_cache = bool(derived_sensory_ids)
+            sensory_only_eligible = (
+                output_count <= 0 and (has_sensory_cache or has_vision)
+            )
+
+            if output_count <= 0 and not sensory_only_eligible:
                 raise RuntimeError(
-                    "No motor outputs registered (cannot connect without motor outputs)."
-                )
-            motor_units = self._collect_motor_unit_specs()
-            if not motor_units:
-                raise RuntimeError(
-                    "Motor units are required for FEAGI 2.0 registration."
+                    "No motor outputs registered and no sensory/vision registrations "
+                    "in ConnectorAgent cache (cannot connect without motors or sensory outputs)."
                 )
 
-            agent_type = (
-                AgentType.BOTH
-                if self._vision_units
-                else AgentType.MOTOR
-            )
+            if sensory_only_eligible:
+                self._sensory_only_mode = True
+                agent_type = AgentType.SENSORY
+                motor_units_payload = None
+            else:
+                motor_units = self._collect_motor_unit_specs()
+                if not motor_units:
+                    raise RuntimeError(
+                        "Motor units are required for FEAGI 2.0 registration."
+                    )
+                agent_type = (
+                    AgentType.BOTH
+                    if self._vision_units
+                    else AgentType.MOTOR
+                )
+                motor_units_payload = ("motor", output_count, motor_units)
+
             client = FeagiAgentClient(self._agent_id, agent_type)
             resolved_auth_token_b64 = self._auth_token_b64
             if not resolved_auth_token_b64:
@@ -668,13 +687,12 @@ class BrainOutput:
                     "Missing auth token base64. Provide auth_token_b64 in "
                     "brain_output.configure(...)."
                 )
-            client.configure(
+            configure_kwargs = dict(
                 feagi_host=self._feagi_host,
                 registration_port=self._feagi_registration_port,
                 sensory_port=self._feagi_sensory_port,
                 motor_port=self._feagi_motor_port,
                 agent_descriptor_b64=self._agent_id,
-                motor_units=("motor", output_count, motor_units),
                 heartbeat_interval=self._feagi_heartbeat_interval_s,
                 connection_timeout_ms=self._feagi_connection_timeout_ms,
                 registration_retries=self._feagi_registration_retries,
@@ -684,12 +702,15 @@ class BrainOutput:
                 vision_unit=None,
                 vision_units=self._vision_units,
             )
+            if motor_units_payload is not None:
+                configure_kwargs["motor_units"] = motor_units_payload
+            client.configure(**configure_kwargs)
             client.connect()
-            if hasattr(client, "set_motor_cortical_ids"):
+            if hasattr(client, "set_motor_cortical_ids") and not self._sensory_only_mode:
                 client.set_motor_cortical_ids(motor_cortical_ids)
             self._client = client
             # Send device registrations via ZMQ so motor cortical IDs are derived correctly
-            if self._motor_total_channels > 0 and self._cache:
+            if (self._motor_total_channels > 0 or self._sensory_only_mode) and self._cache:
                 if self._feagi_api_port is None or self._feagi_http_timeout_s is None:
                     raise RuntimeError(
                         "brain_output.configure(...) must include feagi_api_port "
@@ -731,6 +752,7 @@ class BrainOutput:
                 logger.warning(f"Error disconnecting client: {e}")
             self._client = None
         self._connected = False
+        self._sensory_only_mode = False
 
     def register_sensor_units(
         self,
@@ -1249,9 +1271,12 @@ class BrainOutput:
             raise RuntimeError(
                 "Not connected to FEAGI. Call brain_output.connect() first."
             )
-        
+
+        if self._sensory_only_mode:
+            return
+
         # All timing and monitoring removed for performance
-        
+
         try:
             if not self._client:
                 raise RuntimeError("Client not initialized. Call connect() first.")
