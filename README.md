@@ -4,6 +4,28 @@
 
 [![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+![FEAGI Brain Visualizer: spatial brain view, neural architecture graph, and real-time activity](../assets/feagi_image.png)
+
+---
+
+## What is FEAGI?
+
+**FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables perception, cognition, and control through **spiking neural circuits** across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.
+
+FEAGI includes a [**3D brain visualizer**](https://github.com/feagi/brain-visualizer) for real-time neural activity and official open source SDKs for [Python](https://github.com/feagi/feagi-python-sdk) (this repository), [Rust](https://github.com/feagi/feagi-core/tree/staging/crates/feagi-agent), and [Java](https://github.com/feagi/feagi-java-sdk). Together they support a growing ecosystem of reusable neural components ("brains"), tools, and integrations for robotics and physical AI.
+
+[**Neurorobotics Studio**](http://brainsforrobots.com/nrs) is FEAGI's desktop application for working with brains, simulations, and embodiments in a unified environment.
+
+### The FEAGI Python SDK
+
+The FEAGI Python SDK provides the tools you need to:
+
+- **Connect robots and devices** to FEAGI's neural network
+- **Build learning agents** for robots, simulators, and games
+- **Visualize neural activity** in real-time with Brain Visualizer
+- **Control and manage FEAGI** from Python code
+- **Interface with diverse embodiments** through standardized communication protocols
+
 ---
 
 ## Installation Options
@@ -27,24 +49,6 @@ Includes:
 - FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
 > **Note:** Both packages use identical imports (`from feagi import ...`)
-
----
-
-## What is FEAGI?
-
-**FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables spiking-neural-circuit-driven perception, cognition, and control across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.
-
-FEAGI serves as the core neural runtime behind **Neurorobotics Studio**, powering a growing ecosystem of reusable neural components ("brains"), tools, and integrations for robotics and physical AI.
-
-### The FEAGI Python SDK
-
-The FEAGI Python SDK provides the tools you need to:
-
-- **Connect robots and devices** to FEAGI's neural network
-- **Build learning agents** for robots, simulators, and games
-- **Visualize neural activity** in real-time with Brain Visualizer
-- **Control and manage FEAGI** from Python code
-- **Interface with diverse embodiments** through standardized communication protocols
 
 ---
 
