@@ -28,27 +28,26 @@ The FEAGI Python SDK provides the tools you need to:
 
 ---
 
-## Installation Options
+## Quick Start
 
-**Full Experience (Recommended for most users):**
 ```bash
 pip install feagi
+feagi start
+feagi bv start
 ```
-Includes:
-- FEAGI itself, for running neuronal simulations
-- Brain Visualizer, for real-time 3D neural activity visualization (~196MB) on Linux, macOS, and Windows
-- Python bindings for FEAGI libraries (intended for advanced users)
-- FEAGI Agent Python SDK for rapidly making agents for FEAGI
 
-**Slim/Core (Recommended for Production):**
-```bash
-pip install feagi-core
-```
-Includes:
-- Python bindings for FEAGI libraries (intended for advanced users)
-- FEAGI Agent Python SDK for rapidly making agents for FEAGI
+That installs the **`feagi`** package (engine, Brain Visualizer, and SDK), starts FEAGI with default configuration, and opens the Brain Visualizer. The same flow works on Linux, macOS, and Windows.
 
-> **Note:** Both packages use identical imports (`from feagi import ...`)
+---
+
+## Installation
+
+Quick Start uses **`feagi`**. If you need a smaller install without Brain Visualizer, use **`feagi-core`** instead. Imports are the same for both (`from feagi import ...`).
+
+| Command | What you get |
+| --- | --- |
+| **`pip install feagi`** | Full install: neuronal engine, [**Brain Visualizer**](https://github.com/feagi/brain-visualizer) (adds ~196MB of platform binaries), Rust-backed Python bindings, and the agent SDK. **Recommended for most users.** |
+| **`pip install feagi-core`** | Engine, bindings, and agent SDK **only**—no Brain Visualizer. **Recommended for production, CI, or headless setups.** |
 
 ---
 
@@ -67,19 +66,6 @@ Includes:
 * **Cross-Simulator & Hardware Support** – One brain, many bodies.
 
 ---
-
-## Quick Start
-
-Get started with FEAGI in just 2 lines:
-
-```bash
-pip install "feagi"
-feagi start 
-feagi bv start
-```
-
-That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer. The same `feagi bv start` command works on Linux, macOS, and Windows.
-
 
 ## Documentation
 
