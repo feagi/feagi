@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-![FEAGI Brain Visualizer: spatial brain view, neural architecture graph, and real-time activity](../assets/feagi_image.png)
+![FEAGI Brain Visualizer: spatial brain view, neural architecture graph, and real-time activity](Documentation/assets/feagi_image.jpg)
 
 ---
 
