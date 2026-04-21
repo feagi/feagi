@@ -154,3 +154,11 @@ def test_write_and_flush_sensory_bytes_without_direct_rust_imports(monkeypatch):
     assert ("write_misc", 2, 1, ("misc", 0.75)) in bo._cache.calls
     assert sent_len == len(b"encoded")
     assert bo._client.sent == [b"encoded"]
+
+
+def test_receive_no_ops_when_sensory_only_mode():
+    """MuJoCo sensors-only path sets _sensory_only_mode; receive must not touch motor ZMQ."""
+    bo = BrainOutput()
+    bo._connected = True
+    bo._sensory_only_mode = True
+    bo.receive()

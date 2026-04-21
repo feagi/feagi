@@ -331,6 +331,7 @@ class FeagiAgentClient:
         auth_token_b64: str,
         *,
         vision_unit: Optional[Tuple[str, int, int, int, str, int]] = None,
+        vision_units: Optional[List[Tuple[str, int, int, int, str, int]]] = None,
         motor_unit: Optional[Tuple[str, int, str, int]] = None,
         motor_units: Optional[Tuple[str, int, List[Tuple[str, int]]]] = None,
         custom_capabilities: Optional[Dict[str, Any]] = None,
@@ -353,6 +354,8 @@ class FeagiAgentClient:
             motor_port: Motor data output port.
             vision_unit: Vision capability tuple using semantic unit + group
                 (modality, width, height, channels, unit, group).
+            vision_units: Optional list of vision capability tuples to register
+                multiple cameras/groups deterministically.
             motor_unit: Motor capability tuple using semantic unit + group
                 (modality, output_count, unit, group).
             motor_units: Motor capability tuple with multiple unit/group pairs
@@ -455,37 +458,51 @@ class FeagiAgentClient:
             )
         
         # Add capabilities
+        resolved_vision_units: List[Tuple[str, int, int, int, str, int]] = []
+        if vision_units:
+            resolved_vision_units.extend(list(vision_units))
         if vision_unit:
+            resolved_vision_units.append(vision_unit)
+        if resolved_vision_units:
+            seen_vision_groups: set[int] = set()
+            for (
+                modality,
+                width,
+                height,
+                channels,
+                unit,
+                group,
+            ) in resolved_vision_units:
+                if group in seen_vision_groups:
+                    raise ValueError(
+                        f"Duplicate vision group detected: {group}. "
+                        "Each vision unit must use a unique group."
+                    )
+                seen_vision_groups.add(group)
+                self._config.with_vision_unit(
+                    modality,
+                    width,
+                    height,
+                    channels,
+                    unit,
+                    group,
+                )
             (
-                modality,
+                _modality,
                 width,
                 height,
-                channels,
+                _channels,
                 unit,
                 group,
-            ) = vision_unit
-            self._config.with_vision_unit(
-                modality,
-                width,
-                height,
-                channels,
-                unit,
-                group,
-            )
-
-            # Store for XYZP conversion
+            ) = resolved_vision_units[0]
+            # Store first unit for backward-compatible XYZP conversion fields.
             self._vision_width = width
             self._vision_height = height
             self._vision_unit = unit
             self._vision_group = group
-            
             logger.debug(
-                "Added vision unit capability: %sx%sx%s -> %s:%s",
-                width,
-                height,
-                channels,
-                unit,
-                group,
+                "Added %d vision unit capability entries",
+                len(resolved_vision_units),
             )
         
         # Store network config for direct ZMQ access and logging

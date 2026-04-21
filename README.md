@@ -4,37 +4,17 @@
 
 [![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
----
-
-## Installation Options
-
-**Full Experience (Recommended for most users):**
-```bash
-pip install feagi
-```
-Includes:
-- FEAGI itself, for running neuronal simulations
-- Brain Visualizer, for real-time 3D neural activity visualization (~196MB) on Linux, macOS, and Windows
-- Python bindings for FEAGI libraries (intended for advanced users)
-- FEAGI Agent Python SDK for rapidly making agents for FEAGI
-
-**Slim/Core (Recommended for Production):**
-```bash
-pip install feagi-core
-```
-Includes:
-- Python bindings for FEAGI libraries (intended for advanced users)
-- FEAGI Agent Python SDK for rapidly making agents for FEAGI
-
-> **Note:** Both packages use identical imports (`from feagi import ...`)
+![FEAGI Brain Visualizer: spatial brain view, neural architecture graph, and real-time activity](Documentation/assets/feagi_image.jpg)
 
 ---
 
 ## What is FEAGI?
 
-**FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables spiking-neural-circuit-driven perception, cognition, and control across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.
+**FEAGI (Framework for Evolutionary Artificial General Intelligence)** is a biologically inspired, modular neural execution engine designed for **embodied AI and robotics**. FEAGI enables perception, cognition, and control through **spiking neural circuits** across simulated and physical embodiments, with a strong emphasis on **real-time interaction, modularity, and cross-platform deployment**.
 
-FEAGI serves as the core neural runtime behind **Neurorobotics Studio**, powering a growing ecosystem of reusable neural components ("brains"), tools, and integrations for robotics and physical AI.
+FEAGI includes a [**3D brain visualizer**](https://github.com/feagi/brain-visualizer) for real-time neural activity and official open source SDKs for [Python](https://github.com/feagi/feagi-python-sdk) (this repository), [Rust](https://github.com/feagi/feagi-core/tree/staging/crates/feagi-agent), and [Java](https://github.com/feagi/feagi-java-sdk). Together they support a growing ecosystem of reusable neural components ("brains"), tools, and integrations for robotics and physical AI.
+
+[**Neurorobotics Studio**](http://brainsforrobots.com/nrs) is FEAGI's desktop application for working with brains, simulations, and embodiments in a unified environment.
 
 ### The FEAGI Python SDK
 
@@ -45,6 +25,29 @@ The FEAGI Python SDK provides the tools you need to:
 - **Visualize neural activity** in real-time with Brain Visualizer
 - **Control and manage FEAGI** from Python code
 - **Interface with diverse embodiments** through standardized communication protocols
+
+---
+
+## Quick Start
+
+```bash
+pip install feagi
+feagi start
+feagi bv start
+```
+
+That installs the **`feagi`** package (engine, Brain Visualizer, and SDK), starts FEAGI with default configuration, and opens the Brain Visualizer. The same flow works on Linux, macOS, and Windows.
+
+---
+
+## Installation
+
+Quick Start uses **`feagi`**. If you need a smaller install without Brain Visualizer, use **`feagi-core`** instead. Imports are the same for both (`from feagi import ...`).
+
+| Command | What you get |
+| --- | --- |
+| **`pip install feagi`** | Full install: neuronal engine, [**Brain Visualizer**](https://github.com/feagi/brain-visualizer) (adds ~196MB of platform binaries), Rust-backed Python bindings, and the agent SDK. **Recommended for most users.** |
+| **`pip install feagi-core`** | Engine, bindings, and agent SDK **only**—no Brain Visualizer. **Recommended for production, CI, or headless setups.** |
 
 ---
 
@@ -63,19 +66,6 @@ The FEAGI Python SDK provides the tools you need to:
 * **Cross-Simulator & Hardware Support** – One brain, many bodies.
 
 ---
-
-## Quick Start
-
-Get started with FEAGI in just 2 lines:
-
-```bash
-pip install "feagi"
-feagi start 
-feagi bv start
-```
-
-That's it! This installs FEAGI with Brain Visualizer, creates default configuration automatically, and launches the visualizer. The same `feagi bv start` command works on Linux, macOS, and Windows.
-
 
 ## Documentation
 

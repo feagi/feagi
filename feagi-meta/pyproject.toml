@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "feagi"
-version = "2.1.33"
+version = "2.1.37"
 description = "Complete FEAGI SDK with Brain Visualizer - Framework for Evolutionary Artificial General Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,11 +26,11 @@ classifiers = [
 
 # Meta-package: feagi-core + Brain Visualizer (all platforms)
 dependencies = [
-    "feagi-core==2.1.33",
-    "feagi-bv-linux>=2.3.7,<3.0.0 ; sys_platform == 'linux'",
-    "feagi-bv-macos-arm64>=2.3.7,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "feagi-bv-macos-x86_64>=2.3.7,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-    "feagi-bv-windows>=2.3.7,<3.0.0 ; sys_platform == 'win32'",
+    "feagi-core==2.1.37",
+    "feagi-bv-linux>=2.3.23,<3.0.0 ; sys_platform == 'linux'",
+    "feagi-bv-macos-arm64>=2.3.23,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "feagi-bv-macos-x86_64>=2.3.23,<3.0.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "feagi-bv-windows>=2.3.23,<3.0.0 ; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

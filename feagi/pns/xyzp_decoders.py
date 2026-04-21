@@ -191,7 +191,10 @@ def decode_motor_xyzp(
         if group_id is not None:
             groups_found.add(group_id)
 
-    use_group_keys = include_groups or len(groups_found) > 1
+    # Always emit group-qualified keys when the cortical ID carries a unit
+    # index. Without this, single-group packets from group != 0 become
+    # ambiguous downstream (e.g. "6:absolute" gets interpreted as group 0).
+    use_group_keys = include_groups or len(groups_found) > 0
     
     for cortical_id, neuron_data in xyzp_data.items():
         # Filter by cortical_ids if provided

@@ -178,9 +178,9 @@ jobs:
           
           # Fetch latest feagi-bv-* from PyPI so feagi requires them.
           # pip install feagi --upgrade will then upgrade BV deps to satisfy.
-          BV_WINDOWS=$(curl -sSf https://pypi.org/pypi/feagi-bv-windows/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.7")
-          BV_LINUX=$(curl -sSf https://pypi.org/pypi/feagi-bv-linux/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.7")
-          BV_META=$(curl -sSf https://pypi.org/pypi/feagi-bv/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.7")
+          BV_WINDOWS=$(curl -sSf https://pypi.org/pypi/feagi-bv-windows/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.23")
+          BV_LINUX=$(curl -sSf https://pypi.org/pypi/feagi-bv-linux/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.23")
+          BV_META=$(curl -sSf https://pypi.org/pypi/feagi-bv/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "2.3.23")
           echo "Latest BV versions: feagi-bv=$BV_META, feagi-bv-windows=$BV_WINDOWS, feagi-bv-linux=$BV_LINUX"
           sed -i "s/feagi-bv-linux>=.*/feagi-bv-linux>=$BV_LINUX,<3.0.0 ; sys_platform == 'linux'\",/" feagi-meta/pyproject.toml
           sed -i "s/feagi-bv-windows>=.*/feagi-bv-windows>=$BV_WINDOWS,<3.0.0 ; sys_platform == 'win32'\",/" feagi-meta/pyproject.toml
