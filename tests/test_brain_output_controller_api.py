@@ -18,6 +18,9 @@ class _FakeCache:
     def sensor_Proximity_register(self, group, count, frame_mode, z_res, positioning):
         self.calls.append(("Proximity", group, count, frame_mode, z_res, positioning))
 
+    def sensor_Servo_register(self, group, count, frame_mode, z_res, positioning):
+        self.calls.append(("Servo", group, count, frame_mode, z_res, positioning))
+
     def sensor_Shock_register(self, group, count, frame_mode, z_res, positioning):
         self.calls.append(("Shock", group, count, frame_mode, z_res, positioning))
 
@@ -26,6 +29,9 @@ class _FakeCache:
 
     def sensor_proximity_write(self, *, group, channel_index, data):
         self.calls.append(("write_proximity", group, channel_index, data))
+
+    def sensor_servo_write(self, *, group, channel_index, data):
+        self.calls.append(("write_servo", group, channel_index, data))
 
     def sensor_misc_data_write(self, *, group, channel_index, data):
         self.calls.append(("write_misc", group, channel_index, data))
@@ -113,14 +119,16 @@ def test_register_sensor_units_deterministic_groups(monkeypatch):
     groups = bo.register_sensor_units(
         {
             "Shock": 2,
+            "Servo": 1,
             "Proximity": 3,
         },
         z_neuron_resolution=10,
     )
 
-    assert groups == {"Proximity": 0, "Shock": 1}
+    assert groups == {"Proximity": 0, "Servo": 1, "Shock": 2}
     assert ("Proximity", 0, 3, "ABS", 10, "LIN") in bo._cache.calls
-    assert ("Shock", 1, 2, "ABS", 10, "LIN") in bo._cache.calls
+    assert ("Servo", 1, 1, "ABS", 10, "LIN") in bo._cache.calls
+    assert ("Shock", 2, 2, "ABS", 10, "LIN") in bo._cache.calls
 
 
 def test_write_and_flush_sensory_bytes_without_direct_rust_imports(monkeypatch):
@@ -147,10 +155,12 @@ def test_write_and_flush_sensory_bytes_without_direct_rust_imports(monkeypatch):
     monkeypatch.setattr(bo, "_init_sensory_write_helpers", _fake_init_helpers)
 
     bo.write_sensor_scalar(unit_key="Proximity", group=0, channel_index=4, scalar_0_1=0.25)
+    bo.write_sensor_scalar(unit_key="Servo", group=1, channel_index=0, scalar_0_1=0.5)
     bo.write_sensor_scalar(unit_key="MiscData", group=2, channel_index=1, scalar_0_1=0.75)
     sent_len = bo.flush_sensory_bytes()
 
     assert ("write_proximity", 0, 4, ("pct", 0.25)) in bo._cache.calls
+    assert ("write_servo", 1, 0, ("pct", 0.5)) in bo._cache.calls
     assert ("write_misc", 2, 1, ("misc", 0.75)) in bo._cache.calls
     assert sent_len == len(b"encoded")
     assert bo._client.sent == [b"encoded"]
