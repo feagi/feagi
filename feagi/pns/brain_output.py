@@ -771,8 +771,8 @@ class BrainOutput:
 
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
-                Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Shock``,
-                ``MiscData``.
+                Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Servo``,
+                ``Shock``, ``MiscData``.
             z_neuron_resolution: Resolution parameter required by scalar sensory units.
             group_index_start: Starting sensory group index. Use this to reserve
                 lower group IDs for other sensory unit families.
@@ -824,6 +824,13 @@ class BrainOutput:
                 positioning,
             ),
             "Proximity": lambda group, count: self._cache.sensor_Proximity_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "Servo": lambda group, count: self._cache.sensor_Servo_register(
                 group,
                 count,
                 frame_mode,
@@ -1093,7 +1100,7 @@ class BrainOutput:
         Write one normalized scalar sample into the sensory cache.
 
         Args:
-            unit_key: Sensory unit key (``Proximity``, ``Shock``, ``MiscData``).
+            unit_key: Sensory unit key (``Proximity``, ``Servo``, ``Shock``, ``MiscData``).
             group: Registered sensory group index.
             channel_index: Channel index within group.
             scalar_0_1: Normalized scalar value in ``[0.0, 1.0]``.
@@ -1105,6 +1112,13 @@ class BrainOutput:
 
         if unit_key == "Proximity":
             self._cache.sensor_proximity_write(
+                group=int(group),
+                channel_index=int(channel_index),
+                data=self._sensory_percentage_factory.new_from_0_1(scalar),
+            )
+            return
+        if unit_key == "Servo":
+            self._cache.sensor_servo_write(
                 group=int(group),
                 channel_index=int(channel_index),
                 data=self._sensory_percentage_factory.new_from_0_1(scalar),
@@ -1132,7 +1146,7 @@ class BrainOutput:
 
         raise ValueError(
             f"Unsupported sensor write unit '{unit_key}'. "
-            "Supported units: ['Proximity', 'Shock', 'MiscData']"
+            "Supported units: ['Proximity', 'Servo', 'Shock', 'MiscData']"
         )
 
     def flush_sensory_bytes(self) -> int:
