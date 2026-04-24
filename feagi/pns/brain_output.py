@@ -675,7 +675,7 @@ class BrainOutput:
                     )
                 agent_type = (
                     AgentType.BOTH
-                    if self._vision_units
+                    if (self._vision_units or has_sensory_cache)
                     else AgentType.MOTOR
                 )
                 motor_units_payload = ("motor", output_count, motor_units)

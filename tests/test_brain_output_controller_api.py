@@ -1,5 +1,6 @@
 """Tests for controller-facing BrainOutput helper APIs."""
 
+import json
 from types import SimpleNamespace
 
 from feagi.pns.brain_output import BrainOutput
@@ -172,3 +173,78 @@ def test_receive_no_ops_when_sensory_only_mode():
     bo._connected = True
     bo._sensory_only_mode = True
     bo.receive()
+
+
+def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch):
+    """Motor + scalar sensory registrations should connect with BOTH agent type."""
+
+    class _FakeAgentType:
+        SENSORY = "sensory"
+        BOTH = "both"
+        MOTOR = "motor"
+
+    class _FakeFeagiAgentClient:
+        instances = []
+
+        def __init__(self, _agent_id, agent_type):
+            self.agent_type = agent_type
+            self.configure_kwargs = None
+            self.connected = False
+            self.device_config_payload = None
+            self.expected_cortical_ids = None
+            _FakeFeagiAgentClient.instances.append(self)
+
+        def configure(self, **kwargs):
+            self.configure_kwargs = kwargs
+
+        def connect(self):
+            self.connected = True
+
+        def set_motor_cortical_ids(self, _ids):
+            return None
+
+        def send_device_configuration(self, payload, expected_cortical_ids):
+            self.device_config_payload = payload
+            self.expected_cortical_ids = expected_cortical_ids
+
+    fake_client_module = SimpleNamespace(
+        AgentType=_FakeAgentType,
+        FeagiAgentClient=_FakeFeagiAgentClient,
+    )
+    monkeypatch.setitem(__import__("sys").modules, "feagi.pns.client", fake_client_module)
+
+    class _FakeConnectCache:
+        def get_sensory_cortical_ids_for_verification(self):
+            return ["sensory-id-1"]
+
+        def export_capabilities_json(self):
+            return json.dumps({})
+
+    bo = BrainOutput()
+    bo._cache = _FakeConnectCache()
+    bo._cache_available = True
+    bo._motor_total_channels = 1
+    bo._motor_decoder_registered = True
+    bo._agent_id = "test-agent"
+    bo._feagi_host = "127.0.0.1"
+    bo._feagi_registration_port = 8000
+    bo._feagi_sensory_port = 8001
+    bo._feagi_motor_port = 8002
+    bo._transport_type = "zmq"
+    bo._feagi_connection_timeout_ms = 1000
+    bo._feagi_registration_retries = 1
+    bo._feagi_heartbeat_interval_s = 1.0
+    bo._feagi_api_port = 8003
+    bo._feagi_http_timeout_s = 1.0
+    bo._auth_token_b64 = "dGVzdA=="
+    bo._vision_units = []
+    bo._collect_motor_unit_specs = lambda: [("rotary_motor", 0)]  # type: ignore[method-assign]
+    bo._collect_motor_cortical_ids = lambda: ["motor-id-1"]  # type: ignore[method-assign]
+    bo._normalize_device_registration_properties = lambda payload: payload  # type: ignore[method-assign]
+    bo._validate_device_registration_contract = lambda payload: payload  # type: ignore[method-assign]
+
+    bo.connect()
+
+    client = _FakeFeagiAgentClient.instances[-1]
+    assert client.connected is True
+    assert client.agent_type == _FakeAgentType.BOTH

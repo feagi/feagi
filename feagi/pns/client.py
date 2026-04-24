@@ -463,6 +463,22 @@ class FeagiAgentClient:
             resolved_vision_units.extend(list(vision_units))
         if vision_unit:
             resolved_vision_units.append(vision_unit)
+        if (
+            not resolved_vision_units
+            and self.agent_type in (AgentType.SENSORY, AgentType.BOTH)
+        ):
+            # Compatibility shim for rust-py-libs tuple validation, which currently
+            # requires a vision capability for sensory/both agents.
+            # Use a reserved high group index to avoid collisions with controller
+            # sensory group assignments in normal operation.
+            resolved_vision_units.append(
+                ("scalar_sensory", 1, 1, 1, "proximity", 255)
+            )
+            logger.info(
+                "[CFG] Injected scalar sensory capability tuple to satisfy "
+                "tuple validation for agent type '%s'.",
+                self.agent_type.value,
+            )
         if resolved_vision_units:
             seen_vision_groups: set[int] = set()
             for (
