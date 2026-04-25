@@ -23,11 +23,22 @@ logger = logging.getLogger("feagi.pns.brain_input")
 # @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-input
 
 # Cortical ID subtype (bytes 1-3) -> candidate sensor register method names
-# Rust macro exposes PascalCase; try both for compatibility
+# Rust macro exposes PascalCase; try both for compatibility.
+#
+# IMU mappings:
+#   b"rim" -> Raw IMU (3 sub-areas: accel + gyro + mag, each [3, 1, z])
+#   b"sim" -> Smart IMU (1 sub-area: orientation quaternion [4, 1, z])
+#
+# Legacy b"acc" (Accelerometer) and b"gyq" (Gyroscope) are deliberately absent:
+# the genome migrator drops them with a warning, and any cortical area still
+# carrying those subtypes will fall through to the "Unknown cortical subtype"
+# log path at registration time without aborting the controller.
 _SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES = {
     b"svi": ["sensor_segmented_vision_register", "sensor_SegmentedVision_register"],
     b"img": ["sensor_vision_register", "sensor_Vision_register"],
     b"mis": ["sensor_misc_data_register", "sensor_MiscData_register"],
+    b"rim": ["sensor_raw_i_m_u_register", "sensor_RawIMU_register"],
+    b"sim": ["sensor_smart_i_m_u_register", "sensor_SmartIMU_register"],
 }
 
 
@@ -152,6 +163,38 @@ def register_cortical_areas_with_cache(cache: Any, cortical_area_ids: List[str])
                 number_channels=1,
                 frame_change_handling=frame,
                 misc_data_dimensions=dims,
+            )
+        elif subtype in (b"rim", b"sim"):
+            # IMU registration mirrors the SignedPercentage_3D / 4D arm
+            # signature: (group, number_channels, frame_change_handling,
+            # z_neuron_resolution, percentage_neuron_positioning).
+            #
+            # `register_cortical_areas_with_cache` is the auto-discovery path
+            # used when the controller does not pre-register IMU groups via
+            # `BrainOutput.register_sensor_groups`. It registers a single
+            # channel per group as a sane default; controllers that need
+            # multiple channels should pre-register through brain_output and
+            # this helper will simply route the existing groups.
+            positioning_enum = (
+                frpl.data_structures.genomic.cortical_area
+                    .PercentageNeuronPositioning
+            )
+            positioning = positioning_enum.Linear()
+            # The Z-axis neuron resolution and channel count below match the
+            # Raw IMU / Smart IMU defaults in
+            # `feagi-core/crates/feagi-structures/src/templates/sensor_cortical_units.rs`
+            # (channel_dimensions_default: [3, 1, 10] for RawIMU sub-areas,
+            # [4, 1, 10] for SmartIMU). Auto-discovery cannot read the Rust
+            # template directly today, so the values are mirrored here in the
+            # same style as svi/img/mis above. If the template defaults change,
+            # this branch must be updated.
+            # @architecture:acceptable - auto-discovery default mirroring template
+            register_method(
+                group=group_id,
+                number_channels=1,
+                frame_change_handling=frame,
+                z_neuron_resolution=10,
+                percentage_neuron_positioning=positioning,
             )
         else:
             subtype_str = subtype.decode("ascii", errors="replace")

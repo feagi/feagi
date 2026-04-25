@@ -112,6 +112,16 @@ class BrainOutput:
         self._vision_image_frame_factory = None
         self._vision_color_space = None
         self._vision_memory_layout = None
+
+        # Lazy IMU write helpers. RawIMU bundles three SignedPercentage3D
+        # readings (accel/gyro/mag); SmartIMU is a single SignedPercentage4D
+        # quaternion. Factories are resolved on first IMU write to avoid
+        # importing the Rust extension when no IMU is in use.
+        self._sensory_signed_percentage_factory = None
+        self._sensory_signed_percentage_3d_factory = None
+        self._sensory_signed_percentage_4d_factory = None
+        self._sensory_raw_imu_factory = None
+
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -754,6 +764,48 @@ class BrainOutput:
         self._connected = False
         self._sensory_only_mode = False
 
+    def reconnect(self, reason: Optional[str] = None) -> None:
+        """
+        Re-establish the FEAGI registration without re-running configure().
+
+        Use this when :class:`feagi.pns.health_monitor.FeagiHealthMonitor`
+        emits an ``attempt_now`` decision (e.g. genome reload, FEAGI
+        restart, prolonged unreachability). The decision logic lives in
+        the Rust ``feagi-agent`` crate so all language SDKs behave
+        identically.
+
+        Behavior:
+        - If a client is already attached, delegate to its ``reconnect()``
+          method (which performs disconnect + connect + replay of cached
+          device registrations entirely in Rust).
+        - Otherwise, perform a fresh ``connect()`` cycle so the controller
+          can recover from a state where it had never connected.
+
+        Args:
+            reason: Optional human-readable reason forwarded to logs.
+
+        Raises:
+            RuntimeError: If the agent is not configured or the rebuild
+                fails. Callers feeding into a recovery loop should report
+                this back to the policy via ``record_attempt_failed()``.
+        """
+        if not self._cache_available:
+            raise RuntimeError(
+                "Cache not initialized. Call configure() first.",
+            )
+        if self._client is None:
+            logger.info(
+                "[RECONNECT] No active client; running full connect()"
+                " (reason=%s)",
+                reason,
+            )
+            self.connect()
+            return
+
+        logger.info("[RECONNECT] Rebuilding FEAGI session (reason=%s)", reason)
+        self._client.reconnect(reason)
+        self._connected = True
+
     def register_sensor_units(
         self,
         unit_channel_counts: Dict[str, int],
@@ -771,8 +823,15 @@ class BrainOutput:
 
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
-                Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Servo``,
-                ``Shock``, ``MiscData``.
+                Supported keys: ``Vision``, ``RawIMU``, ``SmartIMU``, ``Proximity``,
+                ``Servo``, ``Shock``, ``MiscData``.
+
+                Notes on IMU keys:
+                  * ``RawIMU`` registers ONE cortical unit with three sub-areas
+                    (accelerometer, gyroscope, magnetometer), each `[3, 1, z]`.
+                  * ``SmartIMU`` registers ONE cortical unit with one sub-area
+                    holding an orientation quaternion as `[4, 1, z]`.
+                  * IMU data is intentionally NOT routed through ``Shock``.
             z_neuron_resolution: Resolution parameter required by scalar sensory units.
             group_index_start: Starting sensory group index. Use this to reserve
                 lower group IDs for other sensory unit families.
@@ -816,7 +875,20 @@ class BrainOutput:
                 frame_mode,
                 image_props,
             ),
-            "Gyroscope": lambda group, count: self._cache.sensor_Gyroscope_register(
+            # Raw IMU = ONE cortical unit, THREE sub-areas (accel, gyro, mag).
+            # The Rust binding's snake-cased method name surfaces as
+            # ``sensor_RawIMU_register`` (matching the existing camel pattern of
+            # ``sensor_Vision_register``); the underlying cache spreads the
+            # composite across the 3 sub-cortical-areas at burst time.
+            "RawIMU": lambda group, count: self._cache.sensor_RawIMU_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            # Smart IMU = single 4-axis quaternion sub-area for orientation.
+            "SmartIMU": lambda group, count: self._cache.sensor_SmartIMU_register(
                 group,
                 count,
                 frame_mode,
@@ -926,6 +998,30 @@ class BrainOutput:
 
         self._sensory_percentage_factory = frpl.connector_core.data_types.Percentage
         self._sensory_misc_factory = frpl.connector_core.data_types.MiscData
+
+    def _init_imu_write_helpers(self) -> None:
+        """
+        Lazy-init IMU-specific factories.
+
+        Resolves the Rust-side ``SignedPercentage``/``SignedPercentage3D``/
+        ``SignedPercentage4D``/``RawIMU`` constructors only when the controller
+        actually pushes IMU data, so non-IMU controllers don't pay the import
+        cost.
+        """
+        if (
+            self._sensory_signed_percentage_factory is not None
+            and self._sensory_signed_percentage_3d_factory is not None
+            and self._sensory_signed_percentage_4d_factory is not None
+            and self._sensory_raw_imu_factory is not None
+        ):
+            return
+        import feagi_rust_py_libs as frpl
+
+        data_types = frpl.connector_core.data_types
+        self._sensory_signed_percentage_factory = data_types.SignedPercentage
+        self._sensory_signed_percentage_3d_factory = data_types.SignedPercentage3D
+        self._sensory_signed_percentage_4d_factory = data_types.SignedPercentage4D
+        self._sensory_raw_imu_factory = data_types.RawIMU
 
     def _init_vision_write_helpers(self) -> None:
         """Lazy-init write helper factories for vision cache writes."""
@@ -1147,6 +1243,207 @@ class BrainOutput:
         raise ValueError(
             f"Unsupported sensor write unit '{unit_key}'. "
             "Supported units: ['Proximity', 'Servo', 'Shock', 'MiscData']"
+        )
+
+    def write_sensor_raw_imu(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        accelerometer_xyz: tuple[float, float, float],
+        gyroscope_xyz: tuple[float, float, float],
+        magnetometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Write one composite Raw IMU reading (accel + gyro + mag) into the cache.
+
+        Each axis triple must already be normalized to the inclusive range
+        ``[-1.0, 1.0]`` by the controller; values outside the range raise
+        ``ValueError``. The composite is stored as a single cache entry per
+        ``(group, channel_index)``; the Rust encoder spreads it across the
+        three sub-cortical-areas (sub-area 0 = accel, 1 = gyro, 2 = mag) at
+        burst time.
+
+        The full composite is written each call (no partial-update API). When
+        only some axes change in a tick, the controller is responsible for
+        passing through the unchanged axes for the other sensors so the
+        previously-cached value is not overwritten with stale zeros.
+
+        Args:
+            group: Registered RawIMU sensory group index.
+            channel_index: Channel index within the group.
+            accelerometer_xyz: Linear-acceleration triple, normalized.
+            gyroscope_xyz: Angular-velocity triple, normalized.
+            magnetometer_xyz: Magnetic-field triple, normalized.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        composite = self._sensory_raw_imu_factory.try_from_axis_triples(
+            (
+                float(accelerometer_xyz[0]),
+                float(accelerometer_xyz[1]),
+                float(accelerometer_xyz[2]),
+            ),
+            (
+                float(gyroscope_xyz[0]),
+                float(gyroscope_xyz[1]),
+                float(gyroscope_xyz[2]),
+            ),
+            (
+                float(magnetometer_xyz[0]),
+                float(magnetometer_xyz[1]),
+                float(magnetometer_xyz[2]),
+            ),
+        )
+        # Method name surfaces from paste's :snake casing of the all-caps
+        # acronym 'IMU' -> 'i_m_u'. Pre-existing project convention; matched
+        # one-for-one with the Rust binding output.
+        self._cache.sensor_raw_i_m_u_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=composite,
+        )
+
+    def _build_signed_percentage_3d(
+        self,
+        xyz: tuple[float, float, float],
+    ):
+        """
+        Construct a Rust-side ``SignedPercentage3D`` from a normalized triple.
+
+        The triple must already be in the inclusive range ``[-1.0, 1.0]``;
+        out-of-range components surface as a ``ValueError`` from the Rust
+        ``new_from_m1_1`` constructor (no implicit clamping). Used by all
+        partial Raw IMU axis writers below.
+        """
+        signed_pct = self._sensory_signed_percentage_factory
+        return self._sensory_signed_percentage_3d_factory(
+            signed_pct.new_from_m1_1(float(xyz[0])),
+            signed_pct.new_from_m1_1(float(xyz[1])),
+            signed_pct.new_from_m1_1(float(xyz[2])),
+        )
+
+    def write_sensor_raw_imu_accelerometer(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        accelerometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the accelerometer sub-axis of a registered Raw IMU channel.
+
+        Performs a read-modify-write at the cache layer: the gyroscope and
+        magnetometer sub-components are left untouched at whatever was last
+        written for them (or the registered initial zero, if never written).
+        Use this when the controller has accelerometer data but no gyroscope/
+        magnetometer for a given IMU site, to avoid the implicit-zero fallback
+        that ``write_sensor_raw_imu`` would otherwise impose on missing axes.
+
+        Args:
+            group: Registered RawIMU sensory group index.
+            channel_index: Channel index within the group.
+            accelerometer_xyz: Linear-acceleration triple, normalized to
+                ``[-1.0, 1.0]`` per axis.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(accelerometer_xyz)
+        self._cache.sensor_raw_i_m_u_write_accelerometer(
+            group=int(group),
+            channel_index=int(channel_index),
+            accelerometer=triple,
+        )
+
+    def write_sensor_raw_imu_gyroscope(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        gyroscope_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the gyroscope sub-axis of a registered Raw IMU channel.
+
+        Companion to :meth:`write_sensor_raw_imu_accelerometer`; see that
+        docstring for the read-modify-write rationale. Accelerometer and
+        magnetometer slots are left unchanged.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(gyroscope_xyz)
+        self._cache.sensor_raw_i_m_u_write_gyroscope(
+            group=int(group),
+            channel_index=int(channel_index),
+            gyroscope=triple,
+        )
+
+    def write_sensor_raw_imu_magnetometer(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        magnetometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the magnetometer sub-axis of a registered Raw IMU channel.
+
+        Companion to :meth:`write_sensor_raw_imu_accelerometer`; see that
+        docstring for the read-modify-write rationale. Accelerometer and
+        gyroscope slots are left unchanged.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(magnetometer_xyz)
+        self._cache.sensor_raw_i_m_u_write_magnetometer(
+            group=int(group),
+            channel_index=int(channel_index),
+            magnetometer=triple,
+        )
+
+    def write_sensor_smart_imu(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        quaternion_wxyz: tuple[float, float, float, float],
+    ) -> None:
+        """
+        Write one orientation quaternion into the SmartIMU cache.
+
+        The quaternion is expected to be already-normalized to unit length and
+        each component clamped into ``[-1.0, 1.0]`` (i.e., a valid unit
+        quaternion). Convention: ``(w, x, y, z)`` mapped to
+        ``SignedPercentage4D(a=w, b=x, c=y, d=z)``.
+
+        Args:
+            group: Registered SmartIMU sensory group index.
+            channel_index: Channel index within the group.
+            quaternion_wxyz: ``(w, x, y, z)`` quaternion components.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        signed_pct = self._sensory_signed_percentage_factory
+        quat = self._sensory_signed_percentage_4d_factory(
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[0])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[1])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[2])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[3])),
+        )
+        self._cache.sensor_smart_i_m_u_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=quat,
         )
 
     def flush_sensory_bytes(self) -> int:

@@ -1169,7 +1169,35 @@ class FeagiAgentClient:
             and self._client is not None
             and self._client.is_registered()
         )
-    
+
+    def reconnect(self, reason: Optional[str] = None) -> None:
+        """
+        Force a fresh registration cycle with FEAGI.
+
+        Delegates to the underlying Rust ``PyAgentClient.reconnect()`` which
+        performs a best-effort disconnect, a fresh connect, and replays any
+        cached device registrations. The decision logic for *when* to call
+        this lives in :mod:`feagi.pns.health_monitor` (which wraps the
+        ``feagi-agent`` Rust recovery primitives) so behavior is identical
+        across all SDKs.
+
+        Args:
+            reason: Optional human-readable reason forwarded to logs/telemetry.
+
+        Raises:
+            RuntimeError: If the underlying Rust client is not initialized
+                or the rebuild attempt fails. Callers should treat this as
+                a single failed attempt and feed the result back into the
+                policy via ``record_attempt_failed()``.
+        """
+        if self._client is None:
+            raise RuntimeError(
+                "Cannot reconnect: agent has no underlying Rust client. "
+                "Call connect() first.",
+            )
+        self._client.reconnect(reason)
+        self._connected = True
+
     def disconnect(self, timeout: float = 0.1):
         """
         Disconnect from FEAGI (non-blocking for fast shutdown)
