@@ -138,7 +138,7 @@ See [`examples/`](./examples/) for complete agent implementations:
 
 - **Discord**: [Join our community](https://discord.gg/PTVC8fyGN8)
 - **Issues**: [Report bugs](https://github.com/feagi/feagi-python-sdk/issues)
-- **Neurorobotics Studio**: [Cloud platform](https://brainsforrobots.com)
+- **Neurorobotics Studio**: [Design and deployment desktop application](https://brainsforrobots.com/nrs)
 - **Homepage**: [feagi.org](https://feagi.org)
 
 ---
