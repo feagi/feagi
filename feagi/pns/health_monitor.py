@@ -52,7 +52,7 @@ try:
     )
 except ImportError as exc:  # pragma: no cover - import failure surfaces cleanly
     raise ImportError(
-        "feagi.pns.health_monitor requires feagi_rust_py_libs >= 0.0.97 "
+        "feagi.pns.health_monitor requires feagi_rust_py_libs >= 0.0.101 "
         "with recovery primitives. Re-build the wheel via maturin.",
     ) from exc
 
