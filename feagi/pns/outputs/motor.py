@@ -135,7 +135,7 @@ class ServoMotor(BaseOutput):
                     motor_unit=(
                         (
                             frpl.data_structures.genomic
-                            .MotorCorticalType.PositionalServo
+                            .MotorCorticalUnit.PositionalServo
                         )
                     ),
                     group=group_id,
@@ -344,7 +344,7 @@ class RotaryMotor(BaseOutput):
                     motor_unit=(
                         (
                             frpl.data_structures.genomic
-                            .MotorCorticalType.RotaryMotor
+                            .MotorCorticalUnit.RotaryMotor
                         )
                     ),
                     group=group_id,
