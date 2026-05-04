@@ -84,6 +84,21 @@ def _parse_cortical_id_bytes(cortical_id: str) -> Optional[bytes]:
     return None
 
 
+def _decode_signed_percentage_linear_along_z(z_values: List[int], z_depth: int) -> float:
+    """
+    Signed linear on a single X column per channel: z=0 -> +1, z=z_depth-1 -> -1.
+
+    Matches feagi-sensorimotor ``decode_signed_percentage_from_linear_neurons_along_z``
+    (RotaryMotor 1x1xN template).
+    """
+    if z_depth <= 0 or not z_values:
+        return 0.0
+    z_span = max(1, z_depth - 1)
+    avg_z = sum(z_values) / len(z_values)
+    v = 1.0 - 2.0 * (avg_z / z_span)
+    return max(-1.0, min(1.0, v))
+
+
 def _decode_signed_percentage_linear(
     z_positive: List[int],
     z_negative: List[int],
@@ -142,11 +157,13 @@ def _resolve_motor_linear_depth(unit_ref: bytes, observed_depth: int) -> int:
     """
     Resolve stable Z depth for linear motor decode.
 
-    Motor templates use 10 Z bins by default. When only a subset of bins fire in
-    a single packet, deriving depth from observed max Z can collapse scaling.
-    Keep decode depth stable at least at template default.
+    Defaults match feagi-structures templates: RotaryMotor 1x1x9, PositionalServo 1x1x10.
+    When only a subset of bins fire in a single packet, deriving depth from observed max Z
+    can collapse scaling; keep decode depth at least at the template default.
     """
-    if unit_ref in (b"pse", b"mot"):
+    if unit_ref == b"mot":
+        return max(9, observed_depth)
+    if unit_ref == b"pse":
         return max(10, observed_depth)
     return max(1, observed_depth)
 
@@ -286,6 +303,50 @@ def decode_motor_xyzp(
             frame_incremental = ((data_type_flag >> 8) & 0x01) == 1
             positioning_fractional = ((data_type_flag >> 9) & 0x01) == 1
             command_mode = "incremental" if frame_incremental else "absolute"
+
+            # RotaryMotor (mot): signed linear uses one X index per channel; Z runs +1..-1
+            # (matches feagi-sensorimotor PercentageNeuronVoxelXYZPDecoder along-Z layout).
+            # PositionalServo and fractional signed still use the two-lane paired path below.
+            if unit_ref == b"mot" and variant == 5 and not positioning_fractional:
+                z_by_channel: Dict[int, List[int]] = {}
+                max_z_seen = 0
+                for x, y, z, p in zip(x_coords, y_coords, z_coords, p_values):
+                    if float(p) == 0.0:
+                        continue
+                    channel_idx = int(x)
+                    z_int = int(z)
+                    max_z_seen = max(max_z_seen, z_int)
+                    z_by_channel.setdefault(channel_idx, []).append(z_int)
+                z_depth = _resolve_motor_linear_depth(
+                    unit_ref,
+                    max_z_seen + 1,
+                )
+                for channel_idx, z_values in z_by_channel.items():
+                    decoded = _decode_signed_percentage_linear_along_z(
+                        z_values,
+                        z_depth,
+                    )
+                    channel_key = str(channel_idx)
+                    if use_group_keys and group_id is not None:
+                        channel_key = (
+                            f"{group_id}:{channel_key}:{command_mode}"
+                        )
+                    else:
+                        channel_key = f"{channel_key}:{command_mode}"
+                    motors[channel_key] = decoded
+                    prev = _last_decode_log.get(channel_key)
+                    if prev is None or abs(prev - decoded) > 1e-6:
+                        logger.info(
+                            "[XYZP-DECODE] cid=%s mode=%s lane=along_z channel=%d "
+                            "decoded=%.6f x_vals=%s",
+                            cortical_id,
+                            command_mode,
+                            channel_idx,
+                            decoded,
+                            [x for x in x_coords[:12]],
+                        )
+                        _last_decode_log[channel_key] = decoded
+                continue
 
             # PositionalServo/RotaryMotor lane decode:
             # even X -> forward/positive lane, odd X -> backward/negative lane.

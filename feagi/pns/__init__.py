@@ -115,7 +115,7 @@ from feagi.pns.health_monitor import (
 )
 
 # Also export common classes directly
-from feagi.pns.inputs import Camera, NumericStream as NumericInput, Infrared
+from feagi.pns.inputs import Camera, NumericStream as NumericInput, Infrared, SmartImu
 from feagi.pns.outputs import ServoMotor, RotaryMotor, NumericStream as NumericOutput
 
 __all__ = [
@@ -142,6 +142,7 @@ __all__ = [
     "Camera",
     "NumericInput",
     "Infrared",
+    "SmartImu",
     # Common outputs
     "ServoMotor",
     "RotaryMotor",

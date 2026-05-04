@@ -44,6 +44,39 @@ def test_device_registration_contract_accepts_valid_payload() -> None:
     ] == "front_left_leg"
 
 
+def test_device_registration_contract_defaults_fill_rust_minimal_export() -> None:
+    """Programmatic Rust cache export may use null names and omit device_properties keys."""
+    manager = BrainOutput()
+    payload: dict = {
+        "output_units_and_decoder_properties": {
+            "RotaryMotor": [
+                [
+                    {
+                        "friendly_name": None,
+                        "cortical_unit_index": 0,
+                        "io_configuration_flags": {},
+                        "device_grouping": [
+                            {
+                                "friendly_name": None,
+                                "device_properties": {},
+                            },
+                        ],
+                    },
+                    {},
+                ]
+            ]
+        },
+    }
+    filled = BrainOutput._apply_device_registration_contract_defaults(payload)
+    validated = manager._validate_device_registration_contract(filled)
+    unit = validated["output_units_and_decoder_properties"]["RotaryMotor"][0][0]
+    assert unit["friendly_name"] == "RotaryMotor_0"
+    assert unit["device_grouping"][0]["friendly_name"] == "RotaryMotor_0_ch0"
+    props = unit["device_grouping"][0]["device_properties"]
+    assert props["bundle_type"] == {"type": "String", "value": "unspecified"}
+    assert props["source_entity"] == {"type": "String", "value": "unspecified"}
+
+
 def test_device_registration_contract_rejects_missing_required_fields() -> None:
     manager = BrainOutput()
     payload = _valid_motor_registration()

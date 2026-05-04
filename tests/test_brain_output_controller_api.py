@@ -248,3 +248,14 @@ def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch)
     client = _FakeFeagiAgentClient.instances[-1]
     assert client.connected is True
     assert client.agent_type == _FakeAgentType.BOTH
+
+
+def test_collect_motor_cortical_ids_empty_when_no_motor_outputs_registered():
+    """
+    Sensory-only agents must not get synthetic PositionalServo IDs; those inflated
+    ``output_count`` and forced the motor registration path (ROS SmartIMU-only).
+    """
+    bo = BrainOutput()
+    assert bo._outputs == []
+    assert bo._motor_total_channels == 0
+    assert bo._collect_motor_cortical_ids() == []

@@ -1105,16 +1105,17 @@ class FeagiAgentClient:
             device_registrations_json: JSON string matching
                 JSONInputOutputDefinition
                 (e.g. from ConnectorAgent.export_capabilities_json()).
-            expected_cortical_ids: Optional cortical IDs that must exist before
-                returning. If provided, device registration is retried and
-                verified against FEAGI API.
+            expected_cortical_ids: Cortical IDs that must exist before returning.
+                If ``None``, the payload is sent once with no API verification.
+                If a list (including empty), the client uses the retry loop so
+                registration is still delivered the same way as verified sends.
 
         Raises:
             RuntimeError: If not connected.
         """
         if not self._connected or self._client is None:
             raise RuntimeError("Agent not connected. Call connect() first.")
-        if not expected_cortical_ids:
+        if expected_cortical_ids is None:
             self._client.send_device_configuration(device_registrations_json)
             return
 
