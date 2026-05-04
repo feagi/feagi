@@ -490,9 +490,23 @@ class BrainOutput:
                         )
                         cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
-                    # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
-                    # For now, use default "omot" format
-                    cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
+                    enc = getattr(output, "encoding", "absolute") or "absolute"
+                    frame_bit = 1 if enc == "incremental" else 0
+                    variant = 5
+                    cfg_lo = variant & 0xFF
+                    cfg_hi = frame_bit & 0xFF
+                    cid_bytes = bytes(
+                        [
+                            111,
+                            109,
+                            111,
+                            116,
+                            cfg_lo,
+                            cfg_hi,
+                            0,
+                            group_id & 0xFF,
+                        ]
+                    )
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
         # Legacy fallback: only when motor outputs exist but no IDs were assembled
@@ -559,14 +573,14 @@ class BrainOutput:
         """
         import feagi_rust_py_libs as frpl
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        servo_frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         # Match feagi-structures motor templates: PositionalServo 1x1x10, RotaryMotor 1x1x9.
         z_neuron_resolution_servo = 10
         z_neuron_resolution_rotary = 9
 
         servo_channels_by_group: Dict[int, List[int]] = {}
-        rotary_channels_by_group: Dict[int, List[int]] = {}
+        rotary_by_group: Dict[int, List[Any]] = {}
         for output in self._outputs:
             if not isinstance(output, (ServoMotor, RotaryMotor)):
                 continue
@@ -575,7 +589,7 @@ class BrainOutput:
             if isinstance(output, ServoMotor):
                 servo_channels_by_group.setdefault(group_id, []).append(ch)
             else:
-                rotary_channels_by_group.setdefault(group_id, []).append(ch)
+                rotary_by_group.setdefault(group_id, []).append(output)
 
         for group_id, chans in sorted(servo_channels_by_group.items()):
             count = (max(chans) + 1) if chans else 0
@@ -584,19 +598,36 @@ class BrainOutput:
             self._cache.motor_positional_servo_register(
                 group_id,
                 count,
-                frame_mode,
+                servo_frame_mode,
                 z_neuron_resolution_servo,
                 positioning,
             )
 
-        for group_id, chans in sorted(rotary_channels_by_group.items()):
+        for group_id, motors in sorted(rotary_by_group.items()):
+            encodings = {
+                getattr(m, "encoding", "absolute") or "absolute" for m in motors
+            }
+            if len(encodings) > 1:
+                raise RuntimeError(
+                    "RotaryMotor outputs in device group %s mix absolute and incremental "
+                    "encoding; use different device group IDs in mappings, or use the same "
+                    "frame (absolute) or (incremental) for all rotary motors in that group."
+                    % group_id
+                )
+            enc = next(iter(encodings))
+            rotary_frame = (
+                frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Incremental()
+                if enc == "incremental"
+                else frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+            )
+            chans = [int(getattr(m, "channel", 0) or 0) for m in motors]
             count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
             self._cache.motor_rotary_motor_register(
                 group_id,
                 count,
-                frame_mode,
+                rotary_frame,
                 z_neuron_resolution_rotary,
                 positioning,
             )
