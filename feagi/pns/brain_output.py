@@ -5,7 +5,7 @@ Global manager for all FEAGI outputs (motor/action targets).
 Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
-from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any
+from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any, Literal
 import base64
 import binascii
 import json
@@ -968,6 +968,7 @@ class BrainOutput:
         group_index_start: int = 0,
         image_resolution_xy: tuple[int, int] = (32, 32),
         misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
+        frame_change_handling: Literal["absolute", "incremental"] = "absolute",
     ) -> Dict[str, int]:
         """
         Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
@@ -991,6 +992,9 @@ class BrainOutput:
                 lower group IDs for other sensory unit families.
             image_resolution_xy: Vision registration resolution as (x, y).
             misc_dimensions_xyz: MiscData registration dimensions as (x, y, z).
+            frame_change_handling: FEAGI frame mode for registered units.
+                Use ``"absolute"`` for direct values and ``"incremental"``
+                for delta-style channels mirrored as incremental cortical areas.
 
         Returns:
             Mapping of unit key -> assigned cache group index (deterministic sorted order).
@@ -1005,7 +1009,23 @@ class BrainOutput:
 
         import feagi_rust_py_libs as frpl
 
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        frame_mode_value = str(frame_change_handling).strip().lower()
+        if frame_mode_value == "incremental":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Incremental()
+            )
+        elif frame_mode_value == "absolute":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Absolute()
+            )
+        else:
+            raise ValueError(
+                "frame_change_handling must be 'absolute' or 'incremental'."
+            )
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
         descriptors = frpl.connector_core.data_types.descriptors
         image_props = descriptors.ImageFrameProperties(
