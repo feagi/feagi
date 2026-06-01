@@ -21,6 +21,23 @@ def _make_cortical_id(unit: bytes, data_type_flag: int, group: int) -> str:
     return base64.b64encode(b).decode("ascii")
 
 
+def test_decode_motor_xyzp_rotary_mot_signed_absolute_along_z():
+    """RotaryMotor (mot): single column per channel; z=0 -> +1, z=8 -> -1 (depth 9)."""
+    cid = _make_cortical_id(b"mot", data_type_flag=5, group=0)
+    out_hi = decode_motor_xyzp(
+        {cid: {"x": [0], "y": [0], "z": [0], "p": [100.0]}},
+        [cid],
+        include_groups=True,
+    )
+    assert out_hi["0:0:absolute"] == 1.0
+    out_lo = decode_motor_xyzp(
+        {cid: {"x": [0], "y": [0], "z": [8], "p": [100.0]}},
+        [cid],
+        include_groups=True,
+    )
+    assert out_lo["0:0:absolute"] == -1.0
+
+
 def test_decode_motor_xyzp_signed_linear_endpoints():
     """Signed linear decoding should map endpoint z bins to full range."""
     # SignedPercentage + absolute + linear => variant=5, frame=0, pos=0

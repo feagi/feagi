@@ -68,6 +68,37 @@ def test_servo_incremental_applies_delta_and_clamps():
     assert servo.get_angle() == pytest.approx(0.0, abs=1e-6)
 
 
+def test_servo_incremental_plain_float_uses_half_neutral_like_brain_output():
+    """BrainOutput passes decoded 0..1 as float with command_mode='incremental' (not PyPercentage)."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo.incremental_step_ratio = 0.05
+    # Default center 90°; FEAGI decoded 0.1111 is below neutral 0.5 -> negative delta.
+    servo._on_motor_command(0.1111, command_mode="incremental")
+    half_range = 90.0
+    step = half_range * 0.05
+    expected_delta = (0.1111 - 0.5) * 2.0 * step
+    assert servo.get_angle() == pytest.approx(90.0 + expected_delta, abs=1e-4)
+
+
+def test_servo_incremental_at_max_positive_command_stays_put():
+    """1.0 increases angle; at max_angle further increases clamp (delta 0 in logs)."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo._current_angle = 180.0
+    servo._on_motor_command(1.0, command_mode="incremental")
+    assert servo.get_angle() == pytest.approx(180.0, abs=1e-6)
+
+
+def test_servo_incremental_at_max_can_decrease():
+    """Below-neutral FEAGI values decrease from 180°."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo.incremental_step_ratio = 0.05
+    servo._current_angle = 180.0
+    servo._on_motor_command(0.0, command_mode="incremental")
+    step = 90.0 * 0.05
+    expected = 180.0 + (0.0 - 0.5) * 2.0 * step
+    assert servo.get_angle() == pytest.approx(expected, abs=1e-4)
+
+
 def test_servo_motor_cache_methods():
     """Test that servo motor calls correct Rust cache methods"""
     try:

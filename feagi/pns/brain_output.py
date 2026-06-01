@@ -5,7 +5,7 @@ Global manager for all FEAGI outputs (motor/action targets).
 Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
-from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any
+from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any, Literal
 import base64
 import binascii
 import json
@@ -209,6 +209,78 @@ class BrainOutput:
 
         normalize_section("output_units_and_decoder_properties")
         normalize_section("input_units_and_encoder_properties")
+        return registrations
+
+    #: Placeholder string for required device_properties keys when Rust cache export omits them.
+    _DEVICE_REGISTRATION_PROPERTY_PLACEHOLDER = "unspecified"
+
+    @classmethod
+    def _apply_device_registration_contract_defaults(
+        cls, registrations: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Ensure catalog fields required by send_device_configuration validation exist.
+
+        ConnectorAgent ``export_capabilities_json()`` may serialize ``friendly_name`` as null
+        and omit ``device_properties`` keys for programmatic motor registration; the wire contract
+        still requires non-empty strings.
+        """
+        required_device_properties = (
+            "bundle_type",
+            "bundle_id",
+            "modality",
+            "signal_type",
+            "source_model",
+            "source_entity",
+        )
+        placeholder = cls._DEVICE_REGISTRATION_PROPERTY_PLACEHOLDER
+        tagged_placeholder: Dict[str, Any] = {"type": "String", "value": placeholder}
+
+        def fill_section(section_key: str) -> None:
+            section = registrations.get(section_key)
+            if not isinstance(section, dict):
+                return
+            for unit_key in sorted(section.keys()):
+                unit_entries = section.get(unit_key)
+                if not isinstance(unit_entries, list):
+                    continue
+                for unit_idx, entry in enumerate(unit_entries):
+                    if not isinstance(entry, list) or not entry:
+                        continue
+                    unit_def = entry[0]
+                    if not isinstance(unit_def, dict):
+                        continue
+                    cortical_unit_index = unit_def.get("cortical_unit_index")
+                    suffix = (
+                        cortical_unit_index
+                        if cortical_unit_index is not None
+                        else unit_idx
+                    )
+                    if cls._decode_device_property_text(unit_def.get("friendly_name")) is None:
+                        unit_def["friendly_name"] = f"{unit_key}_{suffix}"
+                    grouping = unit_def.get("device_grouping")
+                    if not isinstance(grouping, list):
+                        continue
+                    for channel_idx, channel in enumerate(grouping):
+                        if not isinstance(channel, dict):
+                            continue
+                        if (
+                            cls._decode_device_property_text(channel.get("friendly_name"))
+                            is None
+                        ):
+                            channel["friendly_name"] = (
+                                f"{unit_key}_{suffix}_ch{channel_idx}"
+                            )
+                        props = channel.get("device_properties")
+                        if not isinstance(props, dict):
+                            channel["device_properties"] = {}
+                            props = channel["device_properties"]
+                        for rk in required_device_properties:
+                            if cls._decode_device_property_text(props.get(rk)) is None:
+                                props[rk] = tagged_placeholder
+
+        fill_section("output_units_and_decoder_properties")
+        fill_section("input_units_and_encoder_properties")
         return registrations
 
     @staticmethod
@@ -418,19 +490,39 @@ class BrainOutput:
                         )
                         cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
-                    # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
-                    # For now, use default "omot" format
-                    cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
+                    enc = getattr(output, "encoding", "absolute") or "absolute"
+                    frame_bit = 1 if enc == "incremental" else 0
+                    variant = 5
+                    cfg_lo = variant & 0xFF
+                    cfg_hi = frame_bit & 0xFF
+                    cid_bytes = bytes(
+                        [
+                            111,
+                            109,
+                            111,
+                            116,
+                            cfg_lo,
+                            cfg_hi,
+                            0,
+                            group_id & 0xFF,
+                        ]
+                    )
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
-        # If no specific IDs, use default PositionalServo Percentage areas
+        # Legacy fallback: only when motor outputs exist but no IDs were assembled
+        # (e.g. missing ``_get_cortical_id``). Do not invent default motor IDs when
+        # there are no motors; that makes ``len(motor_cortical_ids) > 0``, sets
+        # ``output_count`` non-zero, and incorrectly rejects sensory-only registration.
         if not cortical_ids:
-            for sub in (0, 1):  # 0=Absolute, 1=Incremental
-                cfg = 1 | (sub << 8)
-                cid_bytes = bytes(
-                    [111, 112, 115, 101, cfg & 0xFF, (cfg >> 8) & 0xFF, sub, 0]
-                )
-                cortical_ids.add(base64.b64encode(cid_bytes).decode())
+            from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+            if any(isinstance(o, (ServoMotor, RotaryMotor)) for o in self._outputs):
+                for sub in (0, 1):  # 0=Absolute, 1=Incremental
+                    cfg = 1 | (sub << 8)
+                    cid_bytes = bytes(
+                        [111, 112, 115, 101, cfg & 0xFF, (cfg >> 8) & 0xFF, sub, 0]
+                    )
+                    cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
         return list(cortical_ids)
 
@@ -445,6 +537,26 @@ class BrainOutput:
             elif isinstance(output, RotaryMotor):
                 unit_specs.add(("rotary_motor", int(getattr(output, "group_id", 0) or 0)))
         return sorted(unit_specs)
+
+    def _motor_feagi_output_count(self) -> int:
+        """
+        OPU channel count FEAGI must allocate: ``max(channel_index) + 1`` over motor outputs.
+
+        Must stay consistent with :meth:`_register_motor_decoder` (Rust cache slot count)
+        and with :meth:`connect` registration payload ``output_count``. Using only the
+        number of Python motor objects would register e.g. ``output_count=1`` while
+        the single RotaryMotor uses ``channel_index=1``, so FEAGI would drive channel 0
+        and the connector would never receive callbacks on channel 1 (e.g. ROS bridge
+        ``channelId: \"1\"`` + cmd_vel).
+        """
+        from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+        max_idx = -1
+        for output in self._outputs:
+            if isinstance(output, (ServoMotor, RotaryMotor)):
+                ch = int(getattr(output, "channel", 0) or 0)
+                max_idx = max(max_idx, ch)
+        return (max_idx + 1) if max_idx >= 0 else 0
     
     def _allocate_group_id(self) -> int:
         """Allocate next cortical group ID"""
@@ -453,43 +565,70 @@ class BrainOutput:
         return group_id
     
     def _register_motor_decoder(self):
-        """Register motor decoder with Rust cache (called once with total channel count)"""
+        """Register motor decoder with Rust cache (once per group).
+
+        Channel count per group must be ``max(channel_index) + 1`` among outputs
+        in that group, not merely the number of outputs. A single RotaryMotor
+        mapped to I/O channel 1 still requires two decoder slots (indices 0 and 1).
+        """
         import feagi_rust_py_libs as frpl
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
-        z_neuron_resolution = 10
+        servo_frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        # Match feagi-structures motor templates: PositionalServo 1x1x10, RotaryMotor 1x1x9.
+        z_neuron_resolution_servo = 10
+        z_neuron_resolution_rotary = 9
 
-        servo_counts_by_group: Dict[int, int] = {}
-        rotary_counts_by_group: Dict[int, int] = {}
+        servo_channels_by_group: Dict[int, List[int]] = {}
+        rotary_by_group: Dict[int, List[Any]] = {}
         for output in self._outputs:
             if not isinstance(output, (ServoMotor, RotaryMotor)):
                 continue
             group_id = int(getattr(output, "group_id", 0) or 0)
+            ch = int(getattr(output, "channel", 0) or 0)
             if isinstance(output, ServoMotor):
-                servo_counts_by_group[group_id] = servo_counts_by_group.get(group_id, 0) + 1
+                servo_channels_by_group.setdefault(group_id, []).append(ch)
             else:
-                rotary_counts_by_group[group_id] = rotary_counts_by_group.get(group_id, 0) + 1
+                rotary_by_group.setdefault(group_id, []).append(output)
 
-        for group_id, count in sorted(servo_counts_by_group.items()):
+        for group_id, chans in sorted(servo_channels_by_group.items()):
+            count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
             self._cache.motor_positional_servo_register(
                 group_id,
                 count,
-                frame_mode,
-                z_neuron_resolution,
+                servo_frame_mode,
+                z_neuron_resolution_servo,
                 positioning,
             )
 
-        for group_id, count in sorted(rotary_counts_by_group.items()):
+        for group_id, motors in sorted(rotary_by_group.items()):
+            encodings = {
+                getattr(m, "encoding", "absolute") or "absolute" for m in motors
+            }
+            if len(encodings) > 1:
+                raise RuntimeError(
+                    "RotaryMotor outputs in device group %s mix absolute and incremental "
+                    "encoding; use different device group IDs in mappings, or use the same "
+                    "frame (absolute) or (incremental) for all rotary motors in that group."
+                    % group_id
+                )
+            enc = next(iter(encodings))
+            rotary_frame = (
+                frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Incremental()
+                if enc == "incremental"
+                else frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+            )
+            chans = [int(getattr(m, "channel", 0) or 0) for m in motors]
+            count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
             self._cache.motor_rotary_motor_register(
                 group_id,
                 count,
-                frame_mode,
-                z_neuron_resolution,
+                rotary_frame,
+                z_neuron_resolution_rotary,
                 positioning,
             )
 
@@ -654,13 +793,27 @@ class BrainOutput:
                             set(motor_cortical_ids) | set(derived_sensory_ids)
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "Failed to derive sensory cortical IDs from cache: %s",
-                            exc,
-                        )
+                        raise RuntimeError(
+                            "Failed to derive sensory cortical IDs from the connector "
+                            "cache export (empty device_grouping, export/serde mismatch, "
+                            "or incompatible feagi-rust-py-libs)."
+                        ) from exc
+                    if not expected_cortical_ids:
+                        preview = json.loads(self._cache.export_capabilities_json())
+                        in_u = preview.get("input_units_and_encoder_properties") or {}
+                        if isinstance(in_u, dict) and in_u:
+                            raise RuntimeError(
+                                "Sensory units appear in device_registrations export but "
+                                "cortical ID derivation returned no IDs; auto-create "
+                                "cannot be verified."
+                            )
                 else:
                     expected_cortical_ids = list(motor_cortical_ids)
-            output_count = self._motor_total_channels or len(motor_cortical_ids)
+            output_count = (
+                self._motor_feagi_output_count()
+                or self._motor_total_channels
+                or len(motor_cortical_ids)
+            )
             has_vision = bool(self._vision_units)
             has_sensory_cache = bool(derived_sensory_ids)
             sensory_only_eligible = (
@@ -733,6 +886,7 @@ class BrainOutput:
                     if self._device_registration_enricher is not None:
                         device_regs = self._device_registration_enricher(device_regs)
                     device_regs = self._normalize_device_registration_properties(device_regs)
+                    device_regs = self._apply_device_registration_contract_defaults(device_regs)
                     device_regs = self._validate_device_registration_contract(device_regs)
                     logger.info(
                         "[CFG] Verifying cortical auto-create for %d IDs "
@@ -814,6 +968,7 @@ class BrainOutput:
         group_index_start: int = 0,
         image_resolution_xy: tuple[int, int] = (32, 32),
         misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
+        frame_change_handling: Literal["absolute", "incremental"] = "absolute",
     ) -> Dict[str, int]:
         """
         Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
@@ -837,6 +992,9 @@ class BrainOutput:
                 lower group IDs for other sensory unit families.
             image_resolution_xy: Vision registration resolution as (x, y).
             misc_dimensions_xyz: MiscData registration dimensions as (x, y, z).
+            frame_change_handling: FEAGI frame mode for registered units.
+                Use ``"absolute"`` for direct values and ``"incremental"``
+                for delta-style channels mirrored as incremental cortical areas.
 
         Returns:
             Mapping of unit key -> assigned cache group index (deterministic sorted order).
@@ -851,7 +1009,23 @@ class BrainOutput:
 
         import feagi_rust_py_libs as frpl
 
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        frame_mode_value = str(frame_change_handling).strip().lower()
+        if frame_mode_value == "incremental":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Incremental()
+            )
+        elif frame_mode_value == "absolute":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Absolute()
+            )
+        else:
+            raise ValueError(
+                "frame_change_handling must be 'absolute' or 'incremental'."
+            )
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
         descriptors = frpl.connector_core.data_types.descriptors
         image_props = descriptors.ImageFrameProperties(

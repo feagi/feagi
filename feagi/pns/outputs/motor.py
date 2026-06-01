@@ -73,6 +73,7 @@ class ServoMotor(BaseOutput):
         self._last_rx_mode: Optional[str] = None
         # Monotonic command sequence used by controllers to detect new events.
         self._rx_command_seq: int = 0
+        self._servo_inc_limit_clamp_streak: bool = False
     
     @classmethod
     def register(
@@ -190,6 +191,16 @@ class ServoMotor(BaseOutput):
         # - Absolute: 0.0-1.0 as position (from absolute cortical area)
         # Use command_mode if provided, otherwise use self.encoding
         effective_mode = command_mode if command_mode is not None else self.encoding
+        # Incremental cortical output is 0..1 with 0.5 neutral. BrainOutput passes plain
+        # floats (no PyPercentage); Rust callbacks use PyPercentage (is_percentage True).
+        # Plain floats in [0, 1] must use the same neutral semantics, not signed delta=value*step.
+        inc_neutral_01 = False
+        if effective_mode == "incremental":
+            inc_neutral_01 = (
+                is_percentage
+                or command_mode == "incremental"
+                or (command_mode is None and 0.0 <= value <= 1.0)
+            )
         # Persist latest RX for controller-side diagnostics.
         self._last_rx_raw_value = float(raw_value)
         self._last_rx_value = float(value)
@@ -200,7 +211,7 @@ class ServoMotor(BaseOutput):
         # Absolute mode is treated as a direct fixed-position target.
         if effective_mode == "incremental":
             scale = max(0.0, float(self.incremental_command_scale))
-            if is_percentage:
+            if inc_neutral_01:
                 value = 0.5 + ((value - 0.5) * scale)
                 value = max(0.0, min(1.0, value))
             else:
@@ -210,15 +221,31 @@ class ServoMotor(BaseOutput):
         
         if effective_mode == "incremental":
             step = half_range * self.incremental_step_ratio
-            if is_percentage:
+            if inc_neutral_01:
                 delta = (value - 0.5) * 2.0 * step
             else:
                 delta = value * step
-            next_angle = self._current_angle + delta
-            self._current_angle = max(
+            next_angle = old_angle + delta
+            clamped = max(
                 self.min_angle,
                 min(self.max_angle, next_angle),
             )
+            if abs(next_angle - clamped) > 1e-6:
+                if not self._servo_inc_limit_clamp_streak:
+                    logger.warning(
+                        "[SERVO] Ch=%s incremental command has no effect: angle would be %.2f "
+                        "but servo range is [%.2f, %.2f] (integrated angle already at that limit). "
+                        "FEAGI 0..1 uses 0.5 neutral — use activity below 0.5 to decrease or above "
+                        "0.5 to increase. Restart the bridge to reset integrated angle to mid-range.",
+                        self.channel,
+                        next_angle,
+                        self.min_angle,
+                        self.max_angle,
+                    )
+                self._servo_inc_limit_clamp_streak = True
+            else:
+                self._servo_inc_limit_clamp_streak = False
+            self._current_angle = clamped
         else:
             if is_percentage:
                 self._current_angle = self.min_angle + (self.max_angle - self.min_angle) * value

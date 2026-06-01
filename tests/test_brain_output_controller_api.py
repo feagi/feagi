@@ -62,6 +62,10 @@ def _install_fake_frpl(monkeypatch):
         def Absolute():
             return "ABS"
 
+        @staticmethod
+        def Incremental():
+            return "INC"
+
     class _Positioning:
         @staticmethod
         def Linear():
@@ -130,6 +134,25 @@ def test_register_sensor_units_deterministic_groups(monkeypatch):
     assert ("Proximity", 0, 3, "ABS", 10, "LIN") in bo._cache.calls
     assert ("Servo", 1, 1, "ABS", 10, "LIN") in bo._cache.calls
     assert ("Shock", 2, 2, "ABS", 10, "LIN") in bo._cache.calls
+
+
+def test_register_sensor_units_supports_incremental_frame_mode(monkeypatch):
+    """Controllers can request incremental sensory cortical registrations."""
+    _install_fake_frpl(monkeypatch)
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    bo._cache_available = True
+
+    groups = bo.register_sensor_units(
+        {"Servo": 1},
+        z_neuron_resolution=10,
+        group_index_start=9,
+        frame_change_handling="incremental",
+    )
+
+    assert groups == {"Servo": 9}
+    assert ("Servo", 9, 1, "INC", 10, "LIN") in bo._cache.calls
 
 
 def test_write_and_flush_sensory_bytes_without_direct_rust_imports(monkeypatch):
@@ -248,3 +271,14 @@ def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch)
     client = _FakeFeagiAgentClient.instances[-1]
     assert client.connected is True
     assert client.agent_type == _FakeAgentType.BOTH
+
+
+def test_collect_motor_cortical_ids_empty_when_no_motor_outputs_registered():
+    """
+    Sensory-only agents must not get synthetic PositionalServo IDs; those inflated
+    ``output_count`` and forced the motor registration path (ROS SmartIMU-only).
+    """
+    bo = BrainOutput()
+    assert bo._outputs == []
+    assert bo._motor_total_channels == 0
+    assert bo._collect_motor_cortical_ids() == []
