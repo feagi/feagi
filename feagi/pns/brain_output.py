@@ -1161,6 +1161,79 @@ class BrainOutput:
         # depends on removed MotorCorticalType symbols in some builds.
         self._motor_decoder_registered = True
 
+    def register_motor_spatial_pointer(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        encoding: Literal["absolute", "incremental"] = "absolute",
+        number_channels: int = 1,
+        window_ms: Optional[int] = None,
+        max_axis_velocity: Optional[float] = None,
+    ) -> None:
+        """
+        Register a SpatialPointer motor unit on the Rust ConnectorAgent cache.
+
+        Registering on the cache (rather than only injecting capability JSON) is
+        what makes the shared Rust decoder produce SpatialPointer values: after
+        registration the unit is decoded on every :meth:`receive` and its axes
+        appear in ``self._motor_data`` (and the export sent to FEAGI), keyed as
+        ``"group:axis:mode"`` with ``axis`` in ``{0, 1, 2}`` for x/y/z.
+
+        Decode contract by ``encoding``:
+          * ``"absolute"`` -> unsigned position per axis (``[0, 1]``);
+            ``window_ms``/``max_axis_velocity`` are ignored.
+          * ``"incremental"`` -> signed motion vector per axis (``[-1, 1]``,
+            0 = no motion). REQUIRES ``window_ms`` (rolling-window length) and
+            ``max_axis_velocity`` (per-axis velocity mapped to full scale).
+
+        Args:
+            group: Cortical unit index for the pointer.
+            width, height, depth: Pointer cortical area voxel dimensions.
+            encoding: ``"absolute"`` or ``"incremental"``.
+            number_channels: Number of pointer channels (default 1).
+            window_ms: Rolling-window length in ms (incremental only).
+            max_axis_velocity: Per-axis full-scale velocity (incremental only).
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("SpatialPointer dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("SpatialPointer number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        encoding_value = str(encoding).strip().lower()
+        cortical_area = frpl.data_structures.genomic.cortical_area
+        if encoding_value == "incremental":
+            if window_ms is None or max_axis_velocity is None:
+                raise ValueError(
+                    "Incremental SpatialPointer requires window_ms and "
+                    "max_axis_velocity."
+                )
+            frame_mode = cortical_area.FrameChangeHandling.Incremental()
+        elif encoding_value == "absolute":
+            frame_mode = cortical_area.FrameChangeHandling.Absolute()
+        else:
+            raise ValueError("encoding must be 'absolute' or 'incremental'.")
+
+        positioning = cortical_area.PercentageNeuronPositioning.Linear()
+        self._cache.motor_spatial_pointer_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            positioning,
+            int(width),
+            int(height),
+            int(depth),
+            int(window_ms) if window_ms is not None else None,
+            float(max_axis_velocity) if max_axis_velocity is not None else None,
+        )
+
     def _init_sensory_write_helpers(self) -> None:
         """Lazy-init write helper factories for sensory cache writes."""
         if (
@@ -1742,14 +1815,26 @@ class BrainOutput:
     
     def receive(self):
         """
-        Receive motor commands from FEAGI.
-        
-        This is the main loop method:
-        1. Receives bytes from transport
-        2. Decodes bytes to neurons (Rust)
-        3. Updates motor cache
-        4. Reads values from cache to outputs
-        
+        Receive motor commands from FEAGI and decode them through Rust.
+
+        Main-loop method. All motor decoding happens in the shared Rust
+        ``MotorDeviceCache`` so every SDK (Python, Java, ...) decodes
+        identically with no per-language duplication. The Python flow is a thin
+        wrapper:
+
+        1. Pull the raw, undecoded byte payload from the transport
+           (:meth:`client.FeagiAgentClient.receive_motor_data_raw`).
+        2. Hand the bytes to the Rust decoder
+           (``motors_load_in_bytes_and_verify`` + ``motors_decode_cached_byte_data_to_motor``).
+           Decoding fires the per-output callbacks registered at connect time,
+           which update each registered output's state (servo angle, motor
+           speed, etc.).
+        3. Read a flat snapshot of every decoded value
+           (``motors_read_decoded_snapshot``) into ``self._motor_data`` keyed by
+           ``"group:channel:mode"``. This exposes decoded values (including
+           SpatialPointer axes) to controller-side consumers, even for channels
+           with no registered Python output object.
+
         Call this in your main loop to update all output values.
         """
         if not self._connected:
@@ -1760,138 +1845,42 @@ class BrainOutput:
         if self._sensory_only_mode:
             return
 
-        # All timing and monitoring removed for performance
+        if not self._client:
+            raise RuntimeError("Client not initialized. Call connect() first.")
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
 
-        try:
-            if not self._client:
-                raise RuntimeError("Client not initialized. Call connect() first.")
+        # 1. Pull raw motor bytes from the transport (no Python-side decode).
+        raw_bytes = self._client.receive_motor_data_raw()
+        if not raw_bytes:
+            return
 
-            motor_data = self._client.receive_motor_data()
-            if not motor_data:
-                return
+        # 2. Decode through the shared Rust decoder. This fires the per-output
+        #    callbacks registered in _register_motor_decoder(), which update
+        #    each registered output's state directly.
+        self._cache.motors_load_in_bytes_and_verify(raw_bytes)
+        self._cache.motors_decode_cached_byte_data_to_motor()
 
-            motor_map = motor_data.get("motor")
-            if not isinstance(motor_map, dict):
-                raise RuntimeError("Motor data format invalid (expected dict).")
-            # Canonical snapshot keyed by normalized "group:channel:mode".
-            # Keep this deterministic for controller-side diagnostics.
-            self._motor_data = {}
+        # 3. Build the canonical motor snapshot from the Rust cache. Keys are
+        #    "group:channel:mode"; multi-axis units (e.g. SpatialPointer 3D)
+        #    are flattened to one entry per axis by the Rust snapshot.
+        snapshot = self._cache.motors_read_decoded_snapshot()
+        self._motor_data = {}
+        for group_id, channel_index, mode, value in snapshot:
+            value_f = float(value)
+            canonical_key = f"{int(group_id)}:{int(channel_index)}:{mode}"
+            self._motor_data[canonical_key] = value_f
 
-            # Aggregate commands by (group, channel) first so mixed mode updates
-            # in the same receive cycle can be resolved deterministically.
-            pending_by_channel: dict[tuple[int, int], dict[str, tuple[float, str]]] = {}
-
-            for key, value in motor_map.items():
-                if value is None:
-                    continue
-                key_str = str(key)
-                command_mode = None
-                parts = key_str.split(":")
-                if len(parts) == 3:
-                    group_str, channel_str, command_mode = parts
-                    try:
-                        group_id = int(group_str)
-                        channel_index = int(channel_str)
-                    except ValueError:
-                        continue
-                elif len(parts) == 2:
-                    left, right = parts
-                    if right in ("absolute", "incremental"):
-                        group_id = 0
-                        command_mode = right
-                        try:
-                            channel_index = int(left)
-                        except ValueError:
-                            continue
-                    else:
-                        try:
-                            group_id = int(left)
-                            channel_index = int(right)
-                        except ValueError:
-                            continue
-                else:
-                    group_id = 0
-                    try:
-                        channel_index = int(key_str)
-                    except ValueError:
-                        continue
-
-                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
-                if output is None and group_id == 0:
-                    output = self._motor_outputs_by_channel.get(channel_index)
-                if output is None:
-                    continue
-                value_f = float(value)
-                mode_key = (
-                    command_mode if command_mode in ("absolute", "incremental") else "none"
-                )
-                pending_by_channel.setdefault((group_id, channel_index), {})[mode_key] = (
+            prev_value = self._last_logged_motor_values.get(canonical_key)
+            if prev_value is None or abs(value_f - prev_value) > 1e-6:
+                logger.info(
+                    "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f",
+                    int(group_id),
+                    int(channel_index),
+                    mode,
                     value_f,
-                    key_str,
                 )
-
-            for (group_id, channel_index), mode_entries in pending_by_channel.items():
-                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
-                if output is None and group_id == 0:
-                    output = self._motor_outputs_by_channel.get(channel_index)
-                if output is None:
-                    continue
-
-                # Arbitration: if both absolute and incremental are present
-                # for the same channel in this cycle, absolute takes precedence.
-                if "absolute" in mode_entries:
-                    selected_mode = "absolute"
-                elif "incremental" in mode_entries:
-                    selected_mode = "incremental"
-                else:
-                    selected_mode = "none"
-
-                value_f, key_str = mode_entries[selected_mode]
-                canonical_key = f"{group_id}:{channel_index}:{selected_mode}"
-                self._motor_data[canonical_key] = value_f
-
-                if "absolute" in mode_entries and "incremental" in mode_entries:
-                    inc_val, _ = mode_entries["incremental"]
-                    logger.info(
-                        (
-                            "[MOTOR-RX-ARBITRATION] group=%d channel=%d "
-                            "absolute=%.6f incremental=%.6f selected=absolute"
-                        ),
-                        group_id,
-                        channel_index,
-                        value_f,
-                        inc_val,
-                    )
-
-                log_key = f"{group_id}:{channel_index}:{selected_mode}"
-                prev_value = self._last_logged_motor_values.get(log_key)
-                if prev_value is None or abs(value_f - prev_value) > 1e-6:
-                    logger.info(
-                        "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f key=%s",
-                        group_id,
-                        channel_index,
-                        selected_mode,
-                        value_f,
-                        key_str,
-                    )
-                    self._last_logged_motor_values[log_key] = value_f
-                try:
-                    output._on_motor_command(
-                        value_f,
-                        command_mode=None if selected_mode == "none" else selected_mode,
-                    )
-                except TypeError:
-                    # Backward compatibility for output classes with old callback signature.
-                    output._on_motor_command(value_f)
-                except Exception as e:
-                    logger.debug(f"Error updating motor output {key_str}: {e}")
-            
-            # Note: _read_from_cache() is no longer needed as callbacks handle updates
-            # The motor values are already updated via callbacks during process_neurons()
-            
-        except Exception:
-            # Monitor error notifications disabled - was causing performance issues
-            raise
+                self._last_logged_motor_values[canonical_key] = value_f
     
     def get_output_count(self) -> int:
         """Get number of registered outputs"""

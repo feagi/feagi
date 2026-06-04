@@ -5,11 +5,9 @@ Simplified base class for Bluetooth-enabled robots.
 Handles all transport complexity - developers only implement robot protocol.
 """
 
-import asyncio
 import logging
 import os
 import socket
-import sys
 from abc import abstractmethod
 from typing import Dict, Any, Optional
 from .base import BaseAgent
@@ -220,120 +218,22 @@ class BluetoothRobot(BaseAgent):
         2. Connects to FEAGI
         3. Runs sensor/motor loop
         4. Handles errors and reconnection
+
+        RETIRED (unified Rust decoder migration): the generic Python XYZP motor
+        decoder and client.receive_motor_data() were removed so that all motor
+        decoding happens once, in the feagi-core Rust MotorDeviceCache. This
+        bridge had no typed motor registration and therefore no decode path.
+
+        TO REVIVE: register typed motor outputs via feagi.pns.brain_output
+        (ServoMotor/RotaryMotor.register or brain_output.register_output), call
+        brain_output.receive(), and map decoded values from the output objects /
+        brain_output._motor_data using the preserved ``parse_sensors`` /
+        ``format_motors`` helpers and ``self.transport`` send/receive.
         """
-        self.running = True
-        self.initialize_hardware()
-        
-        try:
-            # Connect to robot transport
-            print("\n🔌 Connecting to BLE relay...")
-            sys.stdout.flush()
-            await self.transport.connect()
-            print("✅ BLE relay connected")
-            sys.stdout.flush()
-            
-            # Connect to FEAGI
-            print(f"🧠 Connecting to FEAGI at {self.feagi_host}:{self.feagi_port}...")
-            sys.stdout.flush()
-            await self.connect()
-            print("✅ FEAGI connected - Agent registered")
-            sys.stdout.flush()
-            
-            print(f"\n🚀 {self.__class__.__name__} ready! Starting main loop...\n")
-            sys.stdout.flush()
-            
-            # Main loop
-            while self.running:
-                try:
-                    # Receive raw data from robot (with timeout)
-                    raw_data = None
-                    try:
-                        raw_data = await asyncio.wait_for(
-                            self.transport.receive(),
-                            timeout=0.1
-                        )
-                    except asyncio.TimeoutError:
-                        raw_data = None
-                    except ConnectionError as e:
-                        # WebSocket not connected - skip sensor reading but continue with motors
-                        logger.warning(f"⚠️  Sensor reading failed (not connected): {e}")
-                        raw_data = None
-                    
-                    # Parse robot-specific protocol (subclass implements)
-                    if raw_data:
-                        sensor_data = self.parse_sensors(raw_data)
-                        if sensor_data:
-                            # Send to FEAGI (synchronous!)
-                            self.client.send_sensory_data(sensor_data)
-                    
-                    # Get motor commands from FEAGI (synchronous!)
-                    motor_data = self.client.receive_motor_data()
-                    
-                    if motor_data:
-                        # TEMP DEBUG
-                        with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                            import time
-                            f.write(f"\n[{time.time():.3f}] RECEIVED motor_data: {motor_data}\n")
-                            f.flush()
-                        
-                        logger.info(f"📥 Received motor data: {motor_data}")
-                        
-                        # TEMP DEBUG - BEFORE
-                        with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                            f.write(f"[{time.time():.3f}] CALLING format_motors with: {motor_data}\n")
-                            f.flush()
-                        
-                        # Format for robot (subclass implements)
-                        robot_command = self.format_motors(motor_data)
-                        
-                        # TEMP DEBUG - AFTER
-                        with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                            f.write(f"[{time.time():.3f}] format_motors RETURNED: {robot_command!r} (type: {type(robot_command).__name__})\n")
-                            f.flush()
-                        
-                        logger.info(f"📤 Formatted command: {robot_command}")
-                        
-                        if robot_command:
-                            # TEMP DEBUG
-                            with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                                f.write(f"[{time.time():.3f}] SENDING to transport...\n")
-                                f.flush()
-                            
-                            # Send to robot
-                            try:
-                                await self.transport.send(robot_command)
-                                
-                                # TEMP DEBUG
-                                with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                                    f.write(f"[{time.time():.3f}] ✅ SENT {len(robot_command)} bytes\n")
-                                    f.flush()
-                                
-                                logger.info(f"✅ Sent {len(robot_command)} bytes to robot")
-                            except ConnectionError as e:
-                                # WebSocket not connected - log but continue
-                                logger.error(f"❌ Failed to send to robot (not connected): {e}")
-                                with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                                    f.write(f"[{time.time():.3f}] ❌ SEND FAILED: {e}\n")
-                                    f.flush()
-                
-                except Exception as e:
-                    # TEMP DEBUG
-                    with open("/tmp/bluetooth_agent_debug.log", "a") as f:
-                        import traceback, time
-                        f.write(f"\n[{time.time():.3f}] ❌ EXCEPTION in main loop: {e}\n")
-                        f.write(traceback.format_exc())
-                        f.flush()
-                    logger.error(f"Error in main loop: {e}")
-                    # Continue running unless critical error
-                    await asyncio.sleep(0.1)
-        
-        except KeyboardInterrupt:
-            logger.info("Shutting down (Ctrl+C)")
-        except Exception as e:
-            logger.error(f"Fatal error: {e}")
-            raise
-        finally:
-            await self.stop()
+        raise NotImplementedError(
+            "BluetoothRobot.run() is retired; migrate to feagi.pns.brain_output "
+            "with typed motor registration (Rust decode)."
+        )
     
     async def stop(self):
         """

@@ -44,8 +44,6 @@ import urllib.request
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from .xyzp_decoders import decode_motor_xyzp
-
 # Try to import Rust SDK (optional dependency)
 _rust_sdk_available = False
 _rust_import_error = None
@@ -822,7 +820,10 @@ class FeagiAgentClient:
             # Connect (with automatic retry)
             # This is where threads are spawned after successful registration
             logger.debug("Attempting registration with FEAGI...")
-            duplicate_retries_left = 1
+            # FEAGI may keep descriptor sessions in duplicate-guard windows longer
+            # than one retry interval under load. Use bounded retries so controllers
+            # can recover without manual restarts.
+            duplicate_retries_left = 3
             reg_error: Optional[BaseException] = None
             while True:
                 try:
@@ -837,13 +838,17 @@ class FeagiAgentClient:
                         "already registered" in error_str
                         and duplicate_retries_left > 0
                     ):
+                        retries_remaining_after_this_attempt = (
+                            duplicate_retries_left - 1
+                        )
                         duplicate_retries_left -= 1
                         delay_s = self._duplicate_registration_retry_delay_s()
                         logger.info(
-                            "Duplicate registration guard: retrying once after "
-                            "%.2f s (descriptor session may still be inside "
-                            "FEAGI duplicate-guard window)",
+                            "Duplicate registration guard: retrying after %.2f s "
+                            "(remaining duplicate retries: %d; descriptor session "
+                            "may still be inside FEAGI duplicate-guard window)",
                             delay_s,
+                            retries_remaining_after_this_attempt,
                         )
                         self._teardown_unregistered_rust_client()
                         time.sleep(delay_s)
@@ -1014,7 +1019,7 @@ class FeagiAgentClient:
         try:
             self._client.send_sensory_bytes(payload)
         except Exception as e:
-            logger.error("Failed to send sensory bytes: %s", e)
+            logger.debug("Failed to send sensory bytes: %s", e)
             raise
 
     def set_motor_cortical_ids(self, cortical_ids: List[str]) -> None:
@@ -1034,106 +1039,50 @@ class FeagiAgentClient:
             normalized.append(cid)
         self._motor_cortical_ids = normalized or None
     
-    def receive_motor_data(
+    def receive_motor_data_raw(
         self,
         blocking: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[bytes]:
         """
-        Receive motor data from FEAGI (non-blocking)
-        
+        Receive the raw, undecoded motor byte payload from FEAGI.
+
+        Unlike :meth:`receive_motor_data`, this performs NO Python-side XYZP
+        decoding. The verified bytes are returned untouched so the shared Rust
+        ``MotorDeviceCache`` decoder can decode them directly. This is the
+        transport half of the "all decoding happens in Rust" contract: every
+        SDK feeds these bytes into the same Rust decoder, eliminating
+        per-language decode duplication.
+
         Args:
-            blocking: If False, returns None on error instead of raising
-        
+            blocking: If False, returns None on error instead of raising.
+
         Returns:
-            Motor data as dictionary if available, None otherwise
-            
+            Raw motor bytes if available, otherwise None.
+
         Raises:
-            RuntimeError: If not connected or not a motor agent
-                (only when blocking=True)
-        
-        Example:
-            ```python
-            # Blocking mode (default) - raises on error
-            motor_data = client.receive_motor_data()
-            
-            # Non-blocking mode - for simulator event loops
-            motor_data = client.receive_motor_data(blocking=False)
-            if motor_data:
-                # Process commands
-                pass
-            ```
+            RuntimeError: If not connected or the agent is sensory-only
+                (only when ``blocking`` is True).
         """
         if not self._connected or self._client is None:
             if blocking:
-                raise RuntimeError(
-                    "Agent not connected. Call connect() first.",
-                )
+                raise RuntimeError("Agent not connected. Call connect() first.")
             return None
-        
+
         if self.agent_type == AgentType.SENSORY:
             if blocking:
                 raise RuntimeError(
                     "Cannot receive motor data - agent is sensory-only",
                 )
             return None
-        
+
         try:
-            motor_json = self._client.receive_motor_data()
-            if motor_json is None:
-                return None
-            logger.info("[RAW-MOTOR-JSON] %s", str(motor_json)[:500])
-            
-            # Parse raw XYZP SoA JSON from Rust SDK
-            import json
-            xyzp_data = json.loads(motor_json)
-            # Deterministic debug view of incoming motor packet shape/content.
-            # Keep this concise to avoid log spam.
-            try:
-                for cid, nd in xyzp_data.items():
-                    if not isinstance(nd, dict):
-                        continue
-                    x_vals = nd.get("x", []) or []
-                    z_vals = nd.get("z", []) or []
-                    p_vals = nd.get("p", []) or []
-                    logger.info(
-                        "[RAW-MOTOR] cid=%s n=%d x=%s z=%s p=%s",
-                        cid,
-                        len(x_vals),
-                        x_vals[:12],
-                        z_vals[:12],
-                        p_vals[:12],
-                    )
-            except Exception:
-                pass
-            
-            # Decode XYZP SoA to motor index → power mapping
-            # Only decode cortical areas this agent subscribed to
-            cortical_ids = self._motor_cortical_ids
-            motors = decode_motor_xyzp(xyzp_data, cortical_ids)
-            if not motors and cortical_ids:
-                # If FEAGI created motor cortical IDs that differ from the
-                # locally-derived verification list, retry decoding without a
-                # filter to preserve motor control.
-                logger.warning(
-                    "[RAW-MOTOR-DECODE] No matches for configured motor cortical IDs; "
-                    "retrying decode without cortical filter."
-                )
-                motors = decode_motor_xyzp(xyzp_data, None)
-            if motors:
-                logger.info("[RAW-MOTOR-DECODED] %s", motors)
-            
-            # Return in simple format for controllers:
-            # {"motor": {0: power, 1: power, ...}}
-            return {"motor": motors} if motors else None
-            
+            return self._client.receive_motor_data_raw()
         except Exception as e:
             if blocking:
-                logger.error("Failed to receive motor data: %s", e)
+                logger.error("Failed to receive raw motor data: %s", e)
                 raise
-            else:
-                # Non-blocking mode: log debug but don't raise
-                logger.debug("Non-blocking receive failed (continuing): %s", e)
-                return None
+            logger.debug("Non-blocking raw receive failed (continuing): %s", e)
+            return None
 
     def _fetch_existing_cortical_areas(
         self,

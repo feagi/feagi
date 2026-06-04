@@ -198,6 +198,60 @@ def test_receive_no_ops_when_sensory_only_mode():
     bo.receive()
 
 
+def test_receive_persists_unmapped_motor_channels_in_snapshot():
+    """Canonical _motor_data keeps decoded channels even without registered outputs.
+
+    Models the Rust decode flow: receive() pulls raw bytes, decodes them through
+    the Rust cache, then builds _motor_data from the cache's flat snapshot. The
+    snapshot here returns three SpatialPointer axes (no registered Python output),
+    which must still land in _motor_data.
+    """
+
+    class _FakeClient:
+        def __init__(self):
+            self.calls = []
+
+        def receive_motor_data_raw(self):
+            return b"raw-motor-bytes"
+
+    class _FakeCache:
+        def __init__(self):
+            self.loaded = None
+            self.decoded = False
+
+        def motors_load_in_bytes_and_verify(self, raw):
+            self.loaded = raw
+
+        def motors_decode_cached_byte_data_to_motor(self):
+            self.decoded = True
+
+        def motors_read_decoded_snapshot(self):
+            # (group, channel, mode, value) tuples, as the Rust binding returns.
+            return [
+                (1, 0, "absolute", 0.9),
+                (1, 1, "absolute", 0.2),
+                (1, 2, "absolute", 0.0),
+            ]
+
+    bo = BrainOutput()
+    bo._connected = True
+    bo._sensory_only_mode = False
+    bo._client = _FakeClient()
+    bo._cache = _FakeCache()
+    bo._motor_outputs_by_group_channel = {}
+    bo._motor_outputs_by_channel = {}
+
+    bo.receive()
+
+    # Raw bytes were handed to the Rust decoder (not Python-decoded).
+    assert bo._cache.loaded == b"raw-motor-bytes"
+    assert bo._cache.decoded is True
+    # Snapshot channels are persisted even without registered output objects.
+    assert bo._motor_data["1:0:absolute"] == 0.9
+    assert bo._motor_data["1:1:absolute"] == 0.2
+    assert bo._motor_data["1:2:absolute"] == 0.0
+
+
 def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch):
     """Motor + scalar sensory registrations should connect with BOTH agent type."""
 

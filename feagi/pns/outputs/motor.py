@@ -142,6 +142,7 @@ class ServoMotor(BaseOutput):
                     group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command,
+                    command_mode=self.encoding,
                 )
 
             self.group_id = group_id
@@ -252,12 +253,11 @@ class ServoMotor(BaseOutput):
             else:
                 self._current_angle = center + (value * half_range)
 
-        # DETAILED LOGGING for debugging
-        print(f"[SERVO-DEBUG] Channel {self.channel} received value {raw_value:.4f}", flush=True)
-        logger.info(
-            f"[SERVO] Ch={self.channel}, raw={raw_value:.4f}, value={value:.4f}, "
-            f"mode={effective_mode}, old_angle={old_angle:.2f}, new_angle={self._current_angle:.2f}, "
-            f"delta={self._current_angle - old_angle:.4f}"
+        logger.debug(
+            "[SERVO] Ch=%d, raw=%.4f, value=%.4f, mode=%s, "
+            "old_angle=%.2f, new_angle=%.2f, delta=%.4f",
+            self.channel, raw_value, value, effective_mode,
+            old_angle, self._current_angle, self._current_angle - old_angle,
         )
 
     def _read_from_cache(self, cache):
@@ -377,6 +377,7 @@ class RotaryMotor(BaseOutput):
                     group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command,
+                    command_mode=self.encoding,
                 )
 
             self.group_id = group_id
