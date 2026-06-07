@@ -35,6 +35,7 @@ Example:
     # Auto-deregisters on exit
 """
 
+import base64
 import logging
 import json
 import os
@@ -55,12 +56,14 @@ try:
         PyAgentConfig as _PyAgentConfig,
         AgentType as _RustAgentType,
         init_rust_logging as _init_rust_logging,
+        cortical_subtype_friendly_names as _cortical_subtype_friendly_names,
     )
     rust_sdk = type("rust_sdk", (), {
         "PyAgentClient": _PyAgentClient,
         "PyAgentConfig": _PyAgentConfig,
         "AgentType": _RustAgentType,
         "init_rust_logging": _init_rust_logging,
+        "cortical_subtype_friendly_names": _cortical_subtype_friendly_names,
     })()
     _rust_sdk_available = True
 except ImportError:
@@ -112,6 +115,71 @@ else:
     RustAgentType = None
 
 logger = logging.getLogger("feagi.pns.client")
+
+
+def _load_subtype_friendly_names_from_rust() -> Dict[bytes, Dict[int, str]]:
+    """Load canonical cortical subtype names from Rust bindings."""
+    if not _rust_sdk_available or rust_sdk is None:
+        return {}
+
+    provider = getattr(rust_sdk, "cortical_subtype_friendly_names", None)
+    if provider is None:
+        raise RuntimeError(
+            "Rust SDK does not expose cortical_subtype_friendly_names(). "
+            "Update feagi_rust_py_libs to a compatible version.",
+        )
+
+    raw_names = provider()
+    parsed: Dict[bytes, Dict[int, str]] = {}
+    for subtype_key, per_category in raw_names.items():
+        if isinstance(subtype_key, str):
+            subtype_bytes = subtype_key.encode("ascii")
+        elif isinstance(subtype_key, bytes):
+            subtype_bytes = subtype_key
+        else:
+            raise RuntimeError(
+                "Invalid subtype key returned by Rust SDK: "
+                f"{type(subtype_key)!r}",
+            )
+        parsed[subtype_bytes] = {
+            int(category_byte): str(friendly_name)
+            for category_byte, friendly_name in per_category.items()
+        }
+    return parsed
+
+
+# Cortical-area subtype (bytes 1-3) -> friendly name.
+# Duplicates (e.g. "mis", "img") are shared between sensory and motor; the
+# category byte (byte 0: 'i' vs 'o') disambiguates.
+_SUBTYPE_FRIENDLY_NAMES: Dict[bytes, Dict[int, str]] = (
+    _load_subtype_friendly_names_from_rust()
+)
+
+
+def decode_cortical_id_label(cortical_id: str) -> str:
+    """Return a human-readable label for a base64 cortical area ID.
+
+    Format: ``"Friendly Name [category] (base64)"`` when the subtype is
+    recognised, otherwise ``"subtype_hex [category] (base64)"``.
+    """
+    try:
+        raw = base64.b64decode(cortical_id)
+    except Exception:
+        return cortical_id
+
+    if len(raw) < 4:
+        return cortical_id
+
+    category_byte = raw[0]
+    subtype = bytes(raw[1:4])
+    category_tag = "input" if category_byte == 105 else "output"
+
+    per_category = _SUBTYPE_FRIENDLY_NAMES.get(subtype, {})
+    friendly = per_category.get(category_byte) or per_category.get(
+        next(iter(per_category), -1)
+    )
+    name = friendly if friendly else subtype.decode("ascii", errors="replace")
+    return f"{name} [{category_tag}] ({cortical_id})"
 
 
 class AgentType(Enum):
@@ -1195,18 +1263,23 @@ class FeagiAgentClient:
                 )
                 return
 
+            readable = [decode_cortical_id_label(cid) for cid in missing_set]
             logger.warning(
                 "[CFG] Missing cortical areas after attempt %d/%d: %s",
                 attempt,
                 retries,
-                missing_set,
+                readable,
             )
             if attempt < retries:
                 time.sleep(retry_interval_s)
 
+        readable = [decode_cortical_id_label(cid) for cid in missing_set]
         raise RuntimeError(
-            "Device registration incomplete; missing cortical areas: "
-            f"{missing_set}",
+            "Device registration incomplete: FEAGI did not create the "
+            "following cortical areas after all retries:\n"
+            + "\n".join(f"  - {label}" for label in readable)
+            + "\nEnsure a compatible genome is loaded in FEAGI that "
+            "includes these device types.",
         )
 
     def is_connected(self) -> bool:
