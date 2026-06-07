@@ -219,11 +219,21 @@ class BaseAgent(ABC):
             await self.client.send_sensory_data(feagi_sensors)
             
             # Receive motor commands
-            feagi_motors = await self.client.receive_motor_data()
-            
-            # Convert and execute
-            hw_commands = self.map_motors(feagi_motors)
-            await self.execute_commands(hw_commands)
+            #
+            # RETIRED (unified Rust decoder migration): the generic Python XYZP
+            # motor decoder and client.receive_motor_data() were removed so that
+            # all motor decoding happens once, in the feagi-core Rust
+            # MotorDeviceCache. This generic relay loop has no typed motor
+            # registration and therefore no longer has a decode path.
+            #
+            # TO REVIVE: drive motor output via feagi.pns.brain_output instead --
+            # register typed outputs (ServoMotor/RotaryMotor.register or
+            # brain_output.register_output), call brain_output.receive(), then
+            # read decoded values from the output objects / brain_output._motor_data.
+            raise NotImplementedError(
+                "BaseAgent.run() motor receive is retired; migrate this agent to "
+                "feagi.pns.brain_output with typed motor registration (Rust decode)."
+            )
     
     async def stop(self):
         """

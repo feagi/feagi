@@ -384,7 +384,7 @@ class Esp32SerialController:
         """
         Format FEAGI motor command to ESP32 JSON format
         
-        FEAGI format: {"motor": {motor_index: power, ...}} from decode_motor_xyzp
+        FEAGI format: {"motor": {motor_index: power, ...}}
         ESP32 format: {"motor_commands":[{"neuron_id":N,"value":V},...]}
         
         Note: FEAGI sends motor indices (0, 1, 2, ...) but ESP32 firmware
@@ -514,43 +514,23 @@ class Esp32SerialController:
         logger.info("Sensory loop stopped")
     
     def _motor_loop(self) -> None:
-        """Main loop: Receive from FEAGI and send to ESP32 serial"""
-        logger.info("Motor loop started")
-        
-        while not self._stop_event.is_set():
-            try:
-                # Receive motor commands from FEAGI (non-blocking)
-                motor_data = self.feagi_client.receive_motor_data()
-                
-                if motor_data is None:
-                    # No motor commands available
-                    time.sleep(0.01)  # Small delay to avoid busy-waiting
-                    continue
-                
-                # Format for ESP32
-                json_str = self._format_motor_command(motor_data)
-                
-                if json_str is None:
-                    continue  # No valid commands to send
-                
-                # Send to ESP32 via serial
-                if self._write_serial_json(json_str):
-                    self.stats["motor_messages_received"] += 1
-                    
-                    # Log periodically
-                    if self.stats["motor_messages_received"] % 100 == 0:
-                        logger.debug(
-                            "Received %s motor messages",
-                            self.stats["motor_messages_received"],
-                        )
-                else:
-                    logger.warning("Failed to write motor command to serial")
-                    
-            except Exception as e:
-                logger.error(f"Error in motor loop: {e}")
-                time.sleep(0.1)  # Brief pause before retry
-        
-        logger.info("Motor loop stopped")
+        """Main loop: Receive from FEAGI and send to ESP32 serial.
+
+        RETIRED (unified Rust decoder migration): the generic Python XYZP motor
+        decoder and client.receive_motor_data() were removed so that all motor
+        decoding happens once, in the feagi-core Rust MotorDeviceCache. This
+        bridge had no typed motor registration and therefore no decode path.
+
+        TO REVIVE: register typed motor outputs via feagi.pns.brain_output
+        (ServoMotor/RotaryMotor.register or brain_output.register_output), call
+        brain_output.receive(), and map decoded values from the output objects /
+        brain_output._motor_data to the ESP32 serial command using the preserved
+        ``_format_motor_command`` + ``_write_serial_json`` helpers.
+        """
+        raise NotImplementedError(
+            "Esp32SerialController motor loop is retired; migrate to "
+            "feagi.pns.brain_output with typed motor registration (Rust decode)."
+        )
     
     def run(self) -> None:
         """
