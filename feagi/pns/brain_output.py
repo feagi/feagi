@@ -1829,11 +1829,11 @@ class BrainOutput:
            Decoding fires the per-output callbacks registered at connect time,
            which update each registered output's state (servo angle, motor
            speed, etc.).
-        3. Read a flat snapshot of every decoded value
-           (``motors_read_decoded_snapshot``) into ``self._motor_data`` keyed by
-           ``"group:channel:mode"``. This exposes decoded values (including
-           SpatialPointer axes) to controller-side consumers, even for channels
-           with no registered Python output object.
+        3. Read a flat snapshot of channels updated on this decode tick
+           (``motors_read_decoded_snapshot(updated_only=True)``) into
+           ``self._motor_data`` keyed by ``"group:channel:mode"``. Stale cached
+           absolute values are not re-emitted. When no motor bytes arrive,
+           ``_motor_data`` is cleared so controllers hold pose.
 
         Call this in your main loop to update all output values.
         """
@@ -1853,6 +1853,9 @@ class BrainOutput:
         # 1. Pull raw motor bytes from the transport (no Python-side decode).
         raw_bytes = self._client.receive_motor_data_raw()
         if not raw_bytes:
+            # No FEAGI motor frame this tick: clear the command map so controllers
+            # hold current pose instead of replaying the last absolute latch.
+            self._motor_data = {}
             return
 
         # 2. Decode through the shared Rust decoder. This fires the per-output
@@ -1864,7 +1867,12 @@ class BrainOutput:
         # 3. Build the canonical motor snapshot from the Rust cache. Keys are
         #    "group:channel:mode"; multi-axis units (e.g. SpatialPointer 3D)
         #    are flattened to one entry per axis by the Rust snapshot.
-        snapshot = self._cache.motors_read_decoded_snapshot()
+        # Prefer updated-only channels so absolute/incremental commands are
+        # one-shot per decode tick (stale cache values are not re-emitted).
+        try:
+            snapshot = self._cache.motors_read_decoded_snapshot(updated_only=True)
+        except TypeError:
+            snapshot = self._cache.motors_read_decoded_snapshot()
         self._motor_data = {}
         for group_id, channel_index, mode, value in snapshot:
             value_f = float(value)

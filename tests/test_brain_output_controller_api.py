@@ -218,6 +218,7 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
         def __init__(self):
             self.loaded = None
             self.decoded = False
+            self.updated_only_calls = 0
 
         def motors_load_in_bytes_and_verify(self, raw):
             self.loaded = raw
@@ -225,7 +226,8 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
         def motors_decode_cached_byte_data_to_motor(self):
             self.decoded = True
 
-        def motors_read_decoded_snapshot(self):
+        def motors_read_decoded_snapshot(self, updated_only=False):
+            self.updated_only_calls += int(bool(updated_only))
             # (group, channel, mode, value) tuples, as the Rust binding returns.
             return [
                 (1, 0, "absolute", 0.9),
@@ -246,10 +248,30 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
     # Raw bytes were handed to the Rust decoder (not Python-decoded).
     assert bo._cache.loaded == b"raw-motor-bytes"
     assert bo._cache.decoded is True
+    assert bo._cache.updated_only_calls == 1
     # Snapshot channels are persisted even without registered output objects.
     assert bo._motor_data["1:0:absolute"] == 0.9
     assert bo._motor_data["1:1:absolute"] == 0.2
     assert bo._motor_data["1:2:absolute"] == 0.0
+
+
+def test_receive_clears_motor_data_when_no_raw_bytes():
+    """Silent motor ticks must clear _motor_data so absolute commands do not latch."""
+
+    class _FakeClient:
+        def receive_motor_data_raw(self):
+            return b""
+
+    bo = BrainOutput()
+    bo._connected = True
+    bo._sensory_only_mode = False
+    bo._client = _FakeClient()
+    bo._cache = object()
+    bo._motor_data = {"1:0:absolute": 1.0}
+
+    bo.receive()
+
+    assert bo._motor_data == {}
 
 
 def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch):
