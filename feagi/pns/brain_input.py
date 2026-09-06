@@ -8,7 +8,6 @@ Uses Rust IOCache for high-performance encoding.
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import base64
 import binascii
-import json
 import logging
 import os
 import time
@@ -37,6 +36,7 @@ _SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES = {
     b"svi": ["sensor_segmented_vision_register", "sensor_SegmentedVision_register"],
     b"img": ["sensor_vision_register", "sensor_Vision_register"],
     b"mis": ["sensor_misc_data_register", "sensor_MiscData_register"],
+    b"dpt": ["sensor_depth_map_register", "sensor_DepthMap_register"],
     b"rim": ["sensor_raw_i_m_u_register", "sensor_RawIMU_register"],
     b"sim": ["sensor_smart_i_m_u_register", "sensor_SmartIMU_register"],
 }
@@ -156,7 +156,7 @@ def register_cortical_areas_with_cache(cache: Any, cortical_area_ids: List[str])
                 frame_change_handling=frame,
                 image_properties=input_props,
             )
-        elif subtype == b"mis":
+        elif subtype in (b"mis", b"dpt"):
             dims = cc_desc.MiscDataDimensions(1, 1, 1)
             register_method(
                 group=group_id,

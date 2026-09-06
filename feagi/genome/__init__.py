@@ -13,7 +13,7 @@ Example:
     from feagi.genome import GenomeLoader, GenomeAPI, validate_genome
 
     loader = GenomeLoader()
-    genome = loader.load("my_brain.json")
+    genome = loader.load("my_brain.genome")
     valid, errors = validate_genome(genome)
 
     api = GenomeAPI("http://localhost:8000")
@@ -28,13 +28,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from feagi.genome.api import GenomeAPI, GenomeAPIError
+from feagi.genome.artifact import (
+    GENOME_ARTIFACT_EXTENSION,
+    GENOME_ARTIFACT_MEDIA_TYPE,
+    GenomeArtifactCodec,
+    JsonGenomeArtifactCodec,
+    decode_genome_artifact,
+    encode_genome_artifact,
+    genome_artifact_file_name,
+    genome_artifact_stem,
+    is_genome_artifact_file_name,
+    read_genome_artifact,
+    write_genome_artifact,
+)
+
 
 class GenomeLoader:
     """
     Load genome from local file.
 
-    Supports absolute paths, relative paths, and filename-only (resolved against
-    default genomes directory, same as FeagiEngine and CLI).
+    Supports absolute paths, relative paths, and filename-only paths. Bare
+    filenames resolve against the default genomes directory.
     """
 
     def load(self, path: str | Path) -> dict[str, Any]:
@@ -42,13 +57,14 @@ class GenomeLoader:
         Load genome from file and return as dict.
 
         Args:
-            path: Path to genome JSON file. Can be:
-                - Absolute: /path/to/genome.json
-                - Relative: ./genome.json
-                - Filename only: genome.json (resolved against genomes dir)
+            path: Path to a `.genome` artifact. Can be:
+                - Absolute: /path/to/brain.genome
+                - Relative: ./brain.genome
+                - Filename only: brain.genome (resolved against genomes dir)
 
         Returns:
-            Genome dict (version, blueprint, neuron_morphologies, physiology, etc.)
+            Genome dictionary containing the version, blueprint, neuron
+            morphologies, physiology, and related fields.
 
         Raises:
             FileNotFoundError: If file does not exist
@@ -58,8 +74,16 @@ class GenomeLoader:
 
         paths = get_feagi_paths()
         p = Path(path)
+        if p.suffix.lower() != GENOME_ARTIFACT_EXTENSION:
+            raise ValueError("Genome files must use the .genome extension")
 
-        if not p.is_absolute() and "/" not in str(path) and "\\" not in str(path):
+        path_text = str(path)
+        is_bare_file_name = (
+            not p.is_absolute()
+            and "/" not in path_text
+            and "\\" not in path_text
+        )
+        if is_bare_file_name:
             resolved = paths.resolve_path(str(path), "genome")
         else:
             resolved = Path(path)
@@ -67,8 +91,7 @@ class GenomeLoader:
         if not resolved.exists():
             raise FileNotFoundError(f"Genome file not found: {path}")
 
-        with open(resolved, encoding="utf-8") as f:
-            return json.load(f)
+        return read_genome_artifact(resolved)
 
 
 def validate_genome(genome: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -76,8 +99,8 @@ def validate_genome(genome: dict[str, Any]) -> tuple[bool, list[str]]:
     Validate genome structure using Rust-backed FEAGI 2.0 validator.
 
     Args:
-        genome: Genome dict with keys version, blueprint, neuron_morphologies, physiology.
-                Supports both flat and hierarchical formats.
+        genome: Genome dictionary with version, blueprint, neuron morphologies,
+            and physiology. Supports flat and hierarchical formats.
 
     Returns:
         Tuple of (valid: bool, errors: list[str]).
@@ -219,16 +242,25 @@ def validate_and_repair_genome(
     return repaired, py_report
 
 
-from feagi.genome.api import GenomeAPI, GenomeAPIError
-
 __all__ = [
-    "validate_genome",
-    "auto_fix_genome",
-    "validate_and_repair_genome",
+    "GENOME_ARTIFACT_EXTENSION",
+    "GENOME_ARTIFACT_MEDIA_TYPE",
     "ChainResult",
-    "MigrationStepDiagnostics",
-    "NormalizationDiagnostics",
-    "GenomeLoader",
     "GenomeAPI",
     "GenomeAPIError",
+    "GenomeArtifactCodec",
+    "GenomeLoader",
+    "JsonGenomeArtifactCodec",
+    "MigrationStepDiagnostics",
+    "NormalizationDiagnostics",
+    "auto_fix_genome",
+    "decode_genome_artifact",
+    "encode_genome_artifact",
+    "genome_artifact_file_name",
+    "genome_artifact_stem",
+    "is_genome_artifact_file_name",
+    "read_genome_artifact",
+    "validate_and_repair_genome",
+    "validate_genome",
+    "write_genome_artifact",
 ]

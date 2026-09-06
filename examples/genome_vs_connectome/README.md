@@ -12,7 +12,7 @@ Demonstrates the difference between loading a **genome** (initial neural bluepri
 
 ## Configuration
 
-Uses `feagi_configuration.toml` from this folder or parent `examples/`, or set `FEAGI_CONFIG_PATH`. Example uses placeholder paths (`my_genome.json`, `trained_brain.connectome`); replace with your files to run for real.
+Uses `feagi_configuration.toml` from this folder or parent `examples/`, or set `FEAGI_CONFIG_PATH`. Example uses placeholder paths (`my_brain.genome`, `trained_brain.connectome`); replace with your files to run for real.
 
 ## Run
 
@@ -23,3 +23,7 @@ python example_genome_vs_connectome.py
 ```
 
 Engine start/stop are commented out for demonstration; uncomment and set genome/connectome paths to run FEAGI.
+
+To save the running brain, create `ConnectomeAPI` with the API URL and timeout
+from the active configuration, then call
+`download_to_file("checkpoint.connectome")`.

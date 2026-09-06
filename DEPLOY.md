@@ -540,7 +540,7 @@ env = init_feagi_environment()
 # Start FEAGI with default config
 engine = FeagiEngine()
 engine.load_config()  # Uses default config
-engine.load_genome("my_brain.json")
+engine.load_genome("my_brain.genome")
 engine.start()
 ```
 
@@ -552,17 +552,17 @@ Save genomes in the standard directory:
 
 **Linux:**
 ```bash
-cp my_brain.json ~/FEAGI/genomes/
+cp my_brain.genome ~/FEAGI/genomes/
 ```
 
 **macOS:**
 ```bash
-cp my_brain.json ~/Documents/FEAGI/Genomes/
+cp my_brain.genome ~/Documents/FEAGI/Genomes/
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Copy-Item .\my_brain.json "$HOME\Documents\FEAGI\Genomes\"
+Copy-Item .\my_brain.genome "$HOME\Documents\FEAGI\Genomes\"
 ```
 
 #### Loading Genomes
@@ -573,21 +573,44 @@ Load genomes by filename (auto-resolved from genomes directory):
 from feagi.engine import FeagiEngine
 
 engine = FeagiEngine()
-engine.load_genome("my_brain.json")  # Looks in ~/Documents/FEAGI/Genomes/
+engine.load_genome("my_brain.genome")  # Looks in ~/Documents/FEAGI/Genomes/
 engine.start()
 ```
 
 Or use absolute path:
 
 ```python
-engine.load_genome("/path/to/genome.json")
+engine.load_genome("/path/to/brain.genome")
+```
+
+Download the active runtime genome:
+
+```bash
+feagi download genome --output current.genome --timeout <SECONDS>
 ```
 
 ### Working with Connectomes
 
 #### Saving Trained Brains
 
-Connectomes are saved brain states (trained neural networks). Save them to the standard directory for easy access:
+Connectomes are binary saved brain states. Download the running state through
+the SDK, using the API URL and request timeout from the active configuration:
+
+```python
+from feagi.connectome import ConnectomeAPI
+
+api = ConnectomeAPI(api_url, timeout=request_timeout)
+api.download_to_file("trained_v1.connectome", mode="full")
+```
+
+The CLI supports both persistence modes:
+
+```bash
+feagi download connectome --mode full --output trained_v1.connectome --timeout <SECONDS>
+feagi download connectome --mode lite --output trained_v1-lite.connectome --timeout <SECONDS>
+```
+
+Move downloaded artifacts to the standard directory for easy access:
 
 **Linux:**
 ```bash
@@ -616,6 +639,14 @@ engine.load_connectome("trained_v1.connectome")  # Auto-resolved
 engine.start()
 ```
 
+The equivalent CLI command is:
+
+```bash
+feagi start --connectome trained_v1.connectome
+```
+
+`--genome` and `--connectome` cannot be used together.
+
 ### Docker Deployment
 
 For containerized deployment:
@@ -637,7 +668,7 @@ COPY feagi_configuration.toml /root/.feagi/config/
 EXPOSE 8000 8080 5558 5564
 
 # Start FEAGI
-CMD ["feagi", "start", "--config", "/root/.feagi/config/feagi_configuration.toml", "--genome", "/data/genome.json"]
+CMD ["feagi", "start", "--config", "/root/.feagi/config/feagi_configuration.toml", "--genome", "/data/brain.genome"]
 ```
 
 **docker-compose.yml example:**
@@ -649,7 +680,7 @@ services:
     command: >
       bash -c "pip install feagi[full] &&
                feagi init &&
-               feagi start --genome /data/genome.json"
+               feagi start --genome /data/brain.genome"
     ports:
       - "8000:8000"
       - "8080:8080"
@@ -758,7 +789,7 @@ feagi bv start --config ~/.feagi/config/feagi_configuration.toml
 
 ### Genome/Connectome Not Found
 
-**Problem:** `Genome file not found: my_brain.json`
+**Problem:** `Genome file not found: my_brain.genome`
 
 **Solutions:**
 
@@ -778,21 +809,21 @@ Get-ChildItem "$HOME\Documents\FEAGI\Genomes\"
 
 2. **Use absolute path:**
 ```python
-engine.load_genome("/full/path/to/genome.json")
+engine.load_genome("/full/path/to/brain.genome")
 ```
 
 3. **Copy to standard directory:**
 ```bash
 # Linux
-cp genome.json ~/FEAGI/genomes/
+cp brain.genome ~/FEAGI/genomes/
 
 # macOS
-cp genome.json ~/Documents/FEAGI/Genomes/
+cp brain.genome ~/Documents/FEAGI/Genomes/
 ```
 
 ```powershell
 # Windows PowerShell
-Copy-Item .\genome.json "$HOME\Documents\FEAGI\Genomes\"
+Copy-Item .\brain.genome "$HOME\Documents\FEAGI\Genomes\"
 ```
 
 ### Port Already in Use

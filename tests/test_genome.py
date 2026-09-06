@@ -1,5 +1,5 @@
 """
-Tests for feagi.genome module: GenomeLoader, validate_genome, auto_fix_genome, GenomeAPI.
+Tests for the genome loader, validator, repair helper, and API client.
 """
 
 import importlib.util
@@ -23,9 +23,17 @@ from feagi.genome import (
 
 def test_genome_loader_load_from_absolute_path(tmp_path):
     """GenomeLoader loads genome from absolute path."""
-    genome_file = tmp_path / "test_genome.json"
-    genome_data = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
-    genome_file.write_text('{"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}')
+    genome_file = tmp_path / "test_genome.genome"
+    genome_data = {
+        "version": "2.0",
+        "blueprint": {},
+        "neuron_morphologies": {},
+        "physiology": {},
+    }
+    genome_file.write_text(
+        '{"version": "2.0", "blueprint": {}, '
+        '"neuron_morphologies": {}, "physiology": {}}'
+    )
 
     loader = GenomeLoader()
     result = loader.load(str(genome_file))
@@ -36,7 +44,16 @@ def test_genome_loader_load_file_not_found():
     """GenomeLoader raises FileNotFoundError when file does not exist."""
     loader = GenomeLoader()
     with pytest.raises(FileNotFoundError, match="Genome file not found"):
-        loader.load("/nonexistent/path/genome.json")
+        loader.load("/nonexistent/path/genome.genome")
+
+
+def test_genome_loader_rejects_json_extension(tmp_path):
+    """GenomeLoader rejects the retired external `.json` extension."""
+    genome_file = tmp_path / "test_genome.json"
+    genome_file.write_text("{}")
+
+    with pytest.raises(ValueError, match=r"\.genome extension"):
+        GenomeLoader().load(genome_file)
 
 
 # -------------------------------------------------------------------------
@@ -46,7 +63,9 @@ def test_genome_loader_load_file_not_found():
 
 @pytest.mark.skipif(
     importlib.util.find_spec("feagi_rust_py_libs") is None
-    or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
+    or not hasattr(
+        __import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"
+    ),
     reason="feagi_rust_py_libs.genome not available",
 )
 def test_validate_genome_valid():
@@ -68,12 +87,19 @@ def test_validate_genome_valid():
 
 @pytest.mark.skipif(
     importlib.util.find_spec("feagi_rust_py_libs") is None
-    or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
+    or not hasattr(
+        __import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"
+    ),
     reason="feagi_rust_py_libs.genome not available",
 )
 def test_auto_fix_genome_returns_tuple():
     """auto_fix_genome returns (dict, int)."""
-    genome = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
+    genome = {
+        "version": "2.0",
+        "blueprint": {},
+        "neuron_morphologies": {},
+        "physiology": {},
+    }
     fixed, num_fixes = auto_fix_genome(genome)
     assert isinstance(fixed, dict)
     assert isinstance(num_fixes, int)
@@ -81,12 +107,19 @@ def test_auto_fix_genome_returns_tuple():
 
 @pytest.mark.skipif(
     importlib.util.find_spec("feagi_rust_py_libs") is None
-    or not hasattr(__import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"),
+    or not hasattr(
+        __import__("feagi_rust_py_libs", fromlist=["genome"]), "genome"
+    ),
     reason="feagi_rust_py_libs.genome not available",
 )
 def test_validate_repair_workflow_produces_valid_genome():
-    """validate -> auto_fix -> validate workflow produces valid genome (recovery flow)."""
-    genome = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
+    """Repairing an invalid genome produces a valid genome."""
+    genome = {
+        "version": "2.0",
+        "blueprint": {},
+        "neuron_morphologies": {},
+        "physiology": {},
+    }
     fixed, num_fixes = auto_fix_genome(genome)
     valid, errors = validate_genome(fixed)
     assert valid is True, f"Repaired genome should be valid: {errors}"
@@ -110,7 +143,12 @@ def genome_api():
 
 def test_genome_api_upload(genome_api):
     """GenomeAPI.upload sends POST to /v1/genome/upload."""
-    genome = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
+    genome = {
+        "version": "2.0",
+        "blueprint": {},
+        "neuron_morphologies": {},
+        "physiology": {},
+    }
     mock_response = {
         "success": True,
         "message": "Genome uploaded successfully",
@@ -120,7 +158,10 @@ def test_genome_api_upload(genome_api):
 
     with patch("feagi.genome.api.requests.request") as mock_req:
         mock_req.return_value.status_code = 200
-        mock_req.return_value.content = b'{"success": true, "message": "Genome uploaded successfully", "cortical_area_count": 10, "brain_region_count": 2}'
+        mock_req.return_value.content = (
+            b'{"success": true, "message": "Genome uploaded successfully", '
+            b'"cortical_area_count": 10, "brain_region_count": 2}'
+        )
         mock_req.return_value.json.return_value = mock_response
         mock_req.return_value.text = ""
 
@@ -135,7 +176,12 @@ def test_genome_api_upload(genome_api):
 
 def test_genome_api_download(genome_api):
     """GenomeAPI.download sends GET to /v1/genome/download."""
-    mock_genome = {"version": "2.0", "blueprint": {}, "neuron_morphologies": {}, "physiology": {}}
+    mock_genome = {
+        "version": "2.0",
+        "blueprint": {},
+        "neuron_morphologies": {},
+        "physiology": {},
+    }
 
     with patch("feagi.genome.api.requests.request") as mock_req:
         mock_req.return_value.status_code = 200
@@ -147,9 +193,26 @@ def test_genome_api_download(genome_api):
     assert result == mock_genome
 
 
+def test_genome_api_download_artifact_preserves_response_bytes(genome_api):
+    """GenomeAPI exposes the encoded artifact response for file downloads."""
+    artifact = b'{"genome_schema_version":3,"blueprint":{}}'
+
+    with patch("feagi.genome.api.requests.request") as mock_req:
+        mock_req.return_value.status_code = 200
+        mock_req.return_value.content = artifact
+        mock_req.return_value.text = ""
+
+        result = genome_api.download_artifact()
+
+    assert result == artifact
+
+
 def test_genome_api_add_custom_cortical_area(genome_api):
     """GenomeAPI.add_custom_cortical_area sends correct payload."""
-    mock_response = {"message": "Cortical area created", "cortical_id": "c_abc123"}
+    mock_response = {
+        "message": "Cortical area created",
+        "cortical_id": "c_abc123",
+    }
 
     with patch("feagi.genome.api.requests.request") as mock_req:
         mock_req.return_value.status_code = 200
@@ -172,7 +235,11 @@ def test_genome_api_add_custom_cortical_area(genome_api):
 
 def test_genome_api_update_cortical_area(genome_api):
     """GenomeAPI.update_cortical_area sends PUT with changes."""
-    mock_response = {"message": "Cortical area updated", "cortical_id": "c_xyz", "previous_cortical_id": "c_old"}
+    mock_response = {
+        "message": "Cortical area updated",
+        "cortical_id": "c_xyz",
+        "previous_cortical_id": "c_old",
+    }
 
     with patch("feagi.genome.api.requests.request") as mock_req:
         mock_req.return_value.status_code = 200
@@ -192,7 +259,9 @@ def test_genome_api_remove_cortical_area(genome_api):
     """GenomeAPI.remove_cortical_area sends DELETE with cortical_id."""
     with patch("feagi.genome.api.requests.request") as mock_req:
         mock_req.return_value.status_code = 200
-        mock_req.return_value.json.return_value = {"message": "Cortical area deleted"}
+        mock_req.return_value.json.return_value = {
+            "message": "Cortical area deleted"
+        }
         mock_req.return_value.content = b"{}"
 
         genome_api.remove_cortical_area("c_to_remove")

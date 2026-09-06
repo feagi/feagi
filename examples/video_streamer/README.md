@@ -23,6 +23,18 @@ From this folder:
 python example_video_simple.py
 ```
 
+RGBD paired registration example:
+
+```bash
+python example_rgbd_pair.py
+```
+
+RealSense true-depth RGBD example:
+
+```bash
+FEAGI_DEPTH_BINS=64 FEAGI_RGBD_MAX_DEPTH_M=6.0 python example_rgbd_realsense.py
+```
+
 With a custom video path:
 
 ```bash
@@ -30,3 +42,15 @@ FEAGI_VIDEO_PATH=/path/to/video.mp4 python example_video_simple.py
 ```
 
 To see neuron activity in Brain Visualizer: load a genome with vision cortical areas before `engine.start()` and connect BV to the same FEAGI instance. If FEAGI logs "Unknown cortical area", use a genome whose vision (IPU) areas match the agent's pipeline (see project docs).
+
+## RGBD Notes
+
+- `example_rgbd_pair.py` registers one physical sensor as sibling `Vision` and
+  `DepthMap` units with shared `bundle_id` metadata.
+- Replace `get_rgb_frame()` and `get_depth_volume()` with your hardware code
+  (for example, RGB + depth streams from RealSense).
+- If you want synthetic depth from RGB only, generate it explicitly with
+  `brain_output.rgb_frame_to_depth_map_bins(...)` and pass it to
+  `write_rgbd_tick(...)`.
+- `example_rgbd_realsense.py` uses `pyrealsense2` and true depth frames; install
+  RealSense Python bindings in your active virtual environment first.

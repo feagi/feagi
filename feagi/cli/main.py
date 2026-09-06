@@ -107,11 +107,11 @@ def _build_parser() -> argparse.ArgumentParser:
     start_mode = start_parser.add_mutually_exclusive_group(required=False)
     start_mode.add_argument(
         "--genome",
-        help="Path to genome JSON file (default: uses barebones genome).",
+        help="Path to a .genome artifact (default: uses barebones genome).",
     )
     start_mode.add_argument(
         "--connectome",
-        help="Path to connectome file.",
+        help="Path to a .connectome artifact.",
     )
     start_parser.add_argument(
         "--wait",
@@ -163,13 +163,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to FEAGI configuration TOML file (default: uses ~/.feagi/config/feagi_configuration.toml).",
     )
-    restart_parser.add_argument(
+    restart_mode = restart_parser.add_mutually_exclusive_group(required=False)
+    restart_mode.add_argument(
         "--genome",
-        help="Path to genome JSON file (default: uses barebones genome).",
+        help="Path to a .genome artifact (default: uses barebones genome).",
     )
-    restart_parser.add_argument(
+    restart_mode.add_argument(
         "--connectome",
-        help="Path to connectome file.",
+        help="Path to a .connectome artifact.",
     )
     restart_parser.add_argument(
         "--timeout",
@@ -186,6 +187,46 @@ def _build_parser() -> argparse.ArgumentParser:
         "--feagi-path",
         default=None,
         help="Path to feagi-rs binary (overrides bundled binary). Use when bundled binary is outdated.",
+    )
+
+    download_parser = subparsers.add_parser(
+        "download",
+        help="Download the active genome or connectome from FEAGI.",
+    )
+    download_subparsers = download_parser.add_subparsers(
+        dest="download_artifact",
+        required=True,
+    )
+    download_genome = download_subparsers.add_parser(
+        "genome",
+        help="Download the active genome as a .genome artifact.",
+    )
+    download_connectome = download_subparsers.add_parser(
+        "connectome",
+        help="Download the active connectome as a .connectome artifact.",
+    )
+    for artifact_parser in (download_genome, download_connectome):
+        artifact_parser.add_argument(
+            "--config",
+            default=None,
+            help="Path to FEAGI configuration TOML file.",
+        )
+        artifact_parser.add_argument(
+            "--output",
+            required=True,
+            help="Destination artifact path.",
+        )
+        artifact_parser.add_argument(
+            "--timeout",
+            required=True,
+            type=float,
+            help="HTTP request timeout in seconds.",
+        )
+    download_connectome.add_argument(
+        "--mode",
+        required=True,
+        choices=("full", "lite"),
+        help="Connectome persistence mode.",
     )
 
     init_parser = subparsers.add_parser(
@@ -340,6 +381,70 @@ def _handle_config_command(args: argparse.Namespace) -> int:
     
     print(f"Config file: {config_file}")
     print(contents)
+    return 0
+
+
+def _handle_download_command(args: argparse.Namespace) -> int:
+    """Download the active brain artifact through the configured FEAGI API."""
+    from pathlib import Path
+
+    import toml
+
+    from feagi.config import ensure_default_config
+    from feagi.connectome import ConnectomeAPI, ConnectomeAPIError
+    from feagi.genome import (
+        GenomeAPI,
+        GenomeAPIError,
+        decode_genome_artifact,
+        is_genome_artifact_file_name,
+    )
+
+    try:
+        if args.timeout <= 0:
+            raise ValueError("Download timeout must be greater than zero.")
+        config_path = Path(args.config) if args.config else ensure_default_config()
+        config = toml.load(config_path)
+        api_config = config.get("api")
+        if not isinstance(api_config, dict):
+            raise ValueError("Config must define an [api] section.")
+        api_host = api_config.get("host")
+        api_port = api_config.get("port")
+        if not isinstance(api_host, str) or not api_host:
+            raise ValueError("Config must define api.host.")
+        if not isinstance(api_port, int):
+            raise ValueError("Config api.port must be an integer.")
+        api_url = f"http://{api_host}:{api_port}"
+        output_path = Path(args.output)
+
+        if args.download_artifact == "genome":
+            if not is_genome_artifact_file_name(output_path.name):
+                raise ValueError(
+                    "Genome files must use the .genome extension"
+                )
+            artifact = GenomeAPI(api_url, timeout=args.timeout).download_artifact()
+            decode_genome_artifact(artifact)
+            output_path.write_bytes(artifact)
+        elif args.download_artifact == "connectome":
+            ConnectomeAPI(
+                api_url,
+                timeout=args.timeout,
+            ).download_to_file(output_path, mode=args.mode)
+        else:
+            raise ValueError(
+                f"Unsupported download artifact: {args.download_artifact}"
+            )
+    except (
+        ConnectomeAPIError,
+        FileNotFoundError,
+        GenomeAPIError,
+        OSError,
+        ValueError,
+        toml.TomlDecodeError,
+    ) as exc:
+        print(f"Download failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Downloaded {args.download_artifact}: {output_path}")
     return 0
 
 
@@ -797,6 +902,8 @@ def main(argv: list[str] | None = None) -> int:
             return _handle_restart_command(args)
         if args.command == "config":
             return _handle_config_command(args)
+        if args.command == "download":
+            return _handle_download_command(args)
 
         # No command specified - show help
         from feagi.paths import get_feagi_paths
@@ -814,6 +921,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  feagi bv status      - Check Brain Visualizer status")
         print("  feagi bv restart     - Restart Brain Visualizer")
         print("  feagi init           - Initialize FEAGI environment")
+        print("  feagi download       - Download genome or connectome")
         print("\nFEAGI Directories:")
         print(f"  Config:      {paths.config_dir}")
         print(f"  Logs:        {paths.logs_dir}")

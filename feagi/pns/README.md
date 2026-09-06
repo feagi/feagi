@@ -359,6 +359,20 @@ To integrate a new agent type:
 
 The PNS will automatically coordinate resources based on agent capabilities.
 
+### RGBD Pair Registration Helpers
+
+`feagi.pns.brain_output.BrainOutput` exposes helper methods for RGBD camera
+flows where one physical camera is registered as sibling FEAGI sensory units:
+
+- `register_rgbd_sensor_pair(...)` registers `Vision` and `DepthMap` with
+  explicit group IDs and installs a registration enricher that writes shared
+  `bundle_id` / `bundle_type` metadata for both units.
+- `write_sensor_depth_map(...)` writes a depth volume (`H x W x Z`) directly
+  into the `DepthMap` cache channel.
+- `write_rgbd_tick(...)` writes one synchronized RGB + depth tick. When no
+  depth volume is provided, `rgb_frame_to_depth_map_bins(...)` can generate a
+  deterministic luminance-to-depth-bin representation for non-RGBD cameras.
+
 ### Debugging
 
 **Common Issues**:

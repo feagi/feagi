@@ -1,27 +1,61 @@
-"""
-FEAGI Connectome Operations
+"""Binary connectome artifact I/O, migration, and live FEAGI operations."""
 
-Download and upload connectomes from/to running FEAGI instance via REST API.
+import json
 
-Provides:
-- ConnectomeAPI: Download/upload trained connectomes
-- ConnectomeSnapshot: Save/restore brain state
+from feagi.connectome.api import (
+    ConnectomeAPI,
+    ConnectomeAPIError,
+    ConnectomeMode,
+)
+from feagi.connectome.artifact import (
+    CONNECTOME_ARTIFACT_EXTENSION,
+    CONNECTOME_ARTIFACT_MEDIA_TYPE,
+    connectome_artifact_file_name,
+    connectome_artifact_stem,
+    is_connectome_artifact_file_name,
+    read_connectome_artifact,
+    write_connectome_artifact,
+)
+from feagi.connectome.model import ConnectomeMigrationReport
 
-Example:
-    from feagi.connectome import ConnectomeAPI
-    
-    api = ConnectomeAPI("http://localhost:8000")
-    
-    # Download trained connectome
-    connectome = api.download()
-    connectome.save("~/.feagi/connectomes/trained_v1.feagi-connectome")
-    
-    # Upload pre-trained connectome
-    connectome = api.load_file("pretrained.feagi-connectome")
-    api.upload(connectome)
 
-TODO: Implement in Phase 3
-"""
+def validate_and_migrate_connectome(
+    artifact_bytes: bytes,
+) -> tuple[bytes, ConnectomeMigrationReport]:
+    """Validate and non-destructively migrate a connectome artifact.
 
-__all__ = []
+    Args:
+        artifact_bytes: Complete binary ``.connectome`` artifact.
 
+    Returns:
+        Migrated artifact bytes and the authoritative compatibility report.
+
+    Raises:
+        ValueError: The artifact is corrupt, unsupported, or semantically invalid.
+    """
+    from feagi_rust_py_libs.connectome import (
+        validate_and_migrate_connectome as rust_validate_and_migrate,
+    )
+
+    migrated_bytes, report_json = rust_validate_and_migrate(artifact_bytes)
+    report_data = json.loads(report_json)
+    if not isinstance(report_data, dict):
+        raise ValueError("Connectome migration report must be a JSON object")
+    report = ConnectomeMigrationReport(**report_data)
+    return bytes(migrated_bytes), report
+
+
+__all__ = [
+    "CONNECTOME_ARTIFACT_EXTENSION",
+    "CONNECTOME_ARTIFACT_MEDIA_TYPE",
+    "ConnectomeAPI",
+    "ConnectomeAPIError",
+    "ConnectomeMigrationReport",
+    "ConnectomeMode",
+    "connectome_artifact_file_name",
+    "connectome_artifact_stem",
+    "is_connectome_artifact_file_name",
+    "read_connectome_artifact",
+    "validate_and_migrate_connectome",
+    "write_connectome_artifact",
+]

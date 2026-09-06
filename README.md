@@ -97,15 +97,39 @@ from feagi.engine import FeagiEngine
 
 engine = FeagiEngine()
 engine.load_config()  # Uses default config
-engine.load_genome("my_brain.json")  # Loads from genomes directory
+engine.load_genome("my_brain.genome")  # Loads from genomes directory
 engine.start()
 ```
 
-Or from command line:
+To restore a trained connectome instead:
+
+```python
+engine = FeagiEngine()
+engine.load_config()
+engine.load_connectome("trained_brain.connectome")
+engine.start()
+```
+
+Genome and connectome startup artifacts are mutually exclusive. The equivalent
+command-line forms are:
 
 ```bash
-feagi start --config ~/.feagi/config/feagi_configuration.toml --genome my_brain.json
+feagi start --config ~/.feagi/config/feagi_configuration.toml --genome my_brain.genome
+feagi start --config ~/.feagi/config/feagi_configuration.toml --connectome trained_brain.connectome
 ```
+
+Download the active brain using the API connection from the selected config.
+The timeout is explicit so large artifacts do not depend on an implicit
+network limit:
+
+```bash
+feagi download genome --output current.genome --timeout <SECONDS>
+feagi download connectome --mode full --output current.connectome --timeout <SECONDS>
+feagi download connectome --mode lite --output current-lite.connectome --timeout <SECONDS>
+```
+
+Genome artifacts contain JSON but must use `.genome`. The SDK rejects `.json`
+genome filenames; connectome artifacts continue to use `.connectome`.
 
 ### SDK Architecture
 
@@ -117,8 +141,8 @@ feagi/
 ├── config/          # Configuration management
 ├── paths/           # Cross-platform path utilities
 ├── cli/             # Command-line tools
-├── genome/          # Runtime genome manipulation (coming soon)
-├── connectome/      # Brain state management (coming soon)
+├── genome/          # Genome artifact I/O, validation, and live operations
+├── connectome/      # Connectome artifact I/O, migration, and live operations
 └── packaging/       # Marketplace packages (coming soon)
 ```
 

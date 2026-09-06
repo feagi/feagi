@@ -26,6 +26,8 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
+# @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-output
+
 
 class BrainOutput:
     """
@@ -108,6 +110,7 @@ class BrainOutput:
 
         # Lazy sensory write helpers (created only when needed)
         self._sensory_percentage_factory = None
+        self._sensory_percentage_3d_factory = None
         self._sensory_misc_factory = None
         self._vision_image_frame_factory = None
         self._vision_color_space = None
@@ -209,6 +212,69 @@ class BrainOutput:
 
         normalize_section("output_units_and_decoder_properties")
         normalize_section("input_units_and_encoder_properties")
+        return registrations
+
+    @staticmethod
+    def _typed_string_device_property(value: str) -> Dict[str, Any]:
+        return {"type": "String", "value": value}
+
+    @classmethod
+    def _apply_rgbd_registration_bundle(
+        cls,
+        registrations: Dict[str, Any],
+        *,
+        bundle_id: str,
+        bundle_type: str,
+        rgb_group: int,
+        depth_group: int,
+        rgb_sensor_role: str,
+        depth_sensor_role: str,
+    ) -> Dict[str, Any]:
+        """Attach RGBD pairing metadata to Vision + DepthMap registrations."""
+        input_units = registrations.get("input_units_and_encoder_properties")
+        if not isinstance(input_units, dict):
+            return registrations
+
+        def annotate_unit(
+            unit_key: str,
+            group_id: int,
+            sensor_role: str,
+        ) -> None:
+            unit_entries = input_units.get(unit_key)
+            if not isinstance(unit_entries, list):
+                return
+            for entry in unit_entries:
+                if not isinstance(entry, list) or not entry:
+                    continue
+                unit_def = entry[0]
+                if not isinstance(unit_def, dict):
+                    continue
+                if unit_def.get("cortical_unit_index") != group_id:
+                    continue
+                unit_def["friendly_name"] = f"{bundle_id}_{sensor_role}"
+                device_grouping = unit_def.get("device_grouping")
+                if not isinstance(device_grouping, list):
+                    continue
+                for channel_index, channel in enumerate(device_grouping):
+                    if not isinstance(channel, dict):
+                        continue
+                    channel["friendly_name"] = (
+                        f"{bundle_id}_{sensor_role}_ch{channel_index}"
+                    )
+                    props = channel.get("device_properties")
+                    if not isinstance(props, dict):
+                        props = {}
+                        channel["device_properties"] = props
+                    props["bundle_id"] = cls._typed_string_device_property(bundle_id)
+                    props["bundle_type"] = cls._typed_string_device_property(
+                        bundle_type
+                    )
+                    props["sensor_role"] = cls._typed_string_device_property(
+                        sensor_role
+                    )
+
+        annotate_unit("Vision", rgb_group, rgb_sensor_role)
+        annotate_unit("DepthMap", depth_group, depth_sensor_role)
         return registrations
 
     #: Placeholder string for required device_properties keys when Rust cache export omits them.
@@ -979,7 +1045,7 @@ class BrainOutput:
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
                 Supported keys: ``Vision``, ``RawIMU``, ``SmartIMU``, ``Proximity``,
-                ``Servo``, ``Shock``, ``MiscData``.
+                ``Servo``, ``Shock``, ``MiscData``, ``DepthMap``, ``CartesianPosition``.
 
                 Notes on IMU keys:
                   * ``RawIMU`` registers ONE cortical unit with three sub-areas
@@ -987,6 +1053,13 @@ class BrainOutput:
                   * ``SmartIMU`` registers ONE cortical unit with one sub-area
                     holding an orientation quaternion as `[4, 1, z]`.
                   * IMU data is intentionally NOT routed through ``Shock``.
+
+                Notes on ``CartesianPosition``:
+                  * Registers ONE cortical unit with one sub-area, an unsigned
+                    3-axis (x/y/z) position each in `[0, 1]`, as `[3, 1, z]`.
+                  * Absolute-only (the Rust template rejects Incremental); pass
+                    ``frame_change_handling="absolute"`` (the default) when this
+                    key is present.
             z_neuron_resolution: Resolution parameter required by scalar sensory units.
             group_index_start: Starting sensory group index. Use this to reserve
                 lower group IDs for other sensory unit families.
@@ -1096,6 +1169,23 @@ class BrainOutput:
                 frame_mode,
                 misc_dims,
             ),
+            "DepthMap": lambda group, count: self._cache.sensor_DepthMap_register(
+                group,
+                count,
+                frame_mode,
+                misc_dims,
+            ),
+            # CartesianPosition = single unsigned 3-axis (Percentage3D) sub-area,
+            # one channel per registered unit -- an absolute end-effector/TCP
+            # position with each axis normalized to [0, 1] over the caller's
+            # workspace. Absolute-only: the Rust template rejects Incremental.
+            "CartesianPosition": lambda group, count: self._cache.sensor_CartesianPosition_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
         }
 
         unit_groups: Dict[str, int] = {}
@@ -1113,6 +1203,99 @@ class BrainOutput:
             register(group_index, channel_count)
             unit_groups[unit_key] = group_index
         return unit_groups
+
+    def register_rgbd_sensor_pair(
+        self,
+        *,
+        rgb_group: int,
+        depth_group: int,
+        rgb_resolution_xy: tuple[int, int],
+        depth_dimensions_xyz: tuple[int, int, int],
+        bundle_id: str,
+        bundle_type: str = "rgbd_camera",
+        frame_change_handling: Literal["absolute", "incremental"] = "absolute",
+    ) -> Dict[str, int]:
+        """
+        Register one RGBD camera as sibling Vision + DepthMap sensory units.
+
+        This keeps registration deterministic and explicitly paired so FEAGI can
+        treat both streams as one physical camera rig.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if rgb_group < 0 or depth_group < 0:
+            raise ValueError("rgb_group and depth_group must be >= 0.")
+        if not bundle_id or not bundle_id.strip():
+            raise ValueError("bundle_id must be a non-empty string.")
+        if not bundle_type or not bundle_type.strip():
+            raise ValueError("bundle_type must be a non-empty string.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode_value = str(frame_change_handling).strip().lower()
+        if frame_mode_value == "incremental":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Incremental()
+            )
+        elif frame_mode_value == "absolute":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Absolute()
+            )
+        else:
+            raise ValueError(
+                "frame_change_handling must be 'absolute' or 'incremental'."
+            )
+
+        descriptors = frpl.connector_core.data_types.descriptors
+        image_props = descriptors.ImageFrameProperties(
+            descriptors.ImageXYResolution(
+                int(rgb_resolution_xy[0]),
+                int(rgb_resolution_xy[1]),
+            ),
+            descriptors.ColorSpace.Gamma,
+            descriptors.ColorChannelLayout.RGB,
+        )
+        depth_dims = descriptors.MiscDataDimensions(
+            int(depth_dimensions_xyz[0]),
+            int(depth_dimensions_xyz[1]),
+            int(depth_dimensions_xyz[2]),
+        )
+        self._cache.sensor_Vision_register(
+            int(rgb_group),
+            1,
+            frame_mode,
+            image_props,
+        )
+        self._cache.sensor_DepthMap_register(
+            int(depth_group),
+            1,
+            frame_mode,
+            depth_dims,
+        )
+
+        previous_enricher = self._device_registration_enricher
+
+        def _rgbd_enricher(registrations: Dict[str, Any]) -> Dict[str, Any]:
+            enriched = registrations
+            if previous_enricher is not None:
+                enriched = previous_enricher(enriched)
+            return BrainOutput._apply_rgbd_registration_bundle(
+                enriched,
+                bundle_id=bundle_id.strip(),
+                bundle_type=bundle_type.strip(),
+                rgb_group=int(rgb_group),
+                depth_group=int(depth_group),
+                rgb_sensor_role="rgb",
+                depth_sensor_role="depth",
+            )
+
+        self.set_device_registration_enricher(_rgbd_enricher)
+        return {"Vision": int(rgb_group), "DepthMap": int(depth_group)}
 
     def register_motor_groups(
         self,
@@ -1238,12 +1421,14 @@ class BrainOutput:
         """Lazy-init write helper factories for sensory cache writes."""
         if (
             self._sensory_percentage_factory is not None
+            and self._sensory_percentage_3d_factory is not None
             and self._sensory_misc_factory is not None
         ):
             return
         import feagi_rust_py_libs as frpl
 
         self._sensory_percentage_factory = frpl.connector_core.data_types.Percentage
+        self._sensory_percentage_3d_factory = frpl.connector_core.data_types.Percentage3D
         self._sensory_misc_factory = frpl.connector_core.data_types.MiscData
 
     def _init_imu_write_helpers(self) -> None:
@@ -1429,6 +1614,106 @@ class BrainOutput:
             group=int(group),
             channel_index=int(channel_index),
             data=vision_frame,
+        )
+
+    def write_sensor_depth_map(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        depth_map_xyz,
+    ) -> None:
+        """Write one depth volume into DepthMap sensory cache."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_sensory_write_helpers()
+
+        import numpy as np
+
+        depth_array = np.asarray(depth_map_xyz, dtype=np.float32)
+        if depth_array.ndim != 3:
+            raise ValueError(
+                f"Depth map must be a 3D ndarray (H, W, Z), got {depth_array.shape}"
+            )
+        depth_data = self._sensory_misc_factory.new_from_array(depth_array)
+        self._cache.sensor_depth_map_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=depth_data,
+        )
+
+    @staticmethod
+    def rgb_frame_to_depth_map_bins(frame_rgb, depth_bins: int):
+        """
+        Convert RGB frame to one-hot depth bins using luminance.
+
+        This mirrors the deterministic desktop fallback path:
+        brightness is projected to one z-bin per pixel.
+        """
+        if int(depth_bins) <= 0:
+            raise ValueError("depth_bins must be > 0.")
+        import numpy as np
+
+        frame_array = np.asarray(frame_rgb, dtype=np.uint8)
+        if frame_array.ndim != 3 or frame_array.shape[2] != 3:
+            raise ValueError(
+                "frame_rgb must be an RGB ndarray with shape (H, W, 3)."
+            )
+
+        luminance = (
+            0.299 * frame_array[:, :, 0].astype(np.float32)
+            + 0.587 * frame_array[:, :, 1].astype(np.float32)
+            + 0.114 * frame_array[:, :, 2].astype(np.float32)
+        ) / 255.0
+        max_bin = int(depth_bins) - 1
+        indices = np.clip(
+            (luminance * max_bin).round().astype(np.int32),
+            0,
+            max_bin,
+        )
+        height, width = indices.shape
+        depth_map = np.zeros((height, width, int(depth_bins)), dtype=np.float32)
+        row_idx = np.arange(height)[:, None]
+        col_idx = np.arange(width)[None, :]
+        depth_map[row_idx, col_idx, indices] = 1.0
+        return depth_map
+
+    def write_rgbd_tick(
+        self,
+        *,
+        rgb_group: int,
+        depth_group: int,
+        channel_index: int,
+        frame_rgb,
+        depth_map_xyz=None,
+        depth_bins: Optional[int] = None,
+    ) -> None:
+        """
+        Write paired RGB + DepthMap data for one tick.
+
+        If ``depth_map_xyz`` is omitted, this derives depth bins from RGB
+        luminance deterministically.
+        """
+        self.write_sensor_vision_frame(
+            group=rgb_group,
+            channel_index=channel_index,
+            frame_rgb=frame_rgb,
+        )
+
+        resolved_depth_map = depth_map_xyz
+        if resolved_depth_map is None:
+            if depth_bins is None:
+                raise ValueError(
+                    "depth_bins must be provided when depth_map_xyz is None."
+                )
+            resolved_depth_map = BrainOutput.rgb_frame_to_depth_map_bins(
+                frame_rgb,
+                int(depth_bins),
+            )
+        self.write_sensor_depth_map(
+            group=depth_group,
+            channel_index=channel_index,
+            depth_map_xyz=resolved_depth_map,
         )
 
     def write_sensor_scalar(
@@ -1691,6 +1976,43 @@ class BrainOutput:
             group=int(group),
             channel_index=int(channel_index),
             data=quat,
+        )
+
+    def write_sensor_cartesian_position(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        position_xyz_0_1: tuple[float, float, float],
+    ) -> None:
+        """
+        Write one absolute end-effector/TCP position into the CartesianPosition
+        cache.
+
+        Each axis is expected to already be normalized to ``[0.0, 1.0]`` over
+        the caller's own workspace bounds (e.g., a robot arm's configured
+        Cartesian fence) -- this method performs no normalization itself.
+        Convention: ``(x, y, z)`` mapped to ``Percentage3D(a=x, b=y, c=z)``.
+
+        Args:
+            group: Registered CartesianPosition sensory group index.
+            channel_index: Channel index within the group.
+            position_xyz_0_1: ``(x, y, z)`` position, each in ``[0.0, 1.0]``.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_sensory_write_helpers()
+
+        pct = self._sensory_percentage_factory
+        position = self._sensory_percentage_3d_factory(
+            pct.new_from_0_1(float(position_xyz_0_1[0])),
+            pct.new_from_0_1(float(position_xyz_0_1[1])),
+            pct.new_from_0_1(float(position_xyz_0_1[2])),
+        )
+        self._cache.sensor_cartesian_position_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=position,
         )
 
     def flush_sensory_bytes(self) -> int:
