@@ -641,11 +641,12 @@ class BrainOutput:
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
         servo_frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
-        # Match feagi-structures motor templates: PositionalServo 1x1x10, RotaryMotor 1x1x9.
-        z_neuron_resolution_servo = 10
+        # Match the default feagi-structures motor templates unless a ServoMotor
+        # explicitly configures its positional-servo cortical depth.
         z_neuron_resolution_rotary = 9
 
         servo_channels_by_group: Dict[int, List[int]] = {}
+        servo_z_neuron_resolution_by_group: Dict[int, int] = {}
         rotary_by_group: Dict[int, List[Any]] = {}
         for output in self._outputs:
             if not isinstance(output, (ServoMotor, RotaryMotor)):
@@ -654,6 +655,18 @@ class BrainOutput:
             ch = int(getattr(output, "channel", 0) or 0)
             if isinstance(output, ServoMotor):
                 servo_channels_by_group.setdefault(group_id, []).append(ch)
+                z_neuron_resolution = getattr(output, "z_neuron_resolution", 10)
+                existing_resolution = servo_z_neuron_resolution_by_group.get(group_id)
+                if (
+                    existing_resolution is not None
+                    and existing_resolution != z_neuron_resolution
+                ):
+                    raise RuntimeError(
+                        "PositionalServo outputs in device group %s use different "
+                        "z-neuron resolutions; use one resolution per motor group."
+                        % group_id
+                    )
+                servo_z_neuron_resolution_by_group[group_id] = z_neuron_resolution
             else:
                 rotary_by_group.setdefault(group_id, []).append(output)
 
@@ -665,7 +678,7 @@ class BrainOutput:
                 group_id,
                 count,
                 servo_frame_mode,
-                z_neuron_resolution_servo,
+                servo_z_neuron_resolution_by_group[group_id],
                 positioning,
             )
 

@@ -3,7 +3,7 @@
 import pytest
 
 from feagi.pns.brain_output import BrainOutput
-from feagi.pns.outputs.motor import RotaryMotor
+from feagi.pns.outputs.motor import RotaryMotor, ServoMotor
 
 
 def test_rotary_decoder_uses_max_channel_index_plus_one() -> None:
@@ -120,4 +120,62 @@ def test_mixed_rotary_absolute_incremental_same_group_raises() -> None:
     right.channel = 1
     bo._outputs = [left, right]
     with pytest.raises(RuntimeError, match="mix absolute and incremental"):
+        bo._register_motor_decoder()
+
+
+def test_positional_servo_registers_configured_z_neuron_resolution() -> None:
+    """A positional-servo group must use the depth configured by its device."""
+    pytest.importorskip("feagi_rust_py_libs")
+    recorded: list[int] = []
+
+    class _FakeCache:
+        def motor_positional_servo_register(
+            self,
+            _group_id: int,
+            _count: int,
+            _frame_mode: object,
+            z_neuron_resolution: int,
+            _positioning: object,
+        ) -> None:
+            recorded.append(z_neuron_resolution)
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected rotary register")
+
+        def register_callback(self, *_a, **_kw) -> None:
+            pass
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    servo = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=13)
+    servo.group_id = 0
+    servo.channel = 0
+    bo._outputs = [servo]
+    bo._register_motor_decoder()
+    assert recorded == [13]
+
+
+def test_positional_servo_group_rejects_mixed_z_neuron_resolutions() -> None:
+    """Every positional-servo channel in a motor group must share one depth."""
+    pytest.importorskip("feagi_rust_py_libs")
+
+    class _FakeCache:
+        def motor_positional_servo_register(self, *_a, **_kw) -> None:
+            pass
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            pass
+
+        def register_callback(self, *_a, **_kw) -> None:
+            pass
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    first = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=10)
+    second = ServoMotor(unit_id=0, channel_index=1, z_neuron_resolution=11)
+    first.group_id = second.group_id = 0
+    first.channel = 0
+    second.channel = 1
+    bo._outputs = [first, second]
+    with pytest.raises(RuntimeError, match="different z-neuron resolutions"):
         bo._register_motor_decoder()

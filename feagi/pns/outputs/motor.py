@@ -50,7 +50,14 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
+        z_neuron_resolution: int = 10,
     ):
+        if (
+            not isinstance(z_neuron_resolution, int)
+            or isinstance(z_neuron_resolution, bool)
+            or z_neuron_resolution <= 0
+        ):
+            raise ValueError("z_neuron_resolution must be a positive integer.")
         super().__init__(unit_id)
         self.min_angle, self.max_angle = range
         self.encoding = encoding
@@ -58,6 +65,7 @@ class ServoMotor(BaseOutput):
         self.gain = gain  # Amplification factor for motor commands
         self.preferred_group_id = unit_id
         self.preferred_channel_index = channel_index
+        self.z_neuron_resolution = z_neuron_resolution
 
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
@@ -83,6 +91,7 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
+        z_neuron_resolution: int = 10,
     ) -> 'ServoMotor':
         """
         Register a new servo motor output.
@@ -95,13 +104,14 @@ class ServoMotor(BaseOutput):
                 <1.0 to dampen strong signals.
             unit_id: Cortical unit index (motor group) for this servo
             channel_index: Optional channel override within the motor group
+            z_neuron_resolution: Depth of the positional-servo motor cortical area.
         
         Returns:
             ServoMotor instance
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding, gain, unit_id, channel_index)
+        servo = cls(range, encoding, gain, unit_id, channel_index, z_neuron_resolution)
         brain_output.register_output(servo)
         return servo
     
