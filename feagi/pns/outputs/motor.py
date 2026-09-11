@@ -75,7 +75,7 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
-        z_neuron_resolution: int = 10,
+        z_neuron_resolution: int = 20,
         incremental_z_neuron_resolution: Optional[int] = None,
     ):
         if (
@@ -132,7 +132,7 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
-        z_neuron_resolution: int = 10,
+        z_neuron_resolution: int = 20,
         incremental_z_neuron_resolution: Optional[int] = None,
     ) -> 'ServoMotor':
         """

@@ -3,7 +3,11 @@
 import pytest
 
 from feagi.pns.brain_output import BrainOutput
-from feagi.pns.outputs.motor import RotaryMotor, ServoMotor
+from feagi.pns.outputs.motor import (
+    ABSOLUTE_TARGET_INCREMENTAL_SPEED,
+    RotaryMotor,
+    ServoMotor,
+)
 
 
 def test_rotary_decoder_uses_max_channel_index_plus_one() -> None:
@@ -95,7 +99,7 @@ def test_rotary_incremental_registers_incremental_frame() -> None:
     bo._outputs = [motor]
     bo._register_motor_decoder()
     assert len(recorded) == 1
-    assert "Incremental" in type(recorded[0]).__name__
+    assert str(recorded[0]) == "Incremental"
 
 
 def test_mixed_rotary_absolute_incremental_same_group_raises() -> None:
@@ -177,5 +181,119 @@ def test_positional_servo_group_rejects_mixed_z_neuron_resolutions() -> None:
     first.channel = 0
     second.channel = 1
     bo._outputs = [first, second]
-    with pytest.raises(RuntimeError, match="different z-neuron resolutions"):
+    with pytest.raises(RuntimeError, match="different .*z-neuron resolutions"):
         bo._register_motor_decoder()
+
+
+def test_target_speed_decoder_registers_incremental_step_from_servo() -> None:
+    """Target-speed registration must pass the configured incremental step."""
+    pytest.importorskip("feagi_rust_py_libs")
+    recorded: list[tuple[int, int, float, list[float]]] = []
+
+    class _FakeCache:
+        def motor_positional_servo_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected legacy servo register")
+
+        def motor_positional_servo_target_speed_register(
+            self,
+            group_id: int,
+            count: int,
+            _absolute_z: int,
+            _incremental_z: int,
+            _positioning: object,
+            default_speeds: list[float],
+            incremental_step_0_1: float,
+        ) -> None:
+            recorded.append(
+                (int(group_id), int(count), float(incremental_step_0_1), list(default_speeds))
+            )
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected rotary register")
+
+        def register_callback(self, *_a, **_kw) -> None:
+            pass
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    servo = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=10)
+    servo.group_id = 0
+    servo.channel = 0
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo.default_speed_0_1 = 0.35
+    servo.incremental_step_ratio = 0.006
+    bo._outputs = [servo]
+    bo._register_motor_decoder()
+    assert recorded == [(0, 1, 0.006, [0.35])]
+
+
+def test_target_speed_group_rejects_mixed_incremental_steps() -> None:
+    """All target-speed servos in one group must share one incremental step."""
+    pytest.importorskip("feagi_rust_py_libs")
+
+    class _FakeCache:
+        def motor_positional_servo_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected legacy servo register")
+
+        def motor_positional_servo_target_speed_register(self, *_a, **_kw) -> None:
+            pass
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            pass
+
+        def register_callback(self, *_a, **_kw) -> None:
+            pass
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    first = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=10)
+    second = ServoMotor(unit_id=0, channel_index=1, z_neuron_resolution=10)
+    first.group_id = second.group_id = 0
+    first.channel = 0
+    second.channel = 1
+    first.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    second.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    first.incremental_step_ratio = 0.004
+    second.incremental_step_ratio = 0.007
+    bo._outputs = [first, second]
+    with pytest.raises(RuntimeError, match="different incremental_step_ratio"):
+        bo._register_motor_decoder()
+
+
+def test_target_speed_decoder_falls_back_to_legacy_cache_signature() -> None:
+    """Registration remains functional with older Rust bindings (no step arg)."""
+    pytest.importorskip("feagi_rust_py_libs")
+    recorded: list[tuple[int, int, list[float]]] = []
+
+    class _FakeCache:
+        def motor_positional_servo_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected legacy servo register")
+
+        def motor_positional_servo_target_speed_register(self, *args: object, **_kw: object) -> None:
+            if len(args) == 7:
+                raise TypeError(
+                    "ConnectorAgent.motor_positional_servo_target_speed_register() "
+                    "takes 6 positional arguments but 7 were given"
+                )
+            if len(args) != 6:
+                raise AssertionError(f"unexpected args count: {len(args)}")
+            group_id, count, _absolute_z, _incremental_z, _positioning, default_speeds = args
+            recorded.append((int(group_id), int(count), list(default_speeds)))
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected rotary register")
+
+        def register_callback(self, *_a, **_kw) -> None:
+            pass
+
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    servo = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=10)
+    servo.group_id = 0
+    servo.channel = 0
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo.default_speed_0_1 = 0.4
+    servo.incremental_step_ratio = 0.009
+    bo._outputs = [servo]
+    bo._register_motor_decoder()
+    assert recorded == [(0, 1, [0.4])]

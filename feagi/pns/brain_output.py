@@ -661,6 +661,40 @@ class BrainOutput:
                 default_speeds[channel] = float(getattr(servo, "default_speed_0_1", 0.2))
         return default_speeds
 
+    def _positional_servo_incremental_step_for_group(
+        self,
+        group_id: int,
+    ) -> Optional[float]:
+        """
+        Return one incremental target step for target-and-speed servos in a group.
+
+        All PositionalServo channels in a group share one Rust decoder instance,
+        so target-and-speed channels must agree on a single incremental step.
+        """
+        from feagi.pns.outputs.motor import ABSOLUTE_TARGET_INCREMENTAL_SPEED, ServoMotor
+
+        steps: List[float] = []
+        for output in self._outputs:
+            if not isinstance(output, ServoMotor):
+                continue
+            if int(getattr(output, "group_id", 0) or 0) != int(group_id):
+                continue
+            if getattr(output, "control_semantics", "") != ABSOLUTE_TARGET_INCREMENTAL_SPEED:
+                continue
+            steps.append(float(getattr(output, "incremental_step_ratio")))
+
+        if not steps:
+            return None
+        first = steps[0]
+        for step in steps[1:]:
+            if abs(step - first) > 1e-9:
+                raise RuntimeError(
+                    "PositionalServo outputs in device group %s use different "
+                    "incremental_step_ratio values; use one value per motor group."
+                    % group_id
+                )
+        return first
+
     def _register_positional_servo_group_decoder(
         self,
         *,
@@ -671,6 +705,7 @@ class BrainOutput:
         frame_mode: object,
         positioning: object,
         default_speeds_by_channel: Optional[List[float]],
+        incremental_step_0_1: Optional[float],
     ) -> None:
         """Register one PositionalServo decoder group (legacy or target-and-speed)."""
         if default_speeds_by_channel is not None:
@@ -680,23 +715,53 @@ class BrainOutput:
                     "%d default speeds, got %d."
                     % (group_id, channel_count, len(default_speeds_by_channel))
                 )
+            if incremental_step_0_1 is None:
+                raise RuntimeError(
+                    "PositionalServo target-speed registration for group %s requires "
+                    "incremental_step_0_1."
+                    % group_id
+                )
             logger.info(
                 "[MOTOR-DECODER] PositionalServo target-speed group=%d channels=%d "
-                "absolute_z=%d incremental_z=%d default_speeds=%s",
+                "absolute_z=%d incremental_z=%d default_speeds=%s incremental_step=%.6f",
                 int(group_id),
                 int(channel_count),
                 int(z_neuron_resolution),
                 int(incremental_z_neuron_resolution),
                 default_speeds_by_channel,
+                float(incremental_step_0_1),
             )
-            self._cache.motor_positional_servo_target_speed_register(
-                group_id,
-                channel_count,
-                z_neuron_resolution,
-                incremental_z_neuron_resolution,
-                positioning,
-                default_speeds_by_channel,
-            )
+            try:
+                self._cache.motor_positional_servo_target_speed_register(
+                    group_id,
+                    channel_count,
+                    z_neuron_resolution,
+                    incremental_z_neuron_resolution,
+                    positioning,
+                    default_speeds_by_channel,
+                    float(incremental_step_0_1),
+                )
+            except TypeError as exc:
+                # Temporary bridge-compat path:
+                # installed controller bundles may still ship older
+                # feagi_rust_py_libs that do not yet accept incremental_step_0_1.
+                message = str(exc)
+                if "positional arguments" not in message:
+                    raise
+                logger.warning(
+                    "[MOTOR-DECODER] PositionalServo target-speed registration "
+                    "falling back to legacy Rust signature (no incremental_step_0_1). "
+                    "Update feagi_rust_py_libs in the controller bundle to enable "
+                    "settings-driven incremental step."
+                )
+                self._cache.motor_positional_servo_target_speed_register(
+                    group_id,
+                    channel_count,
+                    z_neuron_resolution,
+                    incremental_z_neuron_resolution,
+                    positioning,
+                    default_speeds_by_channel,
+                )
             return
         self._cache.motor_positional_servo_register(
             group_id,
@@ -784,6 +849,7 @@ class BrainOutput:
                     group_id,
                     channel_count=count,
                 ),
+                incremental_step_0_1=self._positional_servo_incremental_step_for_group(group_id),
             )
 
         for group_id, motors in sorted(rotary_by_group.items()):
