@@ -629,6 +629,82 @@ class BrainOutput:
         group_id = self._next_group_id
         self._next_group_id += 1
         return group_id
+
+    def _positional_servo_default_speeds_for_group(
+        self,
+        group_id: int,
+        *,
+        channel_count: int,
+    ) -> Optional[List[float]]:
+        """
+        Build per-channel default speeds when any servo in the group uses
+        absolute-target + incremental-speed semantics.
+        """
+        from feagi.pns.outputs.motor import ABSOLUTE_TARGET_INCREMENTAL_SPEED, ServoMotor
+
+        servos = [
+            output
+            for output in self._outputs
+            if isinstance(output, ServoMotor)
+            and int(getattr(output, "group_id", 0) or 0) == int(group_id)
+        ]
+        if not any(
+            getattr(servo, "control_semantics", "") == ABSOLUTE_TARGET_INCREMENTAL_SPEED
+            for servo in servos
+        ):
+            return None
+
+        default_speeds = [0.2] * int(channel_count)
+        for servo in servos:
+            channel = int(getattr(servo, "preferred_channel_index", servo.channel) or 0)
+            if 0 <= channel < len(default_speeds):
+                default_speeds[channel] = float(getattr(servo, "default_speed_0_1", 0.2))
+        return default_speeds
+
+    def _register_positional_servo_group_decoder(
+        self,
+        *,
+        group_id: int,
+        channel_count: int,
+        z_neuron_resolution: int,
+        incremental_z_neuron_resolution: int,
+        frame_mode: object,
+        positioning: object,
+        default_speeds_by_channel: Optional[List[float]],
+    ) -> None:
+        """Register one PositionalServo decoder group (legacy or target-and-speed)."""
+        if default_speeds_by_channel is not None:
+            if len(default_speeds_by_channel) != int(channel_count):
+                raise RuntimeError(
+                    "PositionalServo target-speed registration for group %s requires "
+                    "%d default speeds, got %d."
+                    % (group_id, channel_count, len(default_speeds_by_channel))
+                )
+            logger.info(
+                "[MOTOR-DECODER] PositionalServo target-speed group=%d channels=%d "
+                "absolute_z=%d incremental_z=%d default_speeds=%s",
+                int(group_id),
+                int(channel_count),
+                int(z_neuron_resolution),
+                int(incremental_z_neuron_resolution),
+                default_speeds_by_channel,
+            )
+            self._cache.motor_positional_servo_target_speed_register(
+                group_id,
+                channel_count,
+                z_neuron_resolution,
+                incremental_z_neuron_resolution,
+                positioning,
+                default_speeds_by_channel,
+            )
+            return
+        self._cache.motor_positional_servo_register(
+            group_id,
+            channel_count,
+            frame_mode,
+            z_neuron_resolution,
+            positioning,
+        )
     
     def _register_motor_decoder(self):
         """Register motor decoder with Rust cache (once per group).
@@ -647,6 +723,7 @@ class BrainOutput:
 
         servo_channels_by_group: Dict[int, List[int]] = {}
         servo_z_neuron_resolution_by_group: Dict[int, int] = {}
+        servo_incremental_z_neuron_resolution_by_group: Dict[int, int] = {}
         rotary_by_group: Dict[int, List[Any]] = {}
         for output in self._outputs:
             if not isinstance(output, (ServoMotor, RotaryMotor)):
@@ -656,6 +733,11 @@ class BrainOutput:
             if isinstance(output, ServoMotor):
                 servo_channels_by_group.setdefault(group_id, []).append(ch)
                 z_neuron_resolution = getattr(output, "z_neuron_resolution", 10)
+                incremental_z_neuron_resolution = getattr(
+                    output,
+                    "incremental_z_neuron_resolution",
+                    z_neuron_resolution,
+                )
                 existing_resolution = servo_z_neuron_resolution_by_group.get(group_id)
                 if (
                     existing_resolution is not None
@@ -663,10 +745,25 @@ class BrainOutput:
                 ):
                     raise RuntimeError(
                         "PositionalServo outputs in device group %s use different "
-                        "z-neuron resolutions; use one resolution per motor group."
+                        "absolute z-neuron resolutions; use one resolution per motor group."
+                        % group_id
+                    )
+                existing_incremental = servo_incremental_z_neuron_resolution_by_group.get(
+                    group_id
+                )
+                if (
+                    existing_incremental is not None
+                    and existing_incremental != incremental_z_neuron_resolution
+                ):
+                    raise RuntimeError(
+                        "PositionalServo outputs in device group %s use different "
+                        "incremental z-neuron resolutions; use one resolution per motor group."
                         % group_id
                     )
                 servo_z_neuron_resolution_by_group[group_id] = z_neuron_resolution
+                servo_incremental_z_neuron_resolution_by_group[group_id] = (
+                    incremental_z_neuron_resolution
+                )
             else:
                 rotary_by_group.setdefault(group_id, []).append(output)
 
@@ -674,12 +771,19 @@ class BrainOutput:
             count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
-            self._cache.motor_positional_servo_register(
-                group_id,
-                count,
-                servo_frame_mode,
-                servo_z_neuron_resolution_by_group[group_id],
-                positioning,
+            self._register_positional_servo_group_decoder(
+                group_id=group_id,
+                channel_count=count,
+                z_neuron_resolution=servo_z_neuron_resolution_by_group[group_id],
+                incremental_z_neuron_resolution=servo_incremental_z_neuron_resolution_by_group[
+                    group_id
+                ],
+                frame_mode=servo_frame_mode,
+                positioning=positioning,
+                default_speeds_by_channel=self._positional_servo_default_speeds_for_group(
+                    group_id,
+                    channel_count=count,
+                ),
             )
 
         for group_id, motors in sorted(rotary_by_group.items()):
@@ -1315,12 +1419,19 @@ class BrainOutput:
         group_channels: Dict[int, Dict[str, List[str]]],
         *,
         z_neuron_resolution: int,
+        positional_servo_default_speed_0_1: Optional[Dict[int, List[float]]] = None,
     ) -> None:
         """
         Register grouped motor channels in ConnectorAgent without exposing Rust APIs.
 
         This supports advanced controllers that need deterministic group/channel
         registration before FEAGI auto-creation verification.
+
+        Args:
+            positional_servo_default_speed_0_1: Optional per-group default speed
+                lists for ``absolute_target_incremental_speed`` PositionalServo
+                groups. When provided for a group, target-and-speed decoding is
+                registered instead of legacy positional-servo integration.
         """
         self._init_cache()
         if self._cache is None:
@@ -1332,17 +1443,20 @@ class BrainOutput:
 
         frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        default_speeds_by_group = positional_servo_default_speed_0_1 or {}
 
         for group_id, channels in sorted(group_channels.items()):
             group_servo_count = len(channels.get("positional_servo", []))
             group_rotary_count = len(channels.get("rotary_motor", []))
             if group_servo_count > 0:
-                self._cache.motor_positional_servo_register(
-                    group_id,
-                    group_servo_count,
-                    frame_mode,
-                    z_neuron_resolution,
-                    positioning,
+                self._register_positional_servo_group_decoder(
+                    group_id=group_id,
+                    channel_count=group_servo_count,
+                    z_neuron_resolution=z_neuron_resolution,
+                    incremental_z_neuron_resolution=z_neuron_resolution,
+                    frame_mode=frame_mode,
+                    positioning=positioning,
+                    default_speeds_by_channel=default_speeds_by_group.get(group_id),
                 )
             if group_rotary_count > 0:
                 self._cache.motor_rotary_motor_register(

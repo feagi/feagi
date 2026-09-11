@@ -1,5 +1,23 @@
 import pytest
 from feagi.pns.outputs import ServoMotor
+from feagi.pns.outputs.motor import (
+    ABSOLUTE_TARGET_INCREMENTAL_SPEED,
+    read_positional_servo_target_speed_snapshot,
+)
+
+
+class _FakePercentage:
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def get_as_0_1(self) -> float:
+        return self._value
+
+
+class _FakePercentage2D:
+    def __init__(self, target: float, speed: float) -> None:
+        self.a = _FakePercentage(target)
+        self.b = _FakePercentage(speed)
 
 
 def test_servo_motor_registration():
@@ -36,6 +54,40 @@ def test_servo_motor_incremental():
     assert servo.encoding == "incremental"
     assert servo.min_angle == 0
     assert servo.max_angle == 270
+
+
+def test_servo_target_speed_mode_maps_target_and_speed():
+    """Percentage2D decode should set angle from target and speed from component b."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="absolute")
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo._on_motor_command(_FakePercentage2D(0.75, 0.5))
+    assert servo.get_angle() == pytest.approx(135.0, abs=1e-6)
+    assert servo.get_speed_0_1() == pytest.approx(0.5, abs=1e-6)
+
+
+def test_read_positional_servo_target_speed_snapshot():
+    """Flattened Percentage2D motor data uses channel*2 and channel*2+1 keys."""
+    motor_data = {
+        "0:0:absolute": 0.25,
+        "0:1:absolute": 0.5,
+        "0:2:absolute": 0.75,
+        "0:3:absolute": 0.1,
+    }
+    target, speed = read_positional_servo_target_speed_snapshot(
+        motor_data,
+        group_id=0,
+        channel_index=0,
+    )
+    assert target == pytest.approx(0.25)
+    assert speed == pytest.approx(0.5)
+
+    target_j1, speed_j1 = read_positional_servo_target_speed_snapshot(
+        motor_data,
+        group_id=0,
+        channel_index=1,
+    )
+    assert target_j1 == pytest.approx(0.75)
+    assert speed_j1 == pytest.approx(0.1)
 
 
 def test_servo_absolute_endpoint_mapping():
