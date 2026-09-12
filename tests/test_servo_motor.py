@@ -65,6 +65,18 @@ def test_servo_target_speed_mode_maps_target_and_speed():
     assert servo.get_speed_0_1() == pytest.approx(0.5, abs=1e-6)
 
 
+def test_servo_speed_only_does_not_increment_motion_seq():
+    """A speed-area fire must cache rate and leave the pose command sequence still."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="absolute")
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo._current_angle = 90.0
+    start_seq = servo._rx_command_seq
+    servo._on_motor_command(_FakePercentage2D(0.5, 0.2))
+    assert servo.get_speed_0_1() == pytest.approx(0.2, abs=1e-6)
+    assert servo.get_angle() == pytest.approx(90.0, abs=1e-6)
+    assert servo._rx_command_seq == start_seq
+
+
 def test_read_positional_servo_target_speed_snapshot():
     """Flattened Percentage2D motor data uses channel*2 and channel*2+1 keys."""
     motor_data = {

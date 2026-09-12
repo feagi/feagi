@@ -10,7 +10,7 @@ from feagi.pns.outputs.base import BaseOutput
 # Type hints
 MotorEncoding = Literal["absolute", "incremental"]
 
-# PositionalServo: absolute cortical area sets target; incremental area sets speed.
+# PositionalServo: area 0 is target, area 1 is incremental hop, area 2 is speed.
 ABSOLUTE_TARGET_INCREMENTAL_SPEED = "absolute_target_incremental_speed"
 
 
@@ -106,7 +106,7 @@ class ServoMotor(BaseOutput):
 
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
-        # Normalized speed limit in [0, 1] from incremental cortical activity.
+        # Normalized speed limit in [0, 1] from the dedicated speed cortical area.
         self._current_speed_0_1: float = 0.0
         # Contract-level semantic controls used by both sim and real adapters.
         self.control_semantics: str = "normalized_position"
@@ -176,7 +176,7 @@ class ServoMotor(BaseOutput):
 
     def get_speed_0_1(self) -> float:
         """
-        Get the latest normalized speed limit from FEAGI incremental activity.
+        Get the latest normalized speed limit from the dedicated speed area.
 
         In ``absolute_target_incremental_speed`` mode this is the decoded speed
         component in ``[0, 1]``. Otherwise returns ``0.0`` until a command arrives.
@@ -240,10 +240,14 @@ class ServoMotor(BaseOutput):
             self._last_rx_value = float(target_0_1)
             self._last_rx_mode = ABSOLUTE_TARGET_INCREMENTAL_SPEED
             self._current_speed_0_1 = max(0.0, min(1.0, float(speed_0_1)))
-            self._rx_command_seq += 1
-            self._current_angle = self.min_angle + (
+            new_angle = self.min_angle + (
                 (self.max_angle - self.min_angle) * target_0_1
             )
+            # Speed-only decode keeps the cached target. Do not increment the
+            # motion sequence or the controller will command that pose.
+            if abs(new_angle - self._current_angle) > 0.05:
+                self._current_angle = new_angle
+                self._rx_command_seq += 1
             logger.info(
                 "[SERVO] Ch=%d target_speed target=%.4f speed=%.4f angle=%.2f",
                 self.channel,

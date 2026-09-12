@@ -1562,8 +1562,9 @@ class BrainOutput:
           * ``"absolute"`` -> unsigned position per axis (``[0, 1]``);
             ``window_ms``/``max_axis_velocity`` are ignored.
           * ``"incremental"`` -> signed motion vector per axis (``[-1, 1]``,
-            0 = no motion). REQUIRES ``window_ms`` (rolling-window length) and
-            ``max_axis_velocity`` (per-axis velocity mapped to full scale).
+            0 = no motion). Cortical layout is ``6x1xdepth`` (X+/X-, Y+/Y-,
+            Z+/Z-). Low Z is a large increment; high Z is a small increment.
+            REQUIRES ``window_ms`` and ``max_axis_velocity``.
 
         Args:
             group: Cortical unit index for the pointer.
