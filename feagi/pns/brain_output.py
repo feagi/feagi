@@ -1547,7 +1547,6 @@ class BrainOutput:
         encoding: Literal["absolute", "incremental"] = "absolute",
         number_channels: int = 1,
         window_ms: Optional[int] = None,
-        max_axis_velocity: Optional[float] = None,
     ) -> None:
         """
         Register a SpatialPointer motor unit on the Rust ConnectorAgent cache.
@@ -1560,19 +1559,19 @@ class BrainOutput:
 
         Decode contract by ``encoding``:
           * ``"absolute"`` -> unsigned position per axis (``[0, 1]``);
-            ``window_ms``/``max_axis_velocity`` are ignored.
+            ``window_ms`` is ignored.
           * ``"incremental"`` -> signed motion vector per axis (``[-1, 1]``,
             0 = no motion). Cortical layout is ``6x1xdepth`` (X+/X-, Y+/Y-,
             Z+/Z-). Low Z is a large increment; high Z is a small increment.
-            REQUIRES ``window_ms`` and ``max_axis_velocity``.
+            REQUIRES ``window_ms`` (controller look-ahead; decoder emits a
+            raw signed magnitude).
 
         Args:
             group: Cortical unit index for the pointer.
             width, height, depth: Pointer cortical area voxel dimensions.
             encoding: ``"absolute"`` or ``"incremental"``.
             number_channels: Number of pointer channels (default 1).
-            window_ms: Rolling-window length in ms (incremental only).
-            max_axis_velocity: Per-axis full-scale velocity (incremental only).
+            window_ms: Controller look-ahead window in ms (incremental only).
         """
         self._init_cache()
         if self._cache is None:
@@ -1587,11 +1586,8 @@ class BrainOutput:
         encoding_value = str(encoding).strip().lower()
         cortical_area = frpl.data_structures.genomic.cortical_area
         if encoding_value == "incremental":
-            if window_ms is None or max_axis_velocity is None:
-                raise ValueError(
-                    "Incremental SpatialPointer requires window_ms and "
-                    "max_axis_velocity."
-                )
+            if window_ms is None:
+                raise ValueError("Incremental SpatialPointer requires window_ms.")
             frame_mode = cortical_area.FrameChangeHandling.Incremental()
         elif encoding_value == "absolute":
             frame_mode = cortical_area.FrameChangeHandling.Absolute()
@@ -1608,7 +1604,58 @@ class BrainOutput:
             int(height),
             int(depth),
             int(window_ms) if window_ms is not None else None,
-            float(max_axis_velocity) if max_axis_velocity is not None else None,
+        )
+
+    def register_motor_angular_pointer(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        encoding: Literal["absolute", "incremental"] = "absolute",
+        number_channels: int = 1,
+        window_ms: Optional[int] = None,
+    ) -> None:
+        """
+        Register an AngularPointer motor unit (yaw / pitch / roll).
+
+        Decode contract by ``encoding``:
+          * ``"absolute"`` -> signed attitude per axis (``[-1, 1]``, 0 = center).
+          * ``"incremental"`` -> signed rate per axis (``[-1, 1]``, 0 = no
+            motion). Cortical layout is ``6x1xdepth``. REQUIRES ``window_ms``.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("AngularPointer dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("AngularPointer number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        encoding_value = str(encoding).strip().lower()
+        cortical_area = frpl.data_structures.genomic.cortical_area
+        if encoding_value == "incremental":
+            if window_ms is None:
+                raise ValueError("Incremental AngularPointer requires window_ms.")
+            frame_mode = cortical_area.FrameChangeHandling.Incremental()
+        elif encoding_value == "absolute":
+            frame_mode = cortical_area.FrameChangeHandling.Absolute()
+        else:
+            raise ValueError("encoding must be 'absolute' or 'incremental'.")
+
+        positioning = cortical_area.PercentageNeuronPositioning.Linear()
+        self._cache.motor_angular_pointer_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            positioning,
+            int(width),
+            int(height),
+            int(depth),
+            int(window_ms) if window_ms is not None else None,
         )
 
     def _init_sensory_write_helpers(self) -> None:
