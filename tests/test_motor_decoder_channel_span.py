@@ -297,3 +297,114 @@ def test_target_speed_decoder_falls_back_to_legacy_cache_signature() -> None:
     bo._outputs = [servo]
     bo._register_motor_decoder()
     assert recorded == [(0, 1, [0.4])]
+
+
+def _fake_cache_recording_legacy_and_target_speed():
+    """Build a cache stub that records both PositionalServo registration paths."""
+    legacy: list[tuple[int, int]] = []
+    target_speed: list[tuple[int, int, float, list[float]]] = []
+
+    class _FakeCache:
+        def motor_positional_servo_register(
+            self, group_id: int, count: int, *_a, **_kw
+        ) -> None:
+            legacy.append((int(group_id), int(count)))
+
+        def motor_positional_servo_target_speed_register(
+            self,
+            group_id: int,
+            count: int,
+            _absolute_z: int,
+            _incremental_z: int,
+            _positioning: object,
+            default_speeds: list[float],
+            incremental_step_0_1: float,
+        ) -> None:
+            target_speed.append(
+                (
+                    int(group_id),
+                    int(count),
+                    float(incremental_step_0_1),
+                    list(default_speeds),
+                )
+            )
+
+        def motor_rotary_motor_register(self, *_a, **_kw) -> None:
+            raise AssertionError("unexpected rotary register")
+
+    return _FakeCache(), legacy, target_speed
+
+
+def test_register_motor_groups_legacy_passes_incremental_step_none() -> None:
+    """MuJoCo-style grouped registration must supply incremental_step_0_1."""
+    pytest.importorskip("feagi_rust_py_libs")
+    cache, legacy, target_speed = _fake_cache_recording_legacy_and_target_speed()
+    captured: list[dict] = []
+    bo = BrainOutput()
+    bo._cache = cache
+    original = bo._register_positional_servo_group_decoder
+
+    def _capture(**kwargs):
+        captured.append(kwargs)
+        return original(**kwargs)
+
+    bo._register_positional_servo_group_decoder = _capture
+    bo.register_motor_groups(
+        {0: {"positional_servo": ["act1", "act2"], "rotary_motor": []}},
+        z_neuron_resolution=20,
+    )
+    assert legacy == [(0, 2)]
+    assert target_speed == []
+    assert captured[0]["incremental_step_0_1"] is None
+    assert captured[0]["default_speeds_by_channel"] is None
+
+
+def test_register_motor_groups_target_speed_uses_explicit_incremental_step() -> None:
+    """Explicit per-group incremental step is forwarded to the Rust decoder."""
+    pytest.importorskip("feagi_rust_py_libs")
+    cache, legacy, target_speed = _fake_cache_recording_legacy_and_target_speed()
+    bo = BrainOutput()
+    bo._cache = cache
+    bo.register_motor_groups(
+        {0: {"positional_servo": ["act1", "act2"], "rotary_motor": []}},
+        z_neuron_resolution=20,
+        positional_servo_default_speed_0_1={0: [0.2, 0.4]},
+        positional_servo_incremental_step_0_1={0: 0.006},
+    )
+    assert legacy == []
+    assert target_speed == [(0, 2, 0.006, [0.2, 0.4])]
+
+
+def test_register_motor_groups_target_speed_uses_registered_servo_outputs() -> None:
+    """Omitted override dicts resolve decoder args from registered ServoMotors."""
+    pytest.importorskip("feagi_rust_py_libs")
+    cache, legacy, target_speed = _fake_cache_recording_legacy_and_target_speed()
+    bo = BrainOutput()
+    bo._cache = cache
+    servo = ServoMotor(unit_id=0, channel_index=0, z_neuron_resolution=20)
+    servo.group_id = 0
+    servo.channel = 0
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo.default_speed_0_1 = 0.33
+    servo.incremental_step_ratio = 0.008
+    bo._outputs = [servo]
+    bo.register_motor_groups(
+        {0: {"positional_servo": ["act1"], "rotary_motor": []}},
+        z_neuron_resolution=20,
+    )
+    assert legacy == []
+    assert target_speed == [(0, 1, 0.008, [0.33])]
+
+
+def test_register_motor_groups_target_speed_without_step_raises() -> None:
+    """Target-speed grouped registration cannot omit incremental_step_0_1."""
+    pytest.importorskip("feagi_rust_py_libs")
+    cache, _legacy, _target_speed = _fake_cache_recording_legacy_and_target_speed()
+    bo = BrainOutput()
+    bo._cache = cache
+    with pytest.raises(RuntimeError, match="incremental_step_0_1"):
+        bo.register_motor_groups(
+            {0: {"positional_servo": ["act1"], "rotary_motor": []}},
+            z_neuron_resolution=20,
+            positional_servo_default_speed_0_1={0: [0.3]},
+        )

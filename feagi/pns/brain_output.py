@@ -1486,6 +1486,7 @@ class BrainOutput:
         *,
         z_neuron_resolution: int,
         positional_servo_default_speed_0_1: Optional[Dict[int, List[float]]] = None,
+        positional_servo_incremental_step_0_1: Optional[Dict[int, float]] = None,
     ) -> None:
         """
         Register grouped motor channels in ConnectorAgent without exposing Rust APIs.
@@ -1496,8 +1497,13 @@ class BrainOutput:
         Args:
             positional_servo_default_speed_0_1: Optional per-group default speed
                 lists for ``absolute_target_incremental_speed`` PositionalServo
-                groups. When provided for a group, target-and-speed decoding is
+                groups. When a group key is present, target-and-speed decoding is
                 registered instead of legacy positional-servo integration.
+            positional_servo_incremental_step_0_1: Optional per-group incremental
+                target step in ``(0, 1]`` for target-and-speed PositionalServo
+                groups. Required for every group that uses target-and-speed
+                decoding. Groups omitted here are resolved from registered
+                ``ServoMotor`` outputs, matching ``_register_motor_decoder``.
         """
         self._init_cache()
         if self._cache is None:
@@ -1510,11 +1516,27 @@ class BrainOutput:
         frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
         default_speeds_by_group = positional_servo_default_speed_0_1 or {}
+        incremental_step_by_group = positional_servo_incremental_step_0_1 or {}
 
         for group_id, channels in sorted(group_channels.items()):
             group_servo_count = len(channels.get("positional_servo", []))
             group_rotary_count = len(channels.get("rotary_motor", []))
             if group_servo_count > 0:
+                if group_id in default_speeds_by_group:
+                    default_speeds_by_channel = default_speeds_by_group[group_id]
+                else:
+                    default_speeds_by_channel = (
+                        self._positional_servo_default_speeds_for_group(
+                            group_id,
+                            channel_count=group_servo_count,
+                        )
+                    )
+                if group_id in incremental_step_by_group:
+                    incremental_step_0_1 = incremental_step_by_group[group_id]
+                else:
+                    incremental_step_0_1 = (
+                        self._positional_servo_incremental_step_for_group(group_id)
+                    )
                 self._register_positional_servo_group_decoder(
                     group_id=group_id,
                     channel_count=group_servo_count,
@@ -1522,7 +1544,8 @@ class BrainOutput:
                     incremental_z_neuron_resolution=z_neuron_resolution,
                     frame_mode=frame_mode,
                     positioning=positioning,
-                    default_speeds_by_channel=default_speeds_by_group.get(group_id),
+                    default_speeds_by_channel=default_speeds_by_channel,
+                    incremental_step_0_1=incremental_step_0_1,
                 )
             if group_rotary_count > 0:
                 self._cache.motor_rotary_motor_register(
