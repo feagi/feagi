@@ -1841,6 +1841,63 @@ class BrainOutput:
             registered_groups.append(int(group))
         return registered_groups
 
+    def register_simple_vision_groups(
+        self,
+        vision_units: list[tuple[str, int, int, int, str, int]],
+    ) -> list[int]:
+        """
+        Register simple (non-segmented) vision groups with deterministic group IDs.
+
+        Uses one RGB ``ImageFrameProperties`` block per camera (128x128 by default
+        from the unit tuple width/height).
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if not vision_units:
+            return []
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        descriptors = frpl.connector_core.data_types.descriptors
+        register_method = None
+        for candidate in ("sensor_vision_register", "sensor_Vision_register"):
+            if hasattr(self._cache, candidate):
+                register_method = getattr(self._cache, candidate)
+                break
+        if register_method is None:
+            raise RuntimeError(
+                "ConnectorAgent cache does not expose simple vision registration."
+            )
+
+        color_space = descriptors.ColorSpace.Gamma
+        center_layout = descriptors.ColorChannelLayout.RGB
+        registered_groups: list[int] = []
+        for (
+            _modality,
+            width,
+            height,
+            _channels,
+            _unit,
+            group,
+        ) in vision_units:
+            image_props = descriptors.ImageFrameProperties(
+                descriptors.ImageXYResolution(int(width), int(height)),
+                color_space,
+                center_layout,
+            )
+            register_method(
+                group=int(group),
+                number_channels=1,
+                frame_change_handling=frame_mode,
+                image_properties=image_props,
+            )
+            registered_groups.append(int(group))
+        return registered_groups
+
     def write_sensor_vision_frame(
         self,
         *,
