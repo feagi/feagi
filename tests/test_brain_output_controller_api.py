@@ -3,6 +3,9 @@
 import json
 from types import SimpleNamespace
 
+import numpy as np
+import pytest
+
 from feagi.pns.brain_output import BrainOutput
 
 
@@ -12,9 +15,35 @@ class _FakeCache:
     def __init__(self) -> None:
         self.calls = []
         self._encoded = b"encoded"
+        self.input_units: dict = {}
 
     def sensor_Vision_register(self, group, count, frame_mode, image_props):
         self.calls.append(("Vision", group, count, frame_mode, image_props))
+
+    def sensor_vision_register(self, *, group, number_channels, frame_change_handling, image_properties):
+        self.calls.append(
+            ("simple_vision", group, number_channels, frame_change_handling, image_properties)
+        )
+
+    def sensor_vision_write(self, *, group, channel_index, data):
+        self.calls.append(("write_simple_vision", group, channel_index, data))
+
+    def sensor_segmented_vision_write(self, *, group, channel_index, data):
+        self.calls.append(("write_segmented_vision", group, channel_index, data))
+
+    def export_capabilities_json(self):
+        return json.dumps(
+            {
+                "input_units_and_encoder_properties": dict(self.input_units),
+                "output_units_and_decoder_properties": {},
+            }
+        )
+
+    def import_capabilities_json(self, payload: str):
+        parsed = json.loads(payload)
+        inputs = parsed.get("input_units_and_encoder_properties") or {}
+        self.input_units = dict(inputs)
+        self.calls.append(("import_capabilities", sorted(self.input_units.keys())))
 
     def sensor_Proximity_register(self, group, count, frame_mode, z_res, positioning):
         self.calls.append(("Proximity", group, count, frame_mode, z_res, positioning))
@@ -131,6 +160,7 @@ def test_register_sensor_units_deterministic_groups(monkeypatch):
     )
 
     assert groups == {"Proximity": 0, "Servo": 1, "Shock": 2}
+    assert 0 not in bo._vision_group_modes
     assert ("Proximity", 0, 3, "ABS", 10, "LIN") in bo._cache.calls
     assert ("Servo", 1, 1, "ABS", 10, "LIN") in bo._cache.calls
     assert ("Shock", 2, 2, "ABS", 10, "LIN") in bo._cache.calls
@@ -347,6 +377,99 @@ def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch)
     client = _FakeFeagiAgentClient.instances[-1]
     assert client.connected is True
     assert client.agent_type == _FakeAgentType.BOTH
+
+
+def _install_vision_write_helpers(brain_output, monkeypatch):
+    class _ImageFrameFactory:
+        @staticmethod
+        def new_from_array(frame_array, _color_space, _memory_layout):
+            return ("frame", frame_array.shape)
+
+    def _fake_init_helpers():
+        brain_output._vision_image_frame_factory = _ImageFrameFactory
+        brain_output._vision_color_space = "Gamma"
+        brain_output._vision_memory_layout = "HWC"
+
+    monkeypatch.setattr(brain_output, "_init_vision_write_helpers", _fake_init_helpers)
+
+
+def test_register_simple_vision_groups_records_simple_write_mode(monkeypatch):
+    """Simple-vision registration must be remembered so writes do not use SegmentedVision."""
+    _install_fake_frpl(monkeypatch)
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    bo._cache_available = True
+
+    groups = bo.register_simple_vision_groups(
+        [("camera", 128, 128, 3, "vision", 4)]
+    )
+
+    assert groups == [4]
+    assert bo._vision_group_modes[4] == "simple"
+    assert any(call[0] == "simple_vision" and call[1] == 4 for call in bo._cache.calls)
+
+
+def test_write_sensor_vision_frame_routes_simple_when_segmented_method_exists(
+    monkeypatch,
+):
+    """Mixed simple+segmented caches must not send simple frames through segmented write."""
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    bo._cache_available = True
+    bo._vision_group_modes[0] = "simple"
+    bo._vision_group_modes[1] = "segmented"
+    _install_vision_write_helpers(bo, monkeypatch)
+
+    frame = np.zeros((2, 2, 3), dtype=np.uint8)
+    bo.write_sensor_vision_frame(group=0, channel_index=0, frame_rgb=frame)
+    bo.write_sensor_vision_frame(group=1, channel_index=0, frame_rgb=frame)
+
+    assert ("write_simple_vision", 0, 0, ("frame", (2, 2, 3))) in bo._cache.calls
+    assert ("write_segmented_vision", 1, 0, ("frame", (2, 2, 3))) in bo._cache.calls
+    assert not any(
+        call[0] == "write_segmented_vision" and call[1] == 0 for call in bo._cache.calls
+    )
+
+
+def test_write_sensor_vision_frame_rejects_unregistered_group():
+    """Vision writes require an explicit simple or segmented registration for the group."""
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    bo._cache_available = True
+    frame = np.zeros((2, 2, 3), dtype=np.uint8)
+    with pytest.raises(RuntimeError, match="has not been registered"):
+        bo.write_sensor_vision_frame(group=7, channel_index=0, frame_rgb=frame)
+
+
+def test_drop_cached_vision_units_removes_segmented_and_simple_from_export():
+    """Switching cameras must drop stale Vision/SegmentedVision cache entries."""
+    bo = BrainOutput()
+    cache = _FakeCache()
+    cache.input_units = {
+        "Vision": [{"cortical_unit_index": 0}],
+        "SegmentedVision": [{"cortical_unit_index": 1}],
+        "Proximity": [{"cortical_unit_index": 2}],
+    }
+    bo._cache = cache
+    bo._cache_available = True
+    bo._vision_group_modes = {0: "simple", 1: "segmented"}
+
+    bo.drop_cached_vision_units()
+
+    assert "Vision" not in cache.input_units
+    assert "SegmentedVision" not in cache.input_units
+    assert "Proximity" in cache.input_units
+    assert bo._vision_group_modes == {}
+    assert ("import_capabilities", ["Proximity"]) in cache.calls
+
+
+def test_readvertise_device_registrations_noops_when_disconnected():
+    """Capability push is only valid after connect()."""
+    bo = BrainOutput()
+    bo._cache = _FakeCache()
+    bo._connected = False
+    bo._client = None
+    bo.readvertise_device_registrations()
 
 
 def test_collect_motor_cortical_ids_empty_when_no_motor_outputs_registered():

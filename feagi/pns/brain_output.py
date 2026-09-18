@@ -100,6 +100,9 @@ class BrainOutput:
         self._auth_token_b64: Optional[str] = None
         self._vision_unit: Optional[tuple[str, int, int, int, str, int]] = None
         self._vision_units: list[tuple[str, int, int, int, str, int]] = []
+        # group -> "simple" | "segmented". Selects the Rust write method so mixed
+        # cameras do not all go through sensor_segmented_vision_write.
+        self._vision_group_modes: Dict[int, Literal["simple", "segmented"]] = {}
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
@@ -1384,6 +1387,8 @@ class BrainOutput:
                     f"Supported units: {sorted(sensory_registers.keys())}"
                 )
             register(group_index, channel_count)
+            if unit_key == "Vision":
+                self._vision_group_modes[group_index] = "simple"
             unit_groups[unit_key] = group_index
         return unit_groups
 
@@ -1454,6 +1459,7 @@ class BrainOutput:
             frame_mode,
             image_props,
         )
+        self._vision_group_modes[int(rgb_group)] = "simple"
         self._cache.sensor_DepthMap_register(
             int(depth_group),
             1,
@@ -1838,7 +1844,9 @@ class BrainOutput:
                 segmented_image_properties=segmented_properties,
                 initial_gaze=initial_gaze,
             )
-            registered_groups.append(int(group))
+            group_id = int(group)
+            self._vision_group_modes[group_id] = "segmented"
+            registered_groups.append(group_id)
         return registered_groups
 
     def register_simple_vision_groups(
@@ -1895,8 +1903,88 @@ class BrainOutput:
                 frame_change_handling=frame_mode,
                 image_properties=image_props,
             )
-            registered_groups.append(int(group))
+            group_id = int(group)
+            self._vision_group_modes[group_id] = "simple"
+            registered_groups.append(group_id)
         return registered_groups
+
+    _VISION_CACHE_JSON_KEYS = ("Vision", "SegmentedVision")
+
+    def drop_cached_vision_units(self) -> None:
+        """Remove Vision and SegmentedVision groups from the ConnectorAgent cache.
+
+        Camera-mode edits are not additive. If a previous SegmentedVision group
+        stays in the cache, FEAGI keeps auto-creating those IPU areas whenever
+        they are missing from the connectome.
+        """
+        self._vision_group_modes.clear()
+        if self._cache is None:
+            return
+        raw = json.loads(self._cache.export_capabilities_json())
+        inputs = raw.get("input_units_and_encoder_properties")
+        if not isinstance(inputs, dict):
+            return
+        removed = False
+        for key in self._VISION_CACHE_JSON_KEYS:
+            if key in inputs:
+                inputs.pop(key)
+                removed = True
+        if not removed:
+            return
+        self._cache.import_capabilities_json(json.dumps(raw))
+
+    def readvertise_device_registrations(self) -> None:
+        """Push the current cache export to FEAGI when the agent is connected."""
+        if not self._connected or self._client is None or self._cache is None:
+            return
+        device_regs_str = self._cache.export_capabilities_json()
+        if not device_regs_str:
+            return
+        device_regs = json.loads(device_regs_str)
+        if self._device_registration_enricher is not None:
+            device_regs = self._device_registration_enricher(device_regs)
+        device_regs = self._normalize_device_registration_properties(device_regs)
+        device_regs = self._apply_device_registration_contract_defaults(device_regs)
+        device_regs = self._validate_device_registration_contract(device_regs)
+        expected_cortical_ids: list[str] = []
+        if hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
+            expected_cortical_ids.extend(
+                self._cache.get_motor_cortical_ids_for_verification()
+            )
+        if hasattr(self._cache, "get_sensory_cortical_ids_for_verification"):
+            expected_cortical_ids.extend(
+                self._cache.get_sensory_cortical_ids_for_verification()
+            )
+        self._client.send_device_configuration(
+            json.dumps(device_regs, sort_keys=True),
+            expected_cortical_ids=sorted(set(expected_cortical_ids)) or None,
+        )
+
+    def _resolve_sensor_vision_write_method(self, group: int):
+        """Return the cache write callable for a previously registered vision group."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        vision_mode = self._vision_group_modes.get(int(group))
+        if vision_mode is None:
+            raise RuntimeError(
+                f"Vision group {int(group)} has not been registered via "
+                "register_vision_groups or register_simple_vision_groups."
+            )
+        if vision_mode == "simple":
+            candidates = ("sensor_vision_write", "sensor_Vision_write")
+        elif vision_mode == "segmented":
+            candidates = ("sensor_segmented_vision_write",)
+        else:
+            raise RuntimeError(
+                f"Vision group {int(group)} has unknown write mode {vision_mode!r}."
+            )
+        for candidate in candidates:
+            if hasattr(self._cache, candidate):
+                return getattr(self._cache, candidate)
+        raise RuntimeError(
+            "ConnectorAgent cache does not expose a "
+            f"{vision_mode} vision write method (tried {candidates})."
+        )
 
     def write_sensor_vision_frame(
         self,
@@ -1905,9 +1993,14 @@ class BrainOutput:
         channel_index: int,
         frame_rgb,
     ) -> None:
-        """Write one RGB image frame into vision sensory cache."""
-        if self._cache is None:
-            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        """Write one RGB image frame into the matching vision sensory cache.
+
+        Simple cameras register as ``Vision`` (``sensor_vision_write``). Segmented
+        cameras register as ``SegmentedVision``. When both exist, the segmented
+        write method is always present on the cache; selecting it for a simple
+        group silently drops those frames.
+        """
+        write_method = self._resolve_sensor_vision_write_method(int(group))
         self._init_vision_write_helpers()
 
         import numpy as np
@@ -1923,14 +2016,6 @@ class BrainOutput:
             self._vision_color_space,
             self._vision_memory_layout,
         )
-        write_method = None
-        for candidate in ("sensor_segmented_vision_write", "sensor_vision_write"):
-            if hasattr(self._cache, candidate):
-                write_method = getattr(self._cache, candidate)
-                break
-        if write_method is None:
-            raise RuntimeError("ConnectorAgent cache does not expose a vision write method.")
-
         write_method(
             group=int(group),
             channel_index=int(channel_index),

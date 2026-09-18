@@ -124,6 +124,7 @@ def test_register_rgbd_sensor_pair_sets_bundle_metadata(monkeypatch):
         bundle_id="front_rgbd",
     )
     assert groups == {"Vision": 3, "DepthMap": 9}
+    assert bo._vision_group_modes[3] == "simple"
 
     payload = {
         "input_units_and_encoder_properties": {
