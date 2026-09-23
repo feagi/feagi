@@ -74,7 +74,7 @@ def load_capabilities_from_file(agent: 'PyConnectorAgent', filepath: Union[str, 
                     f"     --input {filepath} \\\n"
                     f"     --output {filepath.parent / 'capabilities_new.json'}\n"
                 )
-        except:
+        except Exception:
             pass
         
         raise
@@ -139,6 +139,6 @@ def _is_old_format(data: dict) -> bool:
                     return True
                     
         return False
-    except:
+    except Exception:
         return False
 

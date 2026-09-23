@@ -7,7 +7,6 @@ Formatters for displaying observability data in various formats.
 import json
 import csv
 from typing import Dict, Any, List
-from datetime import datetime
 from pathlib import Path
 
 

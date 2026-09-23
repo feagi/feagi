@@ -7,7 +7,6 @@ Profiles performance of sensory/motor data operations.
 import time
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
-from collections import defaultdict
 
 from feagi.pns.observability.monitor import Monitor
 

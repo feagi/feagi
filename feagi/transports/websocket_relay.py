@@ -80,7 +80,7 @@ class WebSocketTransport(BaseTransport):
         # Start WebSocket server
         self.server = await serve(self._handle_client, self.host, self.port)
         
-        logger.info(f"WebSocket server started, waiting for browser connection...")
+        logger.info("WebSocket server started, waiting for browser connection...")
         self.connected = True
     
     async def disconnect(self) -> None:

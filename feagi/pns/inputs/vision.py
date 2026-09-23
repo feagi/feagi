@@ -235,8 +235,8 @@ class Camera(BaseInput):
         if method_name is None:
             raise AttributeError(
                 "ConnectorAgent missing segmented vision registration method.\n"
-                f"The simple_vision registration method is not exposed in rust-py-libs.\n"
-                f"Using segmented_vision_register as alternative."
+                "The simple_vision registration method is not exposed in rust-py-libs.\n"
+                "Using segmented_vision_register as alternative."
             )
         
         import feagi_rust_py_libs as frpl
@@ -391,33 +391,30 @@ class Camera(BaseInput):
             logger.info(f"   Stage {self._segmentator_stage_index}: ImageFrameSegmentatorStage")
         except Exception as e:
             logger.warning(f"[WARN] Could not add processing stages: {e}")
-            logger.warning(f"   Segmented vision will work without processing stages")
+            logger.warning("   Segmented vision will work without processing stages")
         
         # Log registration details
         # NOTE: Segmented vision creates 9 cortical IDs (one per segment) with Absolute encoding
         # FEAGI's registration endpoint will auto-create all 9 areas when it detects segmented_vision
         logger.info(f"[OK] Registered segmented vision for group_id={group_id} (encoding={self.encoding}, position={self.position})")
         logger.info(f"   FrameChangeHandling: {frame_change_handling} (will generate 9 cortical IDs for segments)")
-        logger.info(f"   FEAGI will auto-create all required cortical areas during agent registration")
+        logger.info("   FEAGI will auto-create all required cortical areas during agent registration")
     
     def _write_to_cache(self, cache):
         """Write current frame to Rust IOCache"""
         import logging
-        import time
         logger = logging.getLogger(__name__)
         
         if self._current_frame is None:
             logger.debug("[WARN] [CAMERA] No frame to write yet (_current_frame is None)")
             return  # No frame to write yet
         
-        t_total_start = time.perf_counter()
         try:
             import feagi_rust_py_libs as frpl
             
             # Convert NumPy to Rust ImageFrame (optimized for performance)
             # NumPy arrays are in (height, width, channels) format
             # This is a zero-copy operation where possible (Rust borrows NumPy memory)
-            t_convert_start = time.perf_counter()
             frame = frpl.connector_core.data_types.ImageFrame.new_from_array(
                 self._current_frame,
                 # Camera frames are typically sRGB/gamma-encoded u8 values.
@@ -425,20 +422,17 @@ class Camera(BaseInput):
                 frpl.connector_core.data_types.descriptors.ColorSpace.Gamma,
                 frpl.connector_core.data_types.descriptors.MemoryOrderLayout.HeightsWidthsChannels
             )
-            t_convert = (time.perf_counter() - t_convert_start) * 1000
             
             # Use sensor_segmented_vision_write (registered during setup)
             method_name = "sensor_segmented_vision_write"
             write_method = getattr(cache, method_name)
             
             # Write frame to Rust cache (all processing happens in Rust)
-            t_write_start = time.perf_counter()
             write_method(
                 group=self.group_id,
                 channel_index=self.channel,
                 data=frame
             )
-            t_write = (time.perf_counter() - t_write_start) * 1000
             
             # Performance logging removed for hot path
         except ImportError as e:
@@ -461,7 +455,6 @@ class Camera(BaseInput):
             import feagi_rust_py_libs as frpl
             from feagi.pns import brain_input
             cc_data_types = frpl.connector_core.data_types
-            cc_desc = frpl.connector_core.data_types.descriptors
             stage_props = frpl.connector_core.data_pipeline.stage_properties
             
             # Validate ranges
@@ -535,7 +528,7 @@ class Camera(BaseInput):
                     )
                     logger.info(f"[OK] [CAMERA] Updated gaze: eccentricity=({eccentricity_x:.2f}, {eccentricity_y:.2f}), modulation={modulation:.2f}")
                 else:
-                    logger.warning(f"[WARN] [CAMERA] Gaze update methods not available. Update methods may need to be enabled in rust-py-libs.")
+                    logger.warning("[WARN] [CAMERA] Gaze update methods not available. Update methods may need to be enabled in rust-py-libs.")
         except Exception as e:
             logger.error(f"[FAIL] [CAMERA] Error updating gaze: {e}", exc_info=True)
             # Don't raise - allow streaming to continue even if gaze update fails
@@ -551,7 +544,6 @@ class Camera(BaseInput):
             import feagi_rust_py_libs as frpl
             from feagi.pns import brain_input
             cc_data_types = frpl.connector_core.data_types
-            cc_desc = frpl.connector_core.data_types.descriptors
             stage_props = frpl.connector_core.data_pipeline.stage_properties
             
             # Validate range
@@ -613,7 +605,7 @@ class Camera(BaseInput):
                     )
                     logger.info(f"[OK] [CAMERA] Updated diff threshold: {threshold}")
                 else:
-                    logger.warning(f"[WARN] [CAMERA] Diff threshold update methods not available.")
+                    logger.warning("[WARN] [CAMERA] Diff threshold update methods not available.")
         except Exception as e:
             logger.error(f"[FAIL] [CAMERA] Error updating diff threshold: {e}", exc_info=True)
             # Don't raise - allow streaming to continue even if diff threshold update fails

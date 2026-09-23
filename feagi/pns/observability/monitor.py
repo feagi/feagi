@@ -6,8 +6,7 @@ Provides the foundation for all observability monitors using the Observer patter
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
-from datetime import datetime
+from typing import Any, Dict
 
 logger = logging.getLogger("feagi.pns.observability.monitor")
 

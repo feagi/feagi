@@ -236,19 +236,18 @@ def test_synaptogenesis(embryo, genome_file):
 
     # Check for mappings in the genome blueprint directly
     blueprint = embryo.genome.get("blueprint", {})
-    has_mappings = False
-    
-    # Look for cortical mapping keys: "_____10c-{cortical_id}-cx-dstmap-d"
-    for gene_key, gene_value in blueprint.items():
+    cortical_mappings = [
+        gene_key
+        for gene_key, gene_value in blueprint.items()
         if (
             isinstance(gene_key, str)
             and gene_key.startswith("_____10c-")
             and gene_key.endswith("-cx-dstmap-d")
             and isinstance(gene_value, dict)
             and gene_value
-        ):
-            has_mappings = True
-            break
+        )
+    ]
+    has_mappings = bool(cortical_mappings)
 
     mappings_end = time.time()
     print(f"Mapping check time: {mappings_end - mappings_start:.3f} seconds")

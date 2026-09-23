@@ -5,7 +5,7 @@ Abstract base class for all transport mechanisms.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Any
+from typing import Optional, Callable
 
 
 class BaseTransport(ABC):
