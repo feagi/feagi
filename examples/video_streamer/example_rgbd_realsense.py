@@ -109,28 +109,26 @@ def _ensure_auth_token() -> str:
     return token
 
 
-def _depth_frame_to_one_hot_volume(
+def _depth_frame_to_level_plane(
     depth_mm_frame: np.ndarray,
     *,
     depth_scale: float,
-    depth_bins: int,
+    depth_levels: int,
     max_depth_m: float,
 ) -> np.ndarray:
-    """Project metric depth frame into one-hot depth-bin volume."""
+    """
+    Project a metric depth frame onto a quantized one-layer plane.
+
+    Each valid pixel becomes ``level / depth_levels`` with ``level`` in
+    ``1..=depth_levels``. RealSense reports 0 for no return; those stay 0 so
+    they do not fire.
+    """
     depth_meters = depth_mm_frame.astype(np.float32) * float(depth_scale)
     normalized = np.clip(depth_meters / float(max_depth_m), 0.0, 1.0)
-    max_bin = depth_bins - 1
-    depth_indices = np.clip(
-        np.rint(normalized * max_bin).astype(np.int32),
-        0,
-        max_bin,
-    )
-    height, width = depth_indices.shape
-    depth_volume = np.zeros((height, width, depth_bins), dtype=np.float32)
-    row_idx = np.arange(height)[:, None]
-    col_idx = np.arange(width)[None, :]
-    depth_volume[row_idx, col_idx, depth_indices] = 1.0
-    return depth_volume
+    level = np.rint(normalized * (depth_levels - 1)) + 1.0
+    plane = (level / float(depth_levels)).astype(np.float32)
+    plane[depth_mm_frame == 0] = 0.0
+    return plane
 
 
 def main() -> None:
@@ -142,7 +140,7 @@ def main() -> None:
             "Install it in your active virtual environment."
         ) from import_error
 
-    depth_bins = _required_env_int("FEAGI_DEPTH_BINS")
+    depth_levels = _required_env_int("FEAGI_DEPTH_LEVELS")
     max_depth_m = _required_env_float("FEAGI_RGBD_MAX_DEPTH_M")
 
     config_path = _config_path()
@@ -210,7 +208,7 @@ def main() -> None:
             rgb_group=0,
             depth_group=1,
             rgb_resolution_xy=(frame_width, frame_height),
-            depth_dimensions_xyz=(frame_width, frame_height, depth_bins),
+            depth_resolution_xy=(frame_width, frame_height),
             bundle_id=bundle_id,
             bundle_type="rgbd_camera",
             frame_change_handling="absolute",
@@ -233,10 +231,10 @@ def main() -> None:
                 depth_frame.get_data(),
                 dtype=np.uint16,
             )
-            depth_volume = _depth_frame_to_one_hot_volume(
+            depth_plane = _depth_frame_to_level_plane(
                 depth_mm_frame,
                 depth_scale=depth_scale,
-                depth_bins=depth_bins,
+                depth_levels=depth_levels,
                 max_depth_m=max_depth_m,
             )
 
@@ -245,7 +243,7 @@ def main() -> None:
                 depth_group=groups["DepthMap"],
                 channel_index=0,
                 frame_rgb=rgb_frame,
-                depth_map_xyz=depth_volume,
+                depth_map_xy=depth_plane,
             )
             brain_output.flush_sensory_bytes()
     except KeyboardInterrupt:

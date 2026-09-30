@@ -28,6 +28,9 @@ if not logger.handlers:
 
 # @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-output
 
+# The DepthMap sensory area is one layer; depth rides on each pixel's potential.
+DEPTH_MAP_LAYERS = 1
+
 
 class BrainOutput:
     """
@@ -1221,6 +1224,12 @@ class BrainOutput:
         image_resolution_xy: tuple[int, int] = (32, 32),
         misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
         frame_change_handling: Literal["absolute", "incremental"] = "absolute",
+        audio_sample_rate_hz: int = 16000,
+        audio_window_size: int = 1024,
+        audio_hop_size: int = 512,
+        audio_phase_steps: int = 16,
+        audio_magnitude_floor_db: int = -80,
+        audio_magnitude_ceiling_db: int = 0,
     ) -> Dict[str, int]:
         """
         Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
@@ -1231,7 +1240,13 @@ class BrainOutput:
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
                 Supported keys: ``Vision``, ``RawIMU``, ``SmartIMU``, ``Proximity``,
-                ``Servo``, ``Shock``, ``MiscData``, ``DepthMap``, ``CartesianPosition``.
+                ``Servo``, ``Shock``, ``MiscData``, ``DepthMap``, ``CartesianPosition``,
+                ``AudioInput``.
+
+                Notes on ``AudioInput``:
+                  * Absolute-only. Registers one spectrum area per channel using
+                    linear ``AudioSpectrumProperties`` from the ``audio_*`` kwargs
+                    (default 16 kHz, 1024-sample window, hop 512, 16 phase steps).
 
                 Notes on IMU keys:
                   * ``RawIMU`` registers ONE cortical unit with three sub-areas
@@ -1300,6 +1315,18 @@ class BrainOutput:
             int(misc_dimensions_xyz[1]),
             int(misc_dimensions_xyz[2]),
         )
+        if "AudioInput" in unit_channel_counts and frame_mode_value != "absolute":
+            raise ValueError("AudioInput only supports frame_change_handling='absolute'.")
+        audio_properties = None
+        if "AudioInput" in unit_channel_counts:
+            audio_properties = frpl.connector_core.data_types.AudioSpectrumProperties.new_linear(
+                int(audio_sample_rate_hz),
+                int(audio_window_size),
+                int(audio_hop_size),
+                int(audio_phase_steps),
+                int(audio_magnitude_floor_db),
+                int(audio_magnitude_ceiling_db),
+            )
 
         sensory_registers = {
             "Vision": lambda group, count: self._cache.sensor_Vision_register(
@@ -1372,6 +1399,12 @@ class BrainOutput:
                 z_neuron_resolution,
                 positioning,
             ),
+            "AudioInput": lambda group, count: self._cache.sensor_AudioInput_register(
+                group,
+                count,
+                frame_mode,
+                audio_properties,
+            ),
         }
 
         unit_groups: Dict[str, int] = {}
@@ -1398,7 +1431,7 @@ class BrainOutput:
         rgb_group: int,
         depth_group: int,
         rgb_resolution_xy: tuple[int, int],
-        depth_dimensions_xyz: tuple[int, int, int],
+        depth_resolution_xy: tuple[int, int],
         bundle_id: str,
         bundle_type: str = "rgbd_camera",
         frame_change_handling: Literal["absolute", "incremental"] = "absolute",
@@ -1407,7 +1440,8 @@ class BrainOutput:
         Register one RGBD camera as sibling Vision + DepthMap sensory units.
 
         This keeps registration deterministic and explicitly paired so FEAGI can
-        treat both streams as one physical camera rig.
+        treat both streams as one physical camera rig. The DepthMap is one layer
+        (``W x H x 1``); depth rides on each pixel's potential.
         """
         self._init_cache()
         if self._cache is None:
@@ -1449,9 +1483,9 @@ class BrainOutput:
             descriptors.ColorChannelLayout.RGB,
         )
         depth_dims = descriptors.MiscDataDimensions(
-            int(depth_dimensions_xyz[0]),
-            int(depth_dimensions_xyz[1]),
-            int(depth_dimensions_xyz[2]),
+            int(depth_resolution_xy[0]),
+            int(depth_resolution_xy[1]),
+            DEPTH_MAP_LAYERS,
         )
         self._cache.sensor_Vision_register(
             int(rgb_group),
@@ -1685,6 +1719,172 @@ class BrainOutput:
             int(height),
             int(depth),
             int(window_ms) if window_ms is not None else None,
+        )
+
+    def register_motor_audio_output(
+        self,
+        *,
+        group: int,
+        number_channels: int = 1,
+        sample_rate_hz: int = 16000,
+        window_size: int = 1024,
+        hop_size: int = 512,
+        phase_steps: int = 16,
+        magnitude_floor_db: int = -80,
+        magnitude_ceiling_db: int = 0,
+    ) -> None:
+        """Register an AudioOutput motor area (linear spectrum, absolute)."""
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(number_channels) <= 0:
+            raise ValueError("AudioOutput number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        audio_properties = frpl.connector_core.data_types.AudioSpectrumProperties.new_linear(
+            int(sample_rate_hz),
+            int(window_size),
+            int(hop_size),
+            int(phase_steps),
+            int(magnitude_floor_db),
+            int(magnitude_ceiling_db),
+        )
+        self._cache.motor_AudioOutput_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            audio_properties,
+        )
+
+    def register_motor_simple_vision_output(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        number_channels: int = 1,
+    ) -> None:
+        """Register a SimpleVisionOutput motor area as one RGB image frame."""
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0:
+            raise ValueError("SimpleVisionOutput dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("SimpleVisionOutput number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        descriptors = frpl.connector_core.data_types.descriptors
+        image_properties = descriptors.ImageFrameProperties(
+            descriptors.ImageXYResolution(int(width), int(height)),
+            descriptors.ColorSpace.Gamma,
+            descriptors.ColorChannelLayout.RGB,
+        )
+        self._cache.motor_SimpleVisionOutput_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            image_properties,
+        )
+
+    def register_motor_pose_estimation(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        pose_schema: str = "HumanBody",
+        number_channels: int = 1,
+    ) -> None:
+        """Register a PoseEstimation motor area.
+
+        ``pose_schema`` is one of HumanBody, HumanHand, HumanFace, Quadruped,
+        Avian, Arthropod, Object6DoF, or Custom.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("PoseEstimation dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("PoseEstimation number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        schema_name = str(pose_schema).strip()
+        schema_factory = getattr(
+            frpl.data_structures.genomic.cortical_area.PoseSchema,
+            schema_name,
+            None,
+        )
+        if schema_factory is None:
+            raise ValueError(f"Unknown pose schema '{schema_name}'.")
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        pose_properties = frpl.connector_core.data_types.PoseEstimationProperties(
+            int(width),
+            int(height),
+            int(depth),
+        )
+        self._cache.motor_PoseEstimation_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            schema_factory(),
+            pose_properties,
+        )
+
+    def write_sensor_audio_spectrum(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        frame,
+    ) -> None:
+        """Write one ``AudioSpectrumFrame`` into a registered AudioInput channel."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._cache.sensor_audio_input_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=frame,
+        )
+
+    def read_motor_audio_spectrum(self, *, group: int, channel_index: int):
+        """Read the latest decoded AudioOutput spectrum frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_audio_output_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
+        )
+
+    def read_motor_simple_vision_output(self, *, group: int, channel_index: int):
+        """Read the latest decoded SimpleVisionOutput image frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_simple_vision_output_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
+        )
+
+    def read_motor_pose_estimation(self, *, group: int, channel_index: int):
+        """Read the latest decoded PoseEstimation joint frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_pose_estimation_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
         )
 
     def _init_sensory_write_helpers(self) -> None:
@@ -2027,20 +2227,19 @@ class BrainOutput:
         *,
         group: int,
         channel_index: int,
-        depth_map_xyz,
+        depth_map_xy,
     ) -> None:
-        """Write one depth volume into DepthMap sensory cache."""
+        """
+        Write one depth plane into the DepthMap sensory cache.
+
+        ``depth_map_xy`` is ``(H, W)`` or ``(H, W, 1)`` with values in ``[0, 1]``;
+        each pixel's value is the potential FEAGI receives. Zero means no return.
+        """
         if self._cache is None:
             raise RuntimeError("ConnectorAgent cache is not initialized.")
         self._init_sensory_write_helpers()
 
-        import numpy as np
-
-        depth_array = np.asarray(depth_map_xyz, dtype=np.float32)
-        if depth_array.ndim != 3:
-            raise ValueError(
-                f"Depth map must be a 3D ndarray (H, W, Z), got {depth_array.shape}"
-            )
+        depth_array = BrainOutput._depth_plane(depth_map_xy)
         depth_data = self._sensory_misc_factory.new_from_array(depth_array)
         self._cache.sensor_depth_map_write(
             group=int(group),
@@ -2049,15 +2248,33 @@ class BrainOutput:
         )
 
     @staticmethod
-    def rgb_frame_to_depth_map_bins(frame_rgb, depth_bins: int):
-        """
-        Convert RGB frame to one-hot depth bins using luminance.
+    def _depth_plane(depth_map_xy):
+        """Validate a depth plane and return it as ``(H, W, 1)`` float32."""
+        import numpy as np
 
-        This mirrors the deterministic desktop fallback path:
-        brightness is projected to one z-bin per pixel.
+        depth_array = np.asarray(depth_map_xy, dtype=np.float32)
+        if depth_array.ndim == 2:
+            depth_array = depth_array[:, :, None]
+        if depth_array.ndim != 3 or depth_array.shape[2] != DEPTH_MAP_LAYERS:
+            raise ValueError(
+                "Depth map must be (H, W) or (H, W, 1); depth rides on potential, "
+                f"got {depth_array.shape}"
+            )
+        if np.any(depth_array < 0.0) or np.any(depth_array > 1.0):
+            raise ValueError("Depth map values must be in [0, 1].")
+        return depth_array
+
+    @staticmethod
+    def rgb_frame_to_depth_map_levels(frame_rgb, depth_levels: int):
         """
-        if int(depth_bins) <= 0:
-            raise ValueError("depth_bins must be > 0.")
+        Convert an RGB frame to a quantized one-layer depth plane using luminance.
+
+        Mirrors the desktop depth path: luminance maps to ``level`` in
+        ``1..=depth_levels`` and the pixel potential is ``level / depth_levels``,
+        so every pixel is in ``(0, 1]``. Returns ``(H, W, 1)`` float32.
+        """
+        if int(depth_levels) <= 0:
+            raise ValueError("depth_levels must be > 0.")
         import numpy as np
 
         frame_array = np.asarray(frame_rgb, dtype=np.uint8)
@@ -2071,18 +2288,9 @@ class BrainOutput:
             + 0.587 * frame_array[:, :, 1].astype(np.float32)
             + 0.114 * frame_array[:, :, 2].astype(np.float32)
         ) / 255.0
-        max_bin = int(depth_bins) - 1
-        indices = np.clip(
-            (luminance * max_bin).round().astype(np.int32),
-            0,
-            max_bin,
-        )
-        height, width = indices.shape
-        depth_map = np.zeros((height, width, int(depth_bins)), dtype=np.float32)
-        row_idx = np.arange(height)[:, None]
-        col_idx = np.arange(width)[None, :]
-        depth_map[row_idx, col_idx, indices] = 1.0
-        return depth_map
+        levels = int(depth_levels)
+        level = np.clip(np.round(luminance * (levels - 1)), 0, levels - 1) + 1.0
+        return (level / float(levels)).astype(np.float32)[:, :, None]
 
     def write_rgbd_tick(
         self,
@@ -2091,14 +2299,14 @@ class BrainOutput:
         depth_group: int,
         channel_index: int,
         frame_rgb,
-        depth_map_xyz=None,
-        depth_bins: Optional[int] = None,
+        depth_map_xy=None,
+        depth_levels: Optional[int] = None,
     ) -> None:
         """
         Write paired RGB + DepthMap data for one tick.
 
-        If ``depth_map_xyz`` is omitted, this derives depth bins from RGB
-        luminance deterministically.
+        If ``depth_map_xy`` is omitted, this derives a quantized depth plane from
+        RGB luminance deterministically.
         """
         self.write_sensor_vision_frame(
             group=rgb_group,
@@ -2106,20 +2314,20 @@ class BrainOutput:
             frame_rgb=frame_rgb,
         )
 
-        resolved_depth_map = depth_map_xyz
+        resolved_depth_map = depth_map_xy
         if resolved_depth_map is None:
-            if depth_bins is None:
+            if depth_levels is None:
                 raise ValueError(
-                    "depth_bins must be provided when depth_map_xyz is None."
+                    "depth_levels must be provided when depth_map_xy is None."
                 )
-            resolved_depth_map = BrainOutput.rgb_frame_to_depth_map_bins(
+            resolved_depth_map = BrainOutput.rgb_frame_to_depth_map_levels(
                 frame_rgb,
-                int(depth_bins),
+                int(depth_levels),
             )
         self.write_sensor_depth_map(
             group=depth_group,
             channel_index=channel_index,
-            depth_map_xyz=resolved_depth_map,
+            depth_map_xy=resolved_depth_map,
         )
 
     def write_sensor_scalar(

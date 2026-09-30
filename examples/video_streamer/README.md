@@ -32,7 +32,7 @@ python example_rgbd_pair.py
 RealSense true-depth RGBD example:
 
 ```bash
-FEAGI_DEPTH_BINS=64 FEAGI_RGBD_MAX_DEPTH_M=6.0 python example_rgbd_realsense.py
+FEAGI_DEPTH_LEVELS=256 FEAGI_RGBD_MAX_DEPTH_M=6.0 python example_rgbd_realsense.py
 ```
 
 With a custom video path:
@@ -47,10 +47,12 @@ To see neuron activity in Brain Visualizer: load a genome with vision cortical a
 
 - `example_rgbd_pair.py` registers one physical sensor as sibling `Vision` and
   `DepthMap` units with shared `bundle_id` metadata.
-- Replace `get_rgb_frame()` and `get_depth_volume()` with your hardware code
+- Replace `get_rgb_frame()` and `get_depth_plane()` with your hardware code
   (for example, RGB + depth streams from RealSense).
+- `DepthMap` is one layer: each pixel's potential is its normalized depth, so
+  `FEAGI_DEPTH_LEVELS` sets resolution without adding neurons.
 - If you want synthetic depth from RGB only, generate it explicitly with
-  `brain_output.rgb_frame_to_depth_map_bins(...)` and pass it to
+  `brain_output.rgb_frame_to_depth_map_levels(...)` and pass it to
   `write_rgbd_tick(...)`.
 - `example_rgbd_realsense.py` uses `pyrealsense2` and true depth frames; install
   RealSense Python bindings in your active virtual environment first.

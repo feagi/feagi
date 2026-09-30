@@ -39,6 +39,7 @@ _SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES = {
     b"dpt": ["sensor_depth_map_register", "sensor_DepthMap_register"],
     b"rim": ["sensor_raw_i_m_u_register", "sensor_RawIMU_register"],
     b"sim": ["sensor_smart_i_m_u_register", "sensor_SmartIMU_register"],
+    b"aud": ["sensor_audio_input_register", "sensor_AudioInput_register"],
 }
 
 
@@ -163,6 +164,21 @@ def register_cortical_areas_with_cache(cache: Any, cortical_area_ids: List[str])
                 number_channels=1,
                 frame_change_handling=frame,
                 misc_data_dimensions=dims,
+            )
+        elif subtype == b"aud":
+            audio_properties = cc_data_types.AudioSpectrumProperties.new_linear(
+                16000,
+                1024,
+                512,
+                16,
+                -80,
+                0,
+            )
+            register_method(
+                group=group_id,
+                number_channels=1,
+                frame_change_handling=frame,
+                audio_properties=audio_properties,
             )
         elif subtype in (b"rim", b"sim"):
             # IMU registration mirrors the SignedPercentage_3D / 4D arm

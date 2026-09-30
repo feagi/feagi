@@ -98,16 +98,14 @@ def get_rgb_frame() -> np.ndarray:
     return frame
 
 
-def get_depth_volume() -> np.ndarray:
+def get_depth_plane() -> np.ndarray:
     """
     Replace with real depth frame conversion.
 
-    Expected shape: (H, W, Z), float32 where Z = depth bins and each pixel maps
-    to one or more bins according to your sensor semantics.
+    Expected shape: (H, W), float32 in [0, 1]. Each pixel's value is the
+    normalized depth FEAGI receives as potential; 0 means no return.
     """
-    depth = np.zeros((240, 320, 64), dtype=np.float32)
-    depth[:, :, 12] = 1.0
-    return depth
+    return np.full((240, 320), 0.2, dtype=np.float32)
 
 
 def main() -> None:
@@ -140,7 +138,7 @@ def main() -> None:
             rgb_group=0,
             depth_group=1,
             rgb_resolution_xy=(320, 240),
-            depth_dimensions_xyz=(320, 240, 64),
+            depth_resolution_xy=(320, 240),
             bundle_id="front_rgbd",
             bundle_type="rgbd_camera",
             frame_change_handling="absolute",
@@ -150,13 +148,13 @@ def main() -> None:
         print("RGBD streaming started. Press Ctrl+C to stop.")
         while True:
             rgb_frame = get_rgb_frame()
-            depth_volume = get_depth_volume()
+            depth_plane = get_depth_plane()
             brain_output.write_rgbd_tick(
                 rgb_group=groups["Vision"],
                 depth_group=groups["DepthMap"],
                 channel_index=0,
                 frame_rgb=rgb_frame,
-                depth_map_xyz=depth_volume,
+                depth_map_xy=depth_plane,
             )
             brain_output.flush_sensory_bytes()
             time.sleep(1.0 / 15.0)

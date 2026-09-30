@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from feagi.pns.brain_output import BrainOutput
 
@@ -94,7 +95,7 @@ def test_register_sensor_units_supports_depth_map(monkeypatch):
         {"DepthMap": 2},
         z_neuron_resolution=10,
         group_index_start=4,
-        misc_dimensions_xyz=(64, 48, 32),
+        misc_dimensions_xyz=(64, 48, 1),
     )
 
     assert groups == {"DepthMap": 4}
@@ -105,7 +106,7 @@ def test_register_sensor_units_supports_depth_map(monkeypatch):
         "ABS",
     )
     dims = bo._cache.calls[0][4]
-    assert (dims.x, dims.y, dims.z) == (64, 48, 32)
+    assert (dims.x, dims.y, dims.z) == (64, 48, 1)
 
 
 def test_register_rgbd_sensor_pair_sets_bundle_metadata(monkeypatch):
@@ -120,11 +121,13 @@ def test_register_rgbd_sensor_pair_sets_bundle_metadata(monkeypatch):
         rgb_group=3,
         depth_group=9,
         rgb_resolution_xy=(320, 240),
-        depth_dimensions_xyz=(320, 240, 64),
+        depth_resolution_xy=(320, 240),
         bundle_id="front_rgbd",
     )
     assert groups == {"Vision": 3, "DepthMap": 9}
     assert bo._vision_group_modes[3] == "simple"
+    depth_dims = [call for call in bo._cache.calls if call[0] == "DepthMap"][0][4]
+    assert (depth_dims.x, depth_dims.y, depth_dims.z) == (320, 240, 1)
 
     payload = {
         "input_units_and_encoder_properties": {
@@ -160,17 +163,26 @@ def test_register_rgbd_sensor_pair_sets_bundle_metadata(monkeypatch):
     )
 
 
-def test_rgb_frame_to_depth_map_bins_returns_one_hot_volume():
-    """RGB luminance conversion produces deterministic one-hot depth bins."""
+def test_rgb_frame_to_depth_map_levels_returns_one_layer_potentials():
+    """RGB luminance conversion produces a quantized one-layer depth plane."""
     frame = np.array(
         [[[0, 0, 0], [255, 255, 255]]],
         dtype=np.uint8,
     )
-    depth = BrainOutput.rgb_frame_to_depth_map_bins(frame, 8)
-    assert depth.shape == (1, 2, 8)
-    assert depth[0, 0, 0] == 1.0
-    assert depth[0, 1, 7] == 1.0
-    assert float(np.sum(depth)) == 2.0
+    depth = BrainOutput.rgb_frame_to_depth_map_levels(frame, 8)
+    assert depth.shape == (1, 2, 1)
+    assert depth[0, 0, 0] == 1.0 / 8.0
+    assert depth[0, 1, 0] == 1.0
+
+
+def test_depth_plane_accepts_2d_and_rejects_binned_volumes():
+    """Depth writes are one layer; a binned (H, W, Z) volume is rejected."""
+    plane = BrainOutput._depth_plane(np.full((2, 3), 0.5))
+    assert plane.shape == (2, 3, 1)
+    with pytest.raises(ValueError, match="rides on potential"):
+        BrainOutput._depth_plane(np.zeros((2, 3, 8)))
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        BrainOutput._depth_plane(np.full((2, 3), 1.5))
 
 
 def test_write_rgbd_tick_writes_both_streams(monkeypatch):
@@ -181,8 +193,8 @@ def test_write_rgbd_tick_writes_both_streams(monkeypatch):
     def fake_write_vision_frame(*, group, channel_index, frame_rgb):
         calls.append(("vision", group, channel_index, frame_rgb.shape))
 
-    def fake_write_depth_map(*, group, channel_index, depth_map_xyz):
-        calls.append(("depth", group, channel_index, depth_map_xyz.shape))
+    def fake_write_depth_map(*, group, channel_index, depth_map_xy):
+        calls.append(("depth", group, channel_index, depth_map_xy.shape))
 
     monkeypatch.setattr(
         bo,
@@ -197,8 +209,8 @@ def test_write_rgbd_tick_writes_both_streams(monkeypatch):
         depth_group=5,
         channel_index=0,
         frame_rgb=frame,
-        depth_bins=4,
+        depth_levels=4,
     )
 
     assert calls[0] == ("vision", 1, 0, (2, 2, 3))
-    assert calls[1] == ("depth", 5, 0, (2, 2, 4))
+    assert calls[1] == ("depth", 5, 0, (2, 2, 1))

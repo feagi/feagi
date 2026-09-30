@@ -46,12 +46,12 @@ class TestDecodeCorticalIdLabel:
     def test_shared_subtype_misc_input(self):
         cid = _make_id("i", b"mis")
         label = decode_cortical_id_label(cid)
-        assert "Miscellaneous Sensor" in label
+        assert "Miscellaneous Input" in label
 
     def test_shared_subtype_misc_output(self):
         cid = _make_id("o", b"mis")
         label = decode_cortical_id_label(cid)
-        assert "Miscellaneous Motor" in label
+        assert "Miscellaneous Output" in label
 
     def test_unknown_subtype_still_readable(self):
         cid = _make_id("o", b"zzz")
