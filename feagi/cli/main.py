@@ -849,9 +849,19 @@ def main(argv: list[str] | None = None) -> int:
                         except Exception:
                             pass
                 elif system.startswith("linux"):
+                    machine = platform.machine().lower()
+                    if machine in ("aarch64", "arm64"):
+                        bv_package = "feagi-bv-linux-arm64"
+                    elif machine in ("x86_64", "amd64"):
+                        bv_package = "feagi-bv-linux"
+                    else:
+                        bv_package = None
                     try:
-                        bv_version = version("feagi-bv-linux")
+                        if bv_package is not None:
+                            bv_version = version(bv_package)
                     except Exception:
+                        bv_version = None
+                    if not bv_version:
                         try:
                             bv_version = version("feagi-bv")
                         except Exception:
