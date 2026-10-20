@@ -86,6 +86,10 @@ class BrainOutput:
         # Latest motor data (for debugging)
         self._motor_data: Dict[str, Any] = {}
         self._last_logged_motor_values: Dict[str, float] = {}
+        # Raw motor frame from the latest successful receive, or None when
+        # this tick had no motor bytes. Embodiments scan it for core areas
+        # such as Brain_Death that are not registered motor units.
+        self._last_motor_frame: Optional[bytes] = None
         
         # Configuration
         self._agent_id = None
@@ -2787,12 +2791,14 @@ class BrainOutput:
             raise RuntimeError("ConnectorAgent cache is not initialized.")
 
         # 1. Pull raw motor bytes from the transport (no Python-side decode).
+        self._last_motor_frame = None
         raw_bytes = self._client.receive_motor_data_raw()
         if not raw_bytes:
             # No FEAGI motor frame this tick: clear the command map so controllers
             # hold current pose instead of replaying the last absolute latch.
             self._motor_data = {}
             return
+        self._last_motor_frame = bytes(raw_bytes)
 
         # 2. Decode through the shared Rust decoder. This fires the per-output
         #    callbacks registered in _register_motor_decoder(), which update

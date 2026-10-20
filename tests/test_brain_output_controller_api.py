@@ -277,6 +277,7 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
 
     # Raw bytes were handed to the Rust decoder (not Python-decoded).
     assert bo._cache.loaded == b"raw-motor-bytes"
+    assert bo._last_motor_frame == b"raw-motor-bytes"
     assert bo._cache.decoded is True
     assert bo._cache.updated_only_calls == 1
     # Snapshot channels are persisted even without registered output objects.
@@ -299,9 +300,11 @@ def test_receive_clears_motor_data_when_no_raw_bytes():
     bo._cache = object()
     bo._motor_data = {"1:0:absolute": 1.0}
 
+    bo._last_motor_frame = b"stale"
     bo.receive()
 
     assert bo._motor_data == {}
+    assert bo._last_motor_frame is None
 
 
 def test_connect_uses_both_agent_type_with_motor_and_scalar_sensory(monkeypatch):
