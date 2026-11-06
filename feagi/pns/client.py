@@ -38,7 +38,6 @@ Example:
 import base64
 import logging
 import json
-import os
 import time
 import urllib.error
 import urllib.request
@@ -749,77 +748,6 @@ class FeagiAgentClient:
             logger.debug("Resolution detection failed: %s", e)
             return None
 
-    def _duplicate_registration_retry_delay_s(self) -> float:
-        """
-        Seconds to wait before retrying after an AlreadyRegistered response.
-
-        FEAGI may return ``RegistrationResponse::AlreadyRegistered`` when a
-        new registration uses the same ``AgentDescriptor`` and capabilities as
-        a session still inside the duplicate-guard window
-        (``2 * stale_check_interval``, see
-        ``feagi_agent_handler::should_replace_existing_descriptor_session`` in
-        ``feagi-core``).
-
-        Operators may set ``FEAGI_AGENT_DUPLICATE_REGISTRATION_RETRY_S`` when
-        the server uses a non-default liveness configuration. Otherwise the
-        delay is derived from ``configure()`` ``heartbeat_interval`` (bounded
-        between ~2.25s and 4s) so reconnects are not blocked for many seconds
-        when heartbeat is large while still outlasting FEAGI's default
-        duplicate guard (~2s).
-
-        Returns:
-            Positive delay in seconds.
-
-        Raises:
-            RuntimeError: If the env override is invalid or heartbeat was not
-                configured via ``configure()``.
-        """
-        raw = os.environ.get("FEAGI_AGENT_DUPLICATE_REGISTRATION_RETRY_S")
-        if raw is not None and str(raw).strip() != "":
-            try:
-                delay = float(str(raw).strip())
-            except ValueError as exc:
-                raise RuntimeError(
-                    "FEAGI_AGENT_DUPLICATE_REGISTRATION_RETRY_S must be a "
-                    "positive floating-point number of seconds",
-                ) from exc
-            if delay <= 0:
-                raise RuntimeError(
-                    "FEAGI_AGENT_DUPLICATE_REGISTRATION_RETRY_S must be > 0",
-                )
-            return delay
-
-        interval = self._motor_registration_retry_interval_s
-        if interval is None or interval <= 0:
-            raise RuntimeError(
-                "configure() must set heartbeat_interval before connect(); "
-                "cannot compute duplicate-registration retry delay",
-            )
-        computed = (2.0 * interval) + 0.25
-        capped = min(computed, 4.0)
-        return max(capped, 2.25)
-
-    def _teardown_unregistered_rust_client(self) -> None:
-        """
-        Best-effort teardown after a failed ``connect()`` before rebuilding
-        ``PyAgentClient``.
-
-        ``disconnect()`` only runs when ``_connected`` is True; failed
-        registration leaves ``_connected`` false while a Rust client may still
-        exist, so clear it explicitly.
-        """
-        if self._client is None:
-            return
-        try:
-            self._client.disconnect()
-        except Exception as teardown_error:
-            logger.debug(
-                "Rust client teardown after failed connect for %s: %s",
-                self.agent_id,
-                teardown_error,
-            )
-        self._client = None
-
     def connect(self, graceful: bool = False) -> bool:
         """
         Connect to FEAGI and register the agent
@@ -888,41 +816,15 @@ class FeagiAgentClient:
             # Connect (with automatic retry)
             # This is where threads are spawned after successful registration
             logger.debug("Attempting registration with FEAGI...")
-            # FEAGI may keep descriptor sessions in duplicate-guard windows longer
-            # than one retry interval under load. Use bounded retries so controllers
-            # can recover without manual restarts.
-            duplicate_retries_left = 3
+            # A rejected registration (including "already registered") is reported
+            # to the caller. Recovery after a rejected attempt belongs to the
+            # level-triggered reconnect policy, not to a retry loop here.
             reg_error: Optional[BaseException] = None
-            while True:
-                try:
-                    self._client.connect()
-                    logger.debug("[OK] Registration successful")
-                    reg_error = None
-                    break
-                except Exception as exc:
-                    reg_error = exc
-                    error_str = str(exc).lower()
-                    if (
-                        "already registered" in error_str
-                        and duplicate_retries_left > 0
-                    ):
-                        retries_remaining_after_this_attempt = (
-                            duplicate_retries_left - 1
-                        )
-                        duplicate_retries_left -= 1
-                        delay_s = self._duplicate_registration_retry_delay_s()
-                        logger.info(
-                            "Duplicate registration guard: retrying after %.2f s "
-                            "(remaining duplicate retries: %d; descriptor session "
-                            "may still be inside FEAGI duplicate-guard window)",
-                            delay_s,
-                            retries_remaining_after_this_attempt,
-                        )
-                        self._teardown_unregistered_rust_client()
-                        time.sleep(delay_s)
-                        self._client = PyAgentClient(self._config)
-                        continue
-                    break
+            try:
+                self._client.connect()
+                logger.debug("[OK] Registration successful")
+            except Exception as exc:
+                reg_error = exc
 
             if reg_error is not None:
                 # Enhanced error message for registration failures

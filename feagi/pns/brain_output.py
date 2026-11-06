@@ -2840,6 +2840,19 @@ class BrainOutput:
         """Check if connected to FEAGI"""
         return self._connected
 
+    def is_registered(self) -> bool:
+        """
+        True while the underlying agent client holds a live FEAGI registration.
+
+        Unlike :meth:`is_connected` (which only reports whether ``connect()``
+        ran), this asks the Rust client whether its registration is still
+        valid, so a failed reconnect reads as not registered. A recovery
+        driver passes ``not registered`` to
+        :meth:`feagi.pns.health_monitor.FeagiHealthMonitor.tick` on every tick.
+        """
+        client = self._client
+        return client is not None and client.is_connected()
+
 
 # Global singleton instance
 brain_output = BrainOutput()

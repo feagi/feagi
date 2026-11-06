@@ -229,8 +229,7 @@ def test_merge_required_config_defaults_preserves_partial_recovery_section(
 
 def test_merge_required_config_defaults_idempotent_when_full(tmp_path):
     full = {
-        "timeouts": {"service_startup": 3.0},
-        "recovery": dict(REQUIRED_CONFIG_DEFAULTS["recovery"]),
+        section: dict(defaults) for section, defaults in REQUIRED_CONFIG_DEFAULTS.items()
     }
     modified = _merge_required_config_defaults(full)
     assert modified is False

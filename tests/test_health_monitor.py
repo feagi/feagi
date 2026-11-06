@@ -203,3 +203,55 @@ def test_health_event_repr_is_stable():
     assert isinstance(events[0], FeagiHealthEvent)
     assert isinstance(events[0].kind, str)
     assert isinstance(events[0].new_genome_num, int)
+
+
+def _unreachable_monitor(*, cooldown_ms: int, max_consecutive_failures: int) -> FeagiHealthMonitor:
+    return FeagiHealthMonitor(
+        feagi_api_host="127.0.0.1",
+        feagi_api_port=1,
+        fetch_timeout_ms=50,
+        cooldown_ms=cooldown_ms,
+        max_consecutive_failures=max_consecutive_failures,
+        trigger_on_session_changed=False,
+        trigger_on_genome_changed=False,
+        trigger_on_genome_load_completed=False,
+        trigger_on_back_online=False,
+        trigger_on_brain_ready=False,
+        trigger_on_transport_send_failed=False,
+    )
+
+
+def test_not_registered_trigger_is_a_level_trigger_retried_after_each_cooldown():
+    """
+    ``not_registered=True`` on every tick keeps producing ``attempt_now`` once
+    the cooldown has elapsed, until an attempt succeeds. No edge trigger is
+    enabled, so nothing but the level trigger can cause these attempts.
+    """
+    monitor = _unreachable_monitor(cooldown_ms=100, max_consecutive_failures=5)
+    assert monitor.tick(now_ms=0).decision.kind == "skip"
+
+    first = monitor.tick(now_ms=10, not_registered=True)
+    assert first.decision.kind == "attempt_now"
+    assert first.decision.reason == "client not registered"
+    monitor.record_attempt_failed()
+
+    assert monitor.tick(now_ms=50, not_registered=True).decision.kind == "retry_after"
+    second = monitor.tick(now_ms=120, not_registered=True)
+    assert second.decision.kind == "attempt_now"
+    monitor.record_attempt_succeeded()
+
+    assert monitor.tick(now_ms=300, not_registered=False).decision.kind == "skip"
+    assert monitor.policy.consecutive_failures == 0
+
+
+def test_not_registered_trigger_gives_up_at_max_consecutive_failures():
+    monitor = _unreachable_monitor(cooldown_ms=10, max_consecutive_failures=2)
+    now_ms = 0
+    for _ in range(2):
+        decision = monitor.tick(now_ms=now_ms, not_registered=True).decision
+        assert decision.kind == "attempt_now"
+        monitor.record_attempt_failed()
+        now_ms += 20
+    final = monitor.tick(now_ms=now_ms, not_registered=True).decision
+    assert final.kind == "give_up"
+    assert final.consecutive_failures == 2

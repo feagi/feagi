@@ -484,3 +484,17 @@ def test_collect_motor_cortical_ids_empty_when_no_motor_outputs_registered():
     assert bo._outputs == []
     assert bo._motor_total_channels == 0
     assert bo._collect_motor_cortical_ids() == []
+
+
+def test_is_registered_is_false_without_an_agent_client():
+    output = BrainOutput()
+    assert output.is_registered() is False
+
+
+def test_is_registered_follows_the_agent_clients_registration():
+    output = BrainOutput()
+    registration = {"live": True}
+    output._client = SimpleNamespace(is_connected=lambda: registration["live"])
+    assert output.is_registered() is True
+    registration["live"] = False
+    assert output.is_registered() is False

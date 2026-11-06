@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 import logging
+import math
 
 import toml
 
@@ -23,6 +24,11 @@ REQUIRED_CONFIG_DEFAULTS: dict[str, Any] = {
         "health_fetch_timeout_ms": 1500,
         "reconnect_cooldown_ms": 1000,
         "reconnect_max_failures": 5,
+    },
+    "mujoco_control_server": {
+        "live_measure_timeout_s": 2.0,
+        "physics_command_timeout_s": 3.0,
+        "scene_object_apply_timeout_s": 10.0,
     },
 }
 
@@ -90,6 +96,13 @@ health_poll_interval_s   = 2.0    # How often the controller polls FEAGI /health
 health_fetch_timeout_ms  = 1500   # HTTP timeout for each health fetch (must be < poll interval)
 reconnect_cooldown_ms    = 1000   # Minimum interval between consecutive reconnect attempts
 reconnect_max_failures   = 5      # Give up after this many consecutive failed reconnects
+
+[mujoco_control_server]
+# How long a MuJoCo control-server request waits for the controller's main loop.
+# Command-line flags on the MuJoCo controller may override these values per launch.
+live_measure_timeout_s       = 2.0    # A live readout (reach / pole measurement), seconds
+physics_command_timeout_s    = 3.0    # One physics primitive (reset, spring, pulse, measure), seconds
+scene_object_apply_timeout_s = 10.0   # A model rebuild (scene objects, cameras, attachments), seconds
 """
 
 
@@ -325,6 +338,97 @@ def load_recovery_config(config_path: Optional[Path] = None) -> RecoveryConfig:
         )
 
     return RecoveryConfig(**coerced)
+
+
+@dataclass(frozen=True)
+class MujocoControlServerConfig:
+    """
+    Validated wait timeouts of the MuJoCo control server, all finite and > 0 seconds.
+
+    Attributes:
+        live_measure_timeout_s: A live readout (reach / pole measurement).
+        physics_command_timeout_s: One physics primitive (reset, spring, pulse, measure).
+        scene_object_apply_timeout_s: A model rebuild (scene objects, cameras,
+            attachments, reach / pole attempt start).
+    """
+
+    live_measure_timeout_s: float
+    physics_command_timeout_s: float
+    scene_object_apply_timeout_s: float
+
+
+_MUJOCO_CONTROL_SECTION = "mujoco_control_server"
+_MUJOCO_CONTROL_REQUIRED_KEYS = (
+    "live_measure_timeout_s",
+    "physics_command_timeout_s",
+    "scene_object_apply_timeout_s",
+)
+
+
+def _coerce_mujoco_control_value(key: str, raw: Any) -> float:
+    """Return a ``[mujoco_control_server]`` value as a float; ints widen, bools and non-numbers are rejected."""
+    if isinstance(raw, bool):  # bool is a subclass of int in Python
+        raise TypeError(f"[{_MUJOCO_CONTROL_SECTION}].{key} must be a number, got bool")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    raise TypeError(
+        f"[{_MUJOCO_CONTROL_SECTION}].{key} must be a number, got {type(raw).__name__}"
+    )
+
+
+def load_mujoco_control_server_config(
+    config_path: Optional[Path] = None,
+) -> MujocoControlServerConfig:
+    """
+    Load and validate the ``[mujoco_control_server]`` section of the FEAGI config file.
+
+    Resolution order mirrors :func:`load_recovery_config`: ``config_path`` when given,
+    else ``ensure_default_config()`` (creates the file, or migrates an older file to
+    include this section, with the defaults of ``REQUIRED_CONFIG_DEFAULTS``).
+
+    Args:
+        config_path: Optional path to a TOML config file.
+
+    Returns:
+        A validated ``MujocoControlServerConfig``.
+
+    Raises:
+        FileNotFoundError: ``config_path`` is provided and does not exist.
+        KeyError: The section, or one of its keys, is missing.
+        TypeError: A value is not a number (bools are rejected).
+        ValueError: A value is not finite or not > 0.
+    """
+    if config_path is None:
+        config_path = ensure_default_config()
+    else:
+        config_path = Path(config_path)
+        if not config_path.exists():
+            raise FileNotFoundError(f"FEAGI config file not found: {config_path}")
+
+    data = toml.load(config_path)
+    section = data.get(_MUJOCO_CONTROL_SECTION)
+    if not isinstance(section, dict):
+        raise KeyError(
+            f"Missing [{_MUJOCO_CONTROL_SECTION}] section in {config_path}. "
+            "Re-run ensure_default_config() to migrate older configs."
+        )
+    missing = [k for k in _MUJOCO_CONTROL_REQUIRED_KEYS if k not in section]
+    if missing:
+        raise KeyError(
+            f"[{_MUJOCO_CONTROL_SECTION}] section in {config_path} is missing keys: {missing}"
+        )
+
+    coerced = {
+        key: _coerce_mujoco_control_value(key, section[key])
+        for key in _MUJOCO_CONTROL_REQUIRED_KEYS
+    }
+    for key, value in coerced.items():
+        if not math.isfinite(value) or value <= 0.0:
+            raise ValueError(
+                f"[{_MUJOCO_CONTROL_SECTION}].{key} must be a finite number > 0 "
+                f"(got {value}) in {config_path}"
+            )
+    return MujocoControlServerConfig(**coerced)
 
 
 def init_feagi_environment() -> dict:

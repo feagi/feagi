@@ -180,6 +180,7 @@ class FeagiHealthMonitor:
         *,
         now_ms: int,
         transport_send_failed: bool = False,
+        not_registered: bool = False,
     ) -> FeagiHealthMonitorTickResult:
         """
         Fetch a fresh FEAGI health snapshot, feed it to the watcher, and
@@ -192,6 +193,12 @@ class FeagiHealthMonitor:
                 observed a non-transient transport send failure since the
                 last tick. Becomes a one-shot ``TransportSendFailed``
                 trigger inside the Rust policy.
+            not_registered: ``True`` while the agent client reports that it
+                is not registered with FEAGI. Pass it on **every** tick while
+                that holds: it is a level trigger, so a failed or deferred
+                reconnect attempt is asked about again on the next tick and
+                the policy's cooldown and max-failure rules decide when it
+                runs. Health transitions and send failures stay one-shot.
 
         Returns:
             A :class:`FeagiHealthMonitorTickResult` describing what was
@@ -210,6 +217,8 @@ class FeagiHealthMonitor:
         triggers = [FeagiRecoveryTrigger.health(event) for event in events]
         if transport_send_failed:
             triggers.append(FeagiRecoveryTrigger.transport_send_failed())
+        if not_registered:
+            triggers.append(FeagiRecoveryTrigger.not_registered())
 
         decision = self._policy.decide(triggers, now_ms)
         return FeagiHealthMonitorTickResult(
