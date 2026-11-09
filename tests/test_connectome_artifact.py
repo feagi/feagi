@@ -1,6 +1,8 @@
 """Contract tests for binary connectome artifact filesystem I/O."""
 
 from pathlib import Path
+from types import ModuleType
+import sys
 
 import pytest
 
@@ -45,8 +47,14 @@ def test_file_helpers_reject_other_extensions(tmp_path: Path) -> None:
         write_connectome_artifact(invalid_path, b"artifact")
 
 
-def test_public_exports_include_artifact_and_migration_apis() -> None:
+def test_public_exports_include_artifact_and_migration_apis(monkeypatch) -> None:
     """Wildcard exports retain the supported connectome surface."""
+    # The wildcard resolves the lazily exported exception from the Rust library.
+    rust_module = ModuleType("feagi_rust_py_libs.connectome")
+    rust_module.UnsupportedArtifactVersionError = type(
+        "UnsupportedArtifactVersionError", (ValueError,), {}
+    )
+    monkeypatch.setitem(sys.modules, "feagi_rust_py_libs.connectome", rust_module)
     namespace: dict[str, object] = {}
 
     exec("from feagi.connectome import *", namespace)
@@ -54,3 +62,8 @@ def test_public_exports_include_artifact_and_migration_apis() -> None:
     assert "ConnectomeAPI" in namespace
     assert "validate_and_migrate_connectome" in namespace
     assert "read_connectome_artifact" in namespace
+    assert "supported_artifact_versions" in namespace
+    assert (
+        namespace["UnsupportedArtifactVersionError"]
+        is rust_module.UnsupportedArtifactVersionError
+    )
