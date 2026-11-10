@@ -2823,7 +2823,8 @@ class BrainOutput:
 
             prev_value = self._last_logged_motor_values.get(canonical_key)
             if prev_value is None or abs(value_f - prev_value) > 1e-6:
-                logger.info(
+                # Per-change detail is DEBUG only: at INFO it flooded support logs.
+                logger.debug(
                     "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f",
                     int(group_id),
                     int(channel_index),
