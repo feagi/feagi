@@ -229,7 +229,7 @@ class BaseAgent(ABC):
             # TO REVIVE: drive motor output via feagi.pns.brain_output instead --
             # register typed outputs (ServoMotor/RotaryMotor.register or
             # brain_output.register_output), call brain_output.receive(), then
-            # read decoded values from the output objects / brain_output._motor_data.
+            # read decoded values from the output objects / brain_output.read_decoded_motor_values().
             raise NotImplementedError(
                 "BaseAgent.run() motor receive is retired; migrate this agent to "
                 "feagi.pns.brain_output with typed motor registration (Rust decode)."

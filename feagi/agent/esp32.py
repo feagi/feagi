@@ -524,7 +524,7 @@ class Esp32SerialController:
         TO REVIVE: register typed motor outputs via feagi.pns.brain_output
         (ServoMotor/RotaryMotor.register or brain_output.register_output), call
         brain_output.receive(), and map decoded values from the output objects /
-        brain_output._motor_data to the ESP32 serial command using the preserved
+        brain_output.read_decoded_motor_values() to the ESP32 serial command using the preserved
         ``_format_motor_command`` + ``_write_serial_json`` helpers.
         """
         raise NotImplementedError(

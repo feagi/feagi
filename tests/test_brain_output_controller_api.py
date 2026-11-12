@@ -229,12 +229,12 @@ def test_receive_no_ops_when_sensory_only_mode():
 
 
 def test_receive_persists_unmapped_motor_channels_in_snapshot():
-    """Canonical _motor_data keeps decoded channels even without registered outputs.
+    """Canonical decoded values keep decoded channels even without registered outputs.
 
     Models the Rust decode flow: receive() pulls raw bytes, decodes them through
-    the Rust cache, then builds _motor_data from the cache's flat snapshot. The
+    the Rust cache, then builds the decoded values from the cache's flat snapshot. The
     snapshot here returns three SpatialPointer axes (no registered Python output),
-    which must still land in _motor_data.
+    which must still land in the decoded values.
     """
 
     class _FakeClient:
@@ -258,11 +258,11 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
 
         def motors_read_decoded_snapshot(self, updated_only=False):
             self.updated_only_calls += int(bool(updated_only))
-            # (group, channel, mode, value) tuples, as the Rust binding returns.
+            # (unit, group, channel, mode, value) tuples, as the Rust binding returns.
             return [
-                (1, 0, "absolute", 0.9),
-                (1, 1, "absolute", 0.2),
-                (1, 2, "absolute", 0.0),
+                ("spatial_pointer", 1, 0, "absolute", 0.9),
+                ("spatial_pointer", 1, 1, "absolute", 0.2),
+                ("spatial_pointer", 1, 2, "absolute", 0.0),
             ]
 
     bo = BrainOutput()
@@ -281,13 +281,15 @@ def test_receive_persists_unmapped_motor_channels_in_snapshot():
     assert bo._cache.decoded is True
     assert bo._cache.updated_only_calls == 1
     # Snapshot channels are persisted even without registered output objects.
-    assert bo._motor_data["1:0:absolute"] == 0.9
-    assert bo._motor_data["1:1:absolute"] == 0.2
-    assert bo._motor_data["1:2:absolute"] == 0.0
+    values = bo.read_decoded_motor_values("spatial_pointer")
+    assert values[(1, 0, "absolute")] == 0.9
+    assert values[(1, 1, "absolute")] == 0.2
+    assert values[(1, 2, "absolute")] == 0.0
+    assert bo.read_decoded_motor_values("rotary_motor") == {}
 
 
 def test_receive_clears_motor_data_when_no_raw_bytes():
-    """Silent motor ticks must clear _motor_data so absolute commands do not latch."""
+    """Silent motor ticks must clear the decoded values so absolute commands do not latch."""
 
     class _FakeClient:
         def receive_motor_data_raw(self):
@@ -298,12 +300,12 @@ def test_receive_clears_motor_data_when_no_raw_bytes():
     bo._sensory_only_mode = False
     bo._client = _FakeClient()
     bo._cache = object()
-    bo._motor_data = {"1:0:absolute": 1.0}
+    bo._decoded_motor_values = {("rotary_motor", 1, 0, "absolute"): 1.0}
 
     bo._last_motor_frame = b"stale"
     bo.receive()
 
-    assert bo._motor_data == {}
+    assert bo.read_decoded_motor_values("rotary_motor") == {}
     assert bo._last_motor_frame is None
 
 

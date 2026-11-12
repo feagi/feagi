@@ -78,12 +78,12 @@ def test_servo_speed_only_does_not_increment_motion_seq():
 
 
 def test_read_positional_servo_target_speed_snapshot():
-    """Flattened Percentage2D motor data uses channel*2 and channel*2+1 keys."""
+    """Flattened Percentage2D decoded values use channel*2 and channel*2+1 keys."""
     motor_data = {
-        "0:0:absolute": 0.25,
-        "0:1:absolute": 0.5,
-        "0:2:absolute": 0.75,
-        "0:3:absolute": 0.1,
+        (0, 0, "absolute"): 0.25,
+        (0, 1, "absolute"): 0.5,
+        (0, 2, "absolute"): 0.75,
+        (0, 3, "absolute"): 0.1,
     }
     target, speed = read_positional_servo_target_speed_snapshot(
         motor_data,

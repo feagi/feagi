@@ -5,7 +5,7 @@ Global manager for all FEAGI outputs (motor/action targets).
 Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
-from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any, Literal
+from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any, Literal, Tuple
 import base64
 import binascii
 import json
@@ -83,9 +83,12 @@ class BrainOutput:
         #: True when ``connect()`` used :class:`~feagi.pns.client.AgentType.SENSORY` (no motor OPUs).
         self._sensory_only_mode: bool = False
 
-        # Latest motor data (for debugging)
-        self._motor_data: Dict[str, Any] = {}
-        self._last_logged_motor_values: Dict[str, float] = {}
+        # Values decoded on this tick's motor frame (updated channels only),
+        # keyed (unit, group, channel, mode). ``unit`` is the snake-case motor
+        # unit name, so units sharing a group index never overwrite each other.
+        # Read via :meth:`read_decoded_motor_values`.
+        self._decoded_motor_values: Dict[Tuple[str, int, int, str], float] = {}
+        self._last_logged_motor_values: Dict[Tuple[str, int, int, str], float] = {}
         # Raw motor frame from the latest successful receive, or None when
         # this tick had no motor bytes. Embodiments scan it for core areas
         # such as Brain_Death that are not registered motor units.
@@ -975,6 +978,35 @@ class BrainOutput:
             feagi_motor_port,
         )
     
+    def configure_from_args(self, args, *, transport: str = "zmq"):
+        """
+        Configure the connection from a parsed shared-argument namespace.
+
+        ``args`` comes from a parser that called
+        :func:`feagi.agent.args.add_feagi_connection_args`. Raises
+        ``ValueError`` when the auth token is missing (neither the argument
+        nor ``FEAGI_AUTH_TOKEN_B64`` supplied one).
+        """
+        if not getattr(args, "auth_token_b64", None):
+            raise ValueError(
+                "Missing auth token. Provide --auth-token-b64 or set "
+                "FEAGI_AUTH_TOKEN_B64."
+            )
+        self.configure(
+            agent_id=args.agent_id,
+            feagi_host=args.ip,
+            feagi_registration_port=args.feagi_zmq_registration_port,
+            feagi_sensory_port=args.feagi_zmq_sensory_port,
+            feagi_motor_port=args.feagi_zmq_motor_port,
+            transport=transport,
+            feagi_connection_timeout_ms=args.feagi_zmq_connection_timeout_ms,
+            feagi_registration_retries=args.feagi_zmq_registration_retries,
+            feagi_heartbeat_interval_s=args.feagi_zmq_heartbeat_interval_s,
+            feagi_api_port=args.port,
+            feagi_http_timeout_s=args.feagi_http_timeout_s,
+            auth_token_b64=args.auth_token_b64,
+        )
+
     def connect(self):
         """
         Connect to FEAGI.
@@ -1621,8 +1653,8 @@ class BrainOutput:
         Registering on the cache (rather than only injecting capability JSON) is
         what makes the shared Rust decoder produce SpatialPointer values: after
         registration the unit is decoded on every :meth:`receive` and its axes
-        appear in ``self._motor_data`` (and the export sent to FEAGI), keyed as
-        ``"group:axis:mode"`` with ``axis`` in ``{0, 1, 2}`` for x/y/z.
+        appear in :meth:`read_decoded_motor_values` (unit ``"spatial_pointer"``),
+        keyed ``(group, axis, mode)`` with ``axis`` in ``{0, 1, 2}`` for x/y/z.
 
         Decode contract by ``encoding``:
           * ``"absolute"`` -> unsigned position per axis (``[0, 1]``);
@@ -1890,6 +1922,212 @@ class BrainOutput:
             int(group),
             int(channel_index),
         )
+
+    @property
+    def motor_frame_received(self) -> bool:
+        """True when the latest :meth:`receive` got a FEAGI motor frame."""
+        return self._last_motor_frame is not None
+
+    def register_motor_misc_data(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        number_channels: int = 1,
+    ) -> None:
+        """
+        Register a MiscData motor unit on the Rust ConnectorAgent cache.
+
+        The shared Rust decoder then fills the unit on every :meth:`receive`.
+        MiscData is not part of ``motors_read_decoded_snapshot`` (so it never
+        appears in :meth:`read_decoded_motor_values`); read it with :meth:`read_misc_data`.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("MiscData dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("MiscData number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        dims = frpl.connector_core.data_types.descriptors.MiscDataDimensions(
+            int(width), int(height), int(depth)
+        )
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area
+            .FrameChangeHandling.Absolute()
+        )
+        self._cache.motor_misc_data_register(
+            int(group), int(number_channels), frame_mode, dims
+        )
+        self._motor_decoder_registered = True
+
+    def read_misc_data(self, group: int, channel: int = 0):
+        """
+        Read the latest decoded MiscData motor volume.
+
+        Returns a float32 numpy array shaped ``(width, height, depth)``.
+        Active voxels are the non-zero entries. Raises ``ValueError`` when the
+        group or channel is not registered.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        value = self._cache.motor_misc_data_read_postprocessed_cache_value(
+            int(group),
+            int(channel),
+        )
+        return value.copy_to_numpy_array()
+
+    def read_positional_servo_targets(self, group: int) -> Dict[int, float]:
+        """
+        Return the last-held decoded target of every channel in a servo group.
+
+        Keys are channel indices, values are targets in ``[0, 1]``. Unlike
+        :meth:`read_decoded_motor_values` (updated-this-tick channels only,
+        cleared on ticks with no frame), these are the cached values and persist across empty
+        ticks. A channel never commanded reads the decoder's initial value.
+        Raises ``ValueError`` when the group is not registered.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        targets: Dict[int, float] = {}
+        channel = 0
+        while True:
+            try:
+                value = (
+                    self._cache.motor_positional_servo_read_postprocessed_cache_value(
+                        int(group), channel
+                    )
+                )
+            except ValueError:
+                if channel == 0:
+                    raise
+                break
+            targets[channel] = float(value.get_as_0_1())
+            channel += 1
+        return targets
+
+    def read_rotary_motor_targets(
+        self, group: int, *, mode: str = "held"
+    ) -> Dict[int, float]:
+        """
+        Return the signed speed of every channel in a rotary-motor group.
+
+        Keys are channel indices, values are signed speeds in ``[-1, 1]``
+        (the decoder's signed-percentage value, as used by ``RotaryMotor``).
+
+        Modes:
+          * ``"held"``: the last cached decoded value of each channel. Values
+            persist across ticks with no motor frame; a channel never commanded
+            reads the decoder's initial value.
+          * ``"tick"``: only channels decoded in this tick's frame
+            (``read_decoded_motor_values("rotary_motor", group)``, which holds
+            updated channels only and is cleared on ticks with no frame). Every
+            registered channel absent from the frame reads ``0.0``. Values are
+            keyed by unit, so a positional-servo group with the same index
+            does not interfere.
+
+        Silence and hover policy (for example, how many missed periods count as
+        silence) belongs to the controller, not the SDK.
+
+        Raises ``ValueError`` when the group is not registered or ``mode`` is
+        not ``"held"`` or ``"tick"``.
+        """
+        if mode not in ("held", "tick"):
+            raise ValueError(f"mode must be 'held' or 'tick', got {mode!r}.")
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        group = int(group)
+        held: Dict[int, float] = {}
+        channel = 0
+        while True:
+            try:
+                value = self._cache.motor_rotary_motor_read_postprocessed_cache_value(
+                    group, channel
+                )
+            except ValueError:
+                if channel == 0:
+                    raise
+                break
+            held[channel] = float(value.get_as_m1_1())
+            channel += 1
+        if mode == "held":
+            return held
+
+        targets = {ch: 0.0 for ch in held}
+        for (g, ch, _mode), value in self.read_decoded_motor_values(
+            "rotary_motor", group
+        ).items():
+            if ch in targets:
+                targets[ch] = float(value)
+        return targets
+
+    def read_decoded_motor_values(
+        self, unit: str, group: Optional[int] = None
+    ) -> Dict[Tuple[int, int, str], float]:
+        """
+        Return the values decoded on this tick's motor frame for one unit type.
+
+        ``unit`` is the snake-case motor unit name as the Rust decoder reports
+        it (for example ``"positional_servo"``, ``"rotary_motor"``,
+        ``"spatial_pointer"``, ``"angular_pointer"``). Keys are
+        ``(group, channel, mode)`` and values the decoded floats. Only channels
+        updated by this tick's frame appear; the map is empty on ticks with no
+        frame. Units sharing a group index are kept apart by ``unit``.
+        ``group`` limits the result to one group.
+        """
+        return {
+            (g, ch, mode): value
+            for (u, g, ch, mode), value in self._decoded_motor_values.items()
+            if u == unit and (group is None or g == int(group))
+        }
+
+    def drain_motor_frames(
+        self,
+        max_frames: int = 1000,
+        on_frame: Optional[Callable[[bytes], None]] = None,
+    ) -> int:
+        """
+        Consume every queued motor frame and merge their decoded values.
+
+        FEAGI publishes motor frames at the burst rate, usually faster than a
+        controller loop, while :meth:`receive` takes one frame per call. This
+        calls :meth:`receive` until it reports no frame or ``max_frames`` calls
+        were made. Each frame is decoded in order (output callbacks see the
+        newest command last). Afterwards :meth:`read_decoded_motor_values` holds
+        the union of every drained frame's updated channels: later frames
+        overwrite, ``incremental`` deltas are summed so none is lost.
+        ``_last_motor_frame`` is restored to the newest drained frame (the
+        final empty receive would clear it). ``on_frame`` is called with each
+        raw frame's bytes (for example to scan for a core area).
+
+        Returns the number of frames drained.
+        """
+        frames = 0
+        last_frame: Optional[bytes] = None
+        merged: Dict[Tuple[str, int, int, str], float] = {}
+        for _ in range(max(1, int(max_frames))):
+            self.receive()
+            frame = self._last_motor_frame
+            if frame is None:
+                break
+            frames += 1
+            last_frame = frame
+            if on_frame is not None:
+                on_frame(bytes(frame))
+            for key, value in self._decoded_motor_values.items():
+                if key[3] == "incremental" and key in merged:
+                    merged[key] = merged[key] + value
+                else:
+                    merged[key] = value
+        if frames:
+            self._last_motor_frame = last_frame
+            self._decoded_motor_values = merged
+        return frames
 
     def _init_sensory_write_helpers(self) -> None:
         """Lazy-init write helper factories for sensory cache writes."""
@@ -2771,9 +3009,10 @@ class BrainOutput:
            speed, etc.).
         3. Read a flat snapshot of channels updated on this decode tick
            (``motors_read_decoded_snapshot(updated_only=True)``) into
-           ``self._motor_data`` keyed by ``"group:channel:mode"``. Stale cached
+           ``self._decoded_motor_values`` keyed ``(unit, group, channel, mode)``
+           (read with :meth:`read_decoded_motor_values`). Stale cached
            absolute values are not re-emitted. When no motor bytes arrive,
-           ``_motor_data`` is cleared so controllers hold pose.
+           the map is cleared so controllers hold pose.
 
         Call this in your main loop to update all output values.
         """
@@ -2796,7 +3035,7 @@ class BrainOutput:
         if not raw_bytes:
             # No FEAGI motor frame this tick: clear the command map so controllers
             # hold current pose instead of replaying the last absolute latch.
-            self._motor_data = {}
+            self._decoded_motor_values = {}
             return
         self._last_motor_frame = bytes(raw_bytes)
 
@@ -2807,32 +3046,30 @@ class BrainOutput:
         self._cache.motors_decode_cached_byte_data_to_motor()
 
         # 3. Build the canonical motor snapshot from the Rust cache. Keys are
-        #    "group:channel:mode"; multi-axis units (e.g. SpatialPointer 3D)
-        #    are flattened to one entry per axis by the Rust snapshot.
-        # Prefer updated-only channels so absolute/incremental commands are
-        # one-shot per decode tick (stale cache values are not re-emitted).
-        try:
-            snapshot = self._cache.motors_read_decoded_snapshot(updated_only=True)
-        except TypeError:
-            snapshot = self._cache.motors_read_decoded_snapshot()
-        self._motor_data = {}
-        for group_id, channel_index, mode, value in snapshot:
+        #    (unit, group, channel, mode); multi-axis units (e.g. SpatialPointer
+        #    3D) are flattened to one entry per axis by the Rust snapshot.
+        # Updated-only channels: absolute/incremental commands are one-shot per
+        # decode tick (stale cache values are not re-emitted).
+        snapshot = self._cache.motors_read_decoded_snapshot(updated_only=True)
+        self._decoded_motor_values = {}
+        for unit, group_id, channel_index, mode, value in snapshot:
             value_f = float(value)
-            canonical_key = f"{int(group_id)}:{int(channel_index)}:{mode}"
-            self._motor_data[canonical_key] = value_f
+            key = (str(unit), int(group_id), int(channel_index), str(mode))
+            self._decoded_motor_values[key] = value_f
 
-            prev_value = self._last_logged_motor_values.get(canonical_key)
+            prev_value = self._last_logged_motor_values.get(key)
             if prev_value is None or abs(value_f - prev_value) > 1e-6:
                 # Per-change detail is DEBUG only: at INFO it flooded support logs.
                 logger.debug(
-                    "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f",
-                    int(group_id),
-                    int(channel_index),
-                    mode,
+                    "[MOTOR-RX] unit=%s group=%d channel=%d mode=%s value=%.6f",
+                    key[0],
+                    key[1],
+                    key[2],
+                    key[3],
                     value_f,
                 )
-                self._last_logged_motor_values[canonical_key] = value_f
-    
+                self._last_logged_motor_values[key] = value_f
+
     def get_output_count(self) -> int:
         """Get number of registered outputs"""
         return len(self._outputs)

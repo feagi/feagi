@@ -15,22 +15,23 @@ ABSOLUTE_TARGET_INCREMENTAL_SPEED = "absolute_target_incremental_speed"
 
 
 def read_positional_servo_target_speed_snapshot(
-    motor_data: Mapping[str, float],
+    motor_data: Mapping[Tuple[int, int, str], float],
     *,
     group_id: int,
     channel_index: int,
 ) -> Tuple[Optional[float], Optional[float]]:
     """
-    Read PositionalServo target-and-speed decode from a ``brain_output._motor_data`` map.
+    Read PositionalServo target-and-speed decode from the typed decoded values.
 
-    ``Percentage2D`` motor output flattens to two scalar channels per source
-    channel: ``channel_index * 2`` is the target and ``channel_index * 2 + 1``
-    is the normalized speed limit, both under mode ``absolute``.
+    ``motor_data`` is ``brain_output.read_decoded_motor_values("positional_servo")``
+    (keys ``(group, channel, mode)``). ``Percentage2D`` motor output flattens to
+    two scalar channels per source channel: ``channel_index * 2`` is the target
+    and ``channel_index * 2 + 1`` is the normalized speed limit, both under mode
+    ``absolute``.
     """
-    target_key = f"{int(group_id)}:{int(channel_index) * 2}:absolute"
-    speed_key = f"{int(group_id)}:{int(channel_index) * 2 + 1}:absolute"
-    target_raw = motor_data.get(target_key)
-    speed_raw = motor_data.get(speed_key)
+    group = int(group_id)
+    target_raw = motor_data.get((group, int(channel_index) * 2, "absolute"))
+    speed_raw = motor_data.get((group, int(channel_index) * 2 + 1, "absolute"))
     target = float(target_raw) if target_raw is not None else None
     speed = float(speed_raw) if speed_raw is not None else None
     return target, speed
