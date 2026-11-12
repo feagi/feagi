@@ -6,8 +6,8 @@ for the new dimension_sensitive morphology field.
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from feagi.evo.genome_validator import add_missing_dimension_sensitive_fields, morphology_validator
+from unittest.mock import Mock
+from feagi.evo.genome_validator import add_missing_dimension_sensitive_fields
 from feagi.api.v1.schemas import CreateMorphologyRequest, DirectMorphologyRequest
 from feagi.api.v1.morphology import MorphologyAPI
 

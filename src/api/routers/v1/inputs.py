@@ -14,14 +14,11 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ...commons import *
 from ...schemas import *
 
-from src.version import __version__
-from src.evo.templates import cortical_types
 from src.pns.vision import generate_vision_configuration
 
 

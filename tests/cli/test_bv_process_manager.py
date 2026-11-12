@@ -11,7 +11,8 @@ Tests the robust process lifecycle management including:
 import os
 import signal
 import subprocess
-import time
+import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,16 @@ def manager(tmp_path):
     return manager
 
 
+def _reap_in_background(proc):
+    """Reap the child as soon as it exits.
+
+    The real Brain Visualizer is started detached, so init reaps it when it
+    dies. A child of the test process would stay a zombie until waited on, and
+    a zombie still answers signal 0, so the stop() check would see it alive.
+    """
+    threading.Thread(target=proc.wait, daemon=True).start()
+
+
 @pytest.fixture
 def dummy_process():
     """Create a long-running dummy process for testing."""
@@ -37,6 +48,7 @@ def dummy_process():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    _reap_in_background(proc)
     yield proc
     # Cleanup
     try:
@@ -114,10 +126,11 @@ def test_stop_force_kill(manager):
     """Test force kill when SIGTERM doesn't work."""
     # Create a process that ignores SIGTERM
     proc = subprocess.Popen(
-        ["python", "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)"],
+        [sys.executable, "-c", "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    _reap_in_background(proc)
     try:
         manager._write_pid(proc.pid)
         # Stop with short timeout to trigger force kill

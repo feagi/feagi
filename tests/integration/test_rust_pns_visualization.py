@@ -14,7 +14,6 @@ import time
 import struct
 import mmap
 import os
-from pathlib import Path
 
 import pytest
 

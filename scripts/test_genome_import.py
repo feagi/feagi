@@ -9,7 +9,7 @@ import sys
 
 def test_feagi_rust_py_libs_genome():
     """Direct import from feagi_rust_py_libs.genome"""
-    from feagi_rust_py_libs.genome import validate_genome, auto_fix_genome
+    from feagi_rust_py_libs.genome import validate_genome
 
     genome = {
         "version": "2.0",

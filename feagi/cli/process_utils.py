@@ -10,33 +10,11 @@ import os
 import signal
 import subprocess
 import sys
+from typing import Any
 
-
-def check_process_exists_windows(pid: int) -> bool:
-    """
-    Check if a process exists on Windows using tasklist.
-
-    More reliable than os.kill(pid, 0) when PID may have been reused
-    or when we get PermissionError from a non-FEAGI process.
-
-    Returns:
-        True if process exists, False if not found.
-    """
-    if sys.platform != "win32":
-        return True  # Caller should use os.kill on Unix
-    result = subprocess.run(
-        ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-        capture_output=True,
-        timeout=5,
-        text=True,
-    )
-    if result.returncode != 0:
-        return False
-    out = (result.stdout or "").strip().lower()
-    # "INFO: No tasks are running..." = process not found
-    if "no tasks" in out or "info:" in out:
-        return False
-    return str(pid) in out
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_ERROR_ACCESS_DENIED = 5
+_STILL_ACTIVE = 259
 
 
 def force_kill_process(pid: int) -> None:
@@ -81,3 +59,63 @@ def force_kill_process(pid: int) -> None:
         )
     else:
         os.kill(pid, signal.SIGKILL)
+
+
+def _pid_alive_posix(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _pid_alive_windows(pid: int, kernel32: Any = None) -> bool:
+    """Windows liveness probe; ``kernel32`` is injectable for tests."""
+    import ctypes
+    from ctypes import wintypes
+
+    if kernel32 is None:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.GetExitCodeProcess.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        get_last_error = ctypes.get_last_error  # type: ignore[attr-defined]
+    else:
+        get_last_error = kernel32.get_last_error
+
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return bool(get_last_error() == _ERROR_ACCESS_DENIED)
+    try:
+        code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return int(code.value) == _STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def pid_alive(pid: object) -> bool:
+    """
+    Return True if a process with this PID exists, without disturbing it.
+
+    Never use os.kill(pid, 0) on Windows: Python's Windows os.kill calls
+    TerminateProcess for any signal other than CTRL_C_EVENT / CTRL_BREAK_EVENT,
+    so the "probe" would kill the target. Windows uses OpenProcess +
+    GetExitCodeProcess instead.
+    """
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False
+    if sys.platform == "win32":
+        return _pid_alive_windows(pid)
+    return _pid_alive_posix(pid)

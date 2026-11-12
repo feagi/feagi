@@ -13,9 +13,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""
 Pytest tests for the Neuroembryogenesis module.
 
 Tests the functionality of the Neuroembryogenesis module for developing
@@ -42,12 +40,12 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
 # Import the modules to test
-from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.bdu.embryogenesis.neuroembryogenesis import (
+from feagi.bdu.connectome_manager import ConnectomeManager  # noqa: E402  (needs sys.path insert above)
+from feagi.bdu.embryogenesis.neuroembryogenesis import (  # noqa: E402  (needs sys.path insert above)
     DevelopmentStage,
     NeuroEmbryogenesis,
 )
-from feagi.utils.config import FeagiConfig
+from feagi.utils.config import FeagiConfig  # noqa: E402  (needs sys.path insert above)
 
 
 @pytest.fixture(autouse=True)

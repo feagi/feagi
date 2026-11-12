@@ -7,8 +7,11 @@ Tests process lifecycle management including:
 - Windows permission error handling (--force)
 """
 
+import os
+import signal
 import subprocess
 import sys
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -32,6 +35,9 @@ def dummy_process():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    # The real FEAGI process is detached, so init reaps it. A child of the test
+    # stays a zombie until waited on, and a zombie still answers signal 0.
+    threading.Thread(target=proc.wait, daemon=True).start()
     yield proc
     try:
         proc.kill()
@@ -89,7 +95,17 @@ def test_stop_tries_force_kill_when_sigterm_fails(manager, dummy_process):
     """Test that force_kill is tried when SIGTERM fails with permission error."""
     manager.pid_file.write_text(f"{dummy_process.pid}\n")
     perm_err = PermissionError(5, "Access is denied")
-    with patch("feagi.cli.feagi_process.os.kill", side_effect=perm_err):
+    real_kill = os.kill
+
+    def deny_sigterm_only(pid, sig):
+        # "feagi.cli.feagi_process.os.kill" is the global os.kill, which the
+        # force-kill and liveness helpers also use on POSIX. Deny only the
+        # graceful signal so the force-kill path can really run.
+        if sig == signal.SIGTERM:
+            raise perm_err
+        return real_kill(pid, sig)
+
+    with patch("feagi.cli.feagi_process.os.kill", side_effect=deny_sigterm_only):
         success, cleared = manager.stop(timeout=2.0)
     assert success is True
     assert cleared is False
