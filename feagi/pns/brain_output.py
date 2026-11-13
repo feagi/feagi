@@ -11,6 +11,7 @@ import binascii
 import json
 import logging
 import os
+import re
 import sys
 
 if TYPE_CHECKING:
@@ -605,8 +606,62 @@ class BrainOutput:
 
         return list(cortical_ids)
 
+    # Motor unit names the FEAGI registration contract accepts. Mirrors the
+    # ``MotorUnit`` enum (serde ``snake_case``) in
+    # feagi-core/crates/feagi-services/src/types/agent_registry.rs. Cache units
+    # outside this set (e.g. SpatialPointer) cannot be sent in ``motor_units``.
+    _REGISTRABLE_MOTOR_UNITS = frozenset(
+        {
+            "rotary_motor",
+            "positional_servo",
+            "gaze",
+            "misc_data",
+            "text_english_output",
+            "count_output",
+            "object_segmentation",
+            "simple_vision_output",
+        }
+    )
+
+    def _cache_motor_unit_channels(self) -> Dict[tuple[str, int], int]:
+        """
+        Motor units registered on the Rust ConnectorAgent cache.
+
+        Reads ``output_units_and_decoder_properties`` from the cache export, so
+        every ``register_motor_*`` call is covered without a parallel record.
+        Returns ``{(unit_name, group): channel_count}`` for units the
+        registration contract accepts.
+        """
+        if self._cache is None or not hasattr(self._cache, "export_capabilities_json"):
+            return {}
+        try:
+            exported = json.loads(self._cache.export_capabilities_json())
+        except Exception as exc:
+            logger.warning("Failed to read motor units from cache export: %s", exc)
+            return {}
+        outputs = exported.get("output_units_and_decoder_properties") or {}
+        units: Dict[tuple[str, int], int] = {}
+        for unit_key, entries in outputs.items():
+            unit_name = re.sub(r"(?<!^)(?=[A-Z])", "_", str(unit_key)).lower()
+            if unit_name not in self._REGISTRABLE_MOTOR_UNITS:
+                continue
+            for entry in entries or []:
+                frame = entry[0] if isinstance(entry, (list, tuple)) and entry else {}
+                if not isinstance(frame, dict):
+                    continue
+                group = int(frame.get("cortical_unit_index", 0) or 0)
+                channels = len(frame.get("device_grouping") or []) or 1
+                key = (unit_name, group)
+                units[key] = max(units.get(key, 0), channels)
+        return units
+
     def _collect_motor_unit_specs(self) -> List[tuple[str, int]]:
-        """Collect motor unit specs (unit, group) for registration."""
+        """
+        Collect motor unit specs (unit, group) for registration.
+
+        Merges the Python ServoMotor/RotaryMotor outputs with every unit
+        registered on the Rust ConnectorAgent cache (deduplicated).
+        """
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
 
         unit_specs: set[tuple[str, int]] = set()
@@ -615,6 +670,7 @@ class BrainOutput:
                 unit_specs.add(("positional_servo", int(getattr(output, "group_id", 0) or 0)))
             elif isinstance(output, RotaryMotor):
                 unit_specs.add(("rotary_motor", int(getattr(output, "group_id", 0) or 0)))
+        unit_specs.update(self._cache_motor_unit_channels())
         return sorted(unit_specs)
 
     def _motor_feagi_output_count(self) -> int:
@@ -627,6 +683,9 @@ class BrainOutput:
         the single RotaryMotor uses ``channel_index=1``, so FEAGI would drive channel 0
         and the connector would never receive callbacks on channel 1 (e.g. ROS bridge
         ``channelId: \"1\"`` + cmd_vel).
+
+        Motors registered only on the cache (no Python objects) count by their
+        channel count, so the largest unit sets the floor.
         """
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
 
@@ -635,8 +694,10 @@ class BrainOutput:
             if isinstance(output, (ServoMotor, RotaryMotor)):
                 ch = int(getattr(output, "channel", 0) or 0)
                 max_idx = max(max_idx, ch)
-        return (max_idx + 1) if max_idx >= 0 else 0
-    
+        count = (max_idx + 1) if max_idx >= 0 else 0
+        cache_channels = self._cache_motor_unit_channels().values()
+        return max([count, *cache_channels])
+
     def _allocate_group_id(self) -> int:
         """Allocate next cortical group ID"""
         group_id = self._next_group_id
@@ -1164,7 +1225,12 @@ class BrainOutput:
                 client.set_motor_cortical_ids(motor_cortical_ids)
             self._client = client
             # Send device registrations via ZMQ so motor cortical IDs are derived correctly
-            if (self._motor_total_channels > 0 or self._sensory_only_mode) and self._cache:
+            has_cache_motors = bool(self._cache_motor_unit_channels())
+            if (
+                self._motor_total_channels > 0
+                or has_cache_motors
+                or self._sensory_only_mode
+            ) and self._cache:
                 if self._feagi_api_port is None or self._feagi_http_timeout_s is None:
                     raise RuntimeError(
                         "brain_output.configure(...) must include feagi_api_port "
