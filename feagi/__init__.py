@@ -18,7 +18,7 @@ Main modules:
 - feagi.cli: Command-line tools
 """
 
-__version__ = "2.16.19"
+__version__ = "2.6.20"
 
 # Import key classes for convenience, but keep optional dependencies lazy so
 # `import feagi` does not require platform-specific extras (e.g., pyserial).
