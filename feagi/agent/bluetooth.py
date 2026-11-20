@@ -75,11 +75,21 @@ class BluetoothRobot(BaseAgent):
     ``Shock``, ``MiscData``; value in ``[0, 1]``). A value may instead be a
     ``{channel_index: reading}`` dict; a bare reading means channel 0.
 
-    ``format_motors`` receives ``servo_targets`` as
-    ``{group: {channel: target_0_1}}`` (last-held targets) and
-    ``misc_values`` as ``{group: [(x, y, z), ...]}`` (active voxels of the
-    frame received this tick; empty on ticks without a frame). It is first
-    called once FEAGI has sent a motor frame. Return ``b""`` to send nothing.
+    ``format_motors`` is event-based: it receives only what fired in the
+    motor frame received this tick. ``servo_targets`` is
+    ``{group: {channel: target_0_1}}`` holding only the channels updated by
+    this tick's frame (``{}`` when nothing fired or no frame arrived), and
+    ``misc_values`` is ``{group: [(x, y, z), ...]}`` (active voxels of this
+    tick's frame). A misc group is absent on ticks without a frame and ``[]``
+    when the frame carried no misc firing. It is first called once FEAGI has
+    sent a motor frame. Return ``b""`` to send nothing; a robot should get a
+    command only when a motor neuron fired.
+
+    ``SERVO_TARGETS_MODE`` selects the servo contract: ``"tick"`` (default,
+    the event-based contract above) or ``"held"`` (explicit opt-out: every
+    registered channel carries its last cached target on every tick, as
+    ``BrainOutput.read_positional_servo_targets`` returns). See
+    ``BrainOutput.read_rotary_motor_targets`` for the same two modes.
 
     Example::
 
@@ -104,6 +114,11 @@ class BluetoothRobot(BaseAgent):
     """
 
     BLUETOOTH_CONFIG: Dict[str, str] = {}
+    SERVO_TARGETS_MODE: str = "tick"
+    # Cap on motor frames consumed per tick (BrainOutput.drain_motor_frames).
+    MAX_DRAIN_FRAMES: int = 1000
+    # Minimum seconds between two backlog warnings.
+    BACKLOG_WARN_INTERVAL_S: float = 5.0
     Z_NEURON_RESOLUTION: Optional[int] = None
 
     def __init__(
@@ -330,7 +345,8 @@ class BluetoothRobot(BaseAgent):
         Args:
             servo_targets: ``{group: {channel: target_0_1}}``, last held.
             misc_values: ``{group: [(x, y, z), ...]}`` active voxels of the
-                frame received this tick (empty without a new frame).
+                frame received this tick. A group is absent on ticks without
+                a frame; ``[]`` when the frame carried no misc firing.
 
         Returns:
             Bytes to send over Bluetooth, or ``b""`` to send nothing.
@@ -363,12 +379,15 @@ class BluetoothRobot(BaseAgent):
     async def tick(self) -> None:
         """One cycle: motors out to the robot, sensors in to FEAGI."""
         bo = self.brain_output
-        bo.receive()
+        # FEAGI publishes one motor frame per burst; consume every frame queued
+        # now so the queue cannot grow and commands are never stale.
+        drained = bo.drain_motor_frames(max_frames=self.MAX_DRAIN_FRAMES)
+        self._warn_backlog(drained)
         frame = bo.motor_frame_received
         self._seen_motor_frame = self._seen_motor_frame or frame
         if self._seen_motor_frame:
             servo_targets = {
-                group: bo.read_positional_servo_targets(group)
+                group: self._servo_targets_for(group)
                 for group, kinds in self.motor_groups().items()
                 if kinds.get("positional_servo")
             }
@@ -376,7 +395,7 @@ class BluetoothRobot(BaseAgent):
             if frame:
                 for group in self.misc_motor_groups():
                     misc_values[group] = self._active_voxels(
-                        bo.read_misc_data(group, 0)
+                        bo.read_misc_data_this_frame(group, 0)
                     )
             payload = self.format_motors(servo_targets, misc_values)
             if payload:
@@ -384,6 +403,38 @@ class BluetoothRobot(BaseAgent):
         for raw in await self._drain_notifications():
             self._write_readings(self.parse_sensors(raw))
         bo.flush_sensory_bytes()
+
+    def _warn_backlog(self, drained: int) -> None:
+        """Log one rate-limited WARNING when a tick drained a backlog."""
+        if drained <= 2:
+            return
+        now = time.monotonic()
+        last = getattr(self, "_last_backlog_warn", None)
+        if last is not None and now - last < self.BACKLOG_WARN_INTERVAL_S:
+            return
+        self._last_backlog_warn = now
+        logger.warning(
+            "Motor frame backlog: drained %d frames in one tick "
+            "(loop slower than FEAGI refresh rate).",
+            drained,
+        )
+
+    def _servo_targets_for(self, group: int) -> Dict[int, float]:
+        """Servo targets for one group, per ``SERVO_TARGETS_MODE``."""
+        mode = self.SERVO_TARGETS_MODE
+        bo = self.brain_output
+        if mode == "held":
+            return bo.read_positional_servo_targets(group)
+        if mode != "tick":
+            raise ValueError(
+                f"SERVO_TARGETS_MODE must be 'held' or 'tick', got {mode!r}."
+            )
+        return {
+            channel: float(value)
+            for (_g, channel, _mode), value in bo.read_decoded_motor_values(
+                "positional_servo", group
+            ).items()
+        }
 
     @staticmethod
     def _active_voxels(volume: Any) -> List[Tuple[int, int, int]]:

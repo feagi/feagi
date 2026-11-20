@@ -89,6 +89,11 @@ class BrainOutput:
         # unit name, so units sharing a group index never overwrite each other.
         # Read via :meth:`read_decoded_motor_values`.
         self._decoded_motor_values: Dict[Tuple[str, int, int, str], float] = {}
+        # MiscData motor volumes that fired on the latest receive (or drain):
+        # {(group, channel): ndarray}. Empty on ticks with no frame.
+        self._misc_frame_volumes: Dict[Tuple[int, int], Any] = {}
+        # Registered MiscData motor units: {(group, channel): (w, h, d)}.
+        self._misc_registered: Dict[Tuple[int, int], Tuple[int, int, int]] = {}
         self._last_logged_motor_values: Dict[Tuple[str, int, int, str], float] = {}
         # Raw motor frame from the latest successful receive, or None when
         # this tick had no motor bytes. Embodiments scan it for core areas
@@ -2031,6 +2036,10 @@ class BrainOutput:
             int(group), int(number_channels), frame_mode, dims
         )
         self._motor_decoder_registered = True
+        for ch in range(int(number_channels)):
+            self._misc_registered[(int(group), ch)] = (
+                int(width), int(height), int(depth)
+            )
 
     def read_misc_data(self, group: int, channel: int = 0):
         """
@@ -2047,6 +2056,41 @@ class BrainOutput:
             int(channel),
         )
         return value.copy_to_numpy_array()
+
+    def read_misc_data_this_frame(self, group: int, channel: int = 0):
+        """
+        Return the MiscData volume that fired on the latest received frame.
+
+        Unlike :meth:`read_misc_data` (the cached volume, which keeps the last
+        value on frames where the misc area did not fire), this is event-like:
+        the volume only when the last :meth:`receive` decoded a frame in which
+        the channel had firing voxels (after :meth:`drain_motor_frames`, the
+        union over the drained frames); otherwise an all-zero volume. Same shape
+        and dtype as :meth:`read_misc_data`. Raises ``ValueError`` when the
+        group or channel is not registered.
+        """
+        key = (int(group), int(channel))
+        dims = self._misc_registered.get(key)
+        if dims is None:
+            raise ValueError(
+                f"MiscData group {group} channel {channel} is not registered."
+            )
+        volume = self._misc_frame_volumes.get(key)
+        if volume is not None:
+            return volume.copy()
+        import numpy as np
+
+        return np.zeros(dims, dtype=np.float32)
+
+    def _capture_misc_frame(self) -> None:
+        """Record the volumes of misc channels that fired on the latest decode."""
+        volumes: Dict[Tuple[int, int], Any] = {}
+        for (group, channel) in self._misc_registered:
+            if self._cache.motor_channel_updated_last_decode(
+                "misc_data", group, channel
+            ):
+                volumes[(group, channel)] = self.read_misc_data(group, channel)
+        self._misc_frame_volumes = volumes
 
     def read_positional_servo_targets(self, group: int) -> Dict[int, float]:
         """
@@ -2166,7 +2210,9 @@ class BrainOutput:
         were made. Each frame is decoded in order (output callbacks see the
         newest command last). Afterwards :meth:`read_decoded_motor_values` holds
         the union of every drained frame's updated channels: later frames
-        overwrite, ``incremental`` deltas are summed so none is lost.
+        overwrite, ``incremental`` deltas are summed so none is lost. MiscData
+        volumes are unioned the same way (non-zero voxels of any drained frame
+        survive), read with :meth:`read_misc_data_this_frame`.
         ``_last_motor_frame`` is restored to the newest drained frame (the
         final empty receive would clear it). ``on_frame`` is called with each
         raw frame's bytes (for example to scan for a core area).
@@ -2176,6 +2222,7 @@ class BrainOutput:
         frames = 0
         last_frame: Optional[bytes] = None
         merged: Dict[Tuple[str, int, int, str], float] = {}
+        merged_misc: Dict[Tuple[int, int], Any] = {}
         for _ in range(max(1, int(max_frames))):
             self.receive()
             frame = self._last_motor_frame
@@ -2190,9 +2237,19 @@ class BrainOutput:
                     merged[key] = merged[key] + value
                 else:
                     merged[key] = value
+            for key, volume in self._misc_frame_volumes.items():
+                if key in merged_misc:
+                    import numpy as np
+
+                    merged_misc[key] = np.where(
+                        volume != 0, volume, merged_misc[key]
+                    )
+                else:
+                    merged_misc[key] = volume
         if frames:
             self._last_motor_frame = last_frame
             self._decoded_motor_values = merged
+            self._misc_frame_volumes = merged_misc
         return frames
 
     def _init_sensory_write_helpers(self) -> None:
@@ -3102,6 +3159,7 @@ class BrainOutput:
             # No FEAGI motor frame this tick: clear the command map so controllers
             # hold current pose instead of replaying the last absolute latch.
             self._decoded_motor_values = {}
+            self._misc_frame_volumes = {}
             return
         self._last_motor_frame = bytes(raw_bytes)
 
@@ -3135,6 +3193,9 @@ class BrainOutput:
                     value_f,
                 )
                 self._last_logged_motor_values[key] = value_f
+
+        # 4. MiscData volumes that fired on this frame (event-like reads).
+        self._capture_misc_frame()
 
     def get_output_count(self) -> int:
         """Get number of registered outputs"""
