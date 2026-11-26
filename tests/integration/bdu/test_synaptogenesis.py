@@ -13,9 +13,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
-"""
 Pytest tests for the synaptogenesis process.
 
 Tests the functionality of synapse creation during brain development.
@@ -32,11 +30,11 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from feagi.bdu.connectome_manager import ConnectomeManager
+from feagi.bdu.connectome_manager import ConnectomeManager  # noqa: E402  (needs sys.path insert above)
 
 # Import the modules to test
-from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis
-from feagi.utils.config import FeagiConfig
+from feagi.bdu.embryogenesis.neuroembryogenesis import NeuroEmbryogenesis  # noqa: E402  (needs sys.path insert above)
+from feagi.utils.config import FeagiConfig  # noqa: E402  (needs sys.path insert above)
 
 # Import genome processing modules
 try:

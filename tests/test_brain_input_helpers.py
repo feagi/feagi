@@ -34,6 +34,14 @@ def test_decode_cortical_id_to_subtype_mis():
     assert result == b"mis"
 
 
+def test_decode_cortical_id_to_subtype_dpt():
+    """DepthMap base64 -> b'dpt'."""
+    raw = b"i" + b"dpt" + b"\x00\x00\x00\x00"
+    cortical_id = base64.b64encode(raw).decode("ascii")
+    result = decode_cortical_id_to_subtype(cortical_id)
+    assert result == b"dpt"
+
+
 def test_decode_cortical_id_to_subtype_too_short():
     """Raises ValueError for ID shorter than 4 bytes."""
     raw = b"abc"  # 3 bytes

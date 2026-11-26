@@ -153,5 +153,5 @@ connector.send_sensory_data("image", img_data)
 If you have questions or get stuck with any of these tutorials:
 
 - Check our [GitHub repository](https://github.com/feagi/feagi) for additional examples
-- Join our [Discord community](https://discord.gg/feagi) to ask questions
+- Join our [Discord community](https://discord.BrainsForRobots.com) to ask questions
 - Post specific issues on our [GitHub Issues page](https://github.com/feagi/feagi/issues)

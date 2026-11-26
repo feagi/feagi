@@ -37,80 +37,32 @@ This starts the unified FEAGI system with:
 ### Command-Line Options
 
 ```bash
-python -m feagi.main [OPTIONS]
+feagi start [--config PATH] [--genome PATH | --connectome PATH]
 ```
 
-#### Core Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--config CONFIG` | Path to configuration file | None |
-| `--genome GENOME` | Genome file to load | None |
-| `--host HOST` | Server host for all services | 127.0.0.1 |
-
-#### API Configuration
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--api-port PORT` | FastAPI REST server port | 8001 |
-| `--api-host HOST` | FastAPI server host | 127.0.0.1 |
-
-#### ZMQ Stream Configuration
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--zmq-rest-port PORT` | REST API stream port | 5563 |
-| `--zmq-vis-port PORT` | Visualization stream port | 5562 |
-| `--zmq-motor-port PORT` | Motor stream port | 5564 |
-| `--zmq-sensory-port PORT` | Sensory stream port | 5558 |
-| `--zmq-req-port PORT` | REQ/REP stream port | 5555 |
-| `--zmq-pub-port PORT` | PUB/SUB stream port | 5556 |
-
-#### System Configuration
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--burst-rate RATE` | Neural burst processing rate | 60 |
-| `--log-level LEVEL` | Logging level (DEBUG/INFO/WARNING/ERROR) | INFO |
-
-#### Debug Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--debug-api` | Enable detailed API request/response logging | Disabled |
-| `--debug-npu` | Enable fire queue debugging - shows neuron firing data every burst | Disabled |
-
-For comprehensive debugging information, see the [FEAGI Debugging Guide](guide-how-to-debug.md).
+`--config` selects the active TOML configuration. `--genome` loads a fresh
+`.genome` artifact, while `--connectome` restores a trained `.connectome`
+artifact. These artifact options are mutually exclusive. Use `feagi start
+--help` for process and readiness options.
 
 ### Usage Examples
 
 ```bash
-# Standard launch with default settings
-python -m feagi.main
+# Standard launch with configured defaults
+feagi start
 
 # Launch with custom genome
-python -m feagi.main --genome /path/to/my_genome.json
+feagi start --genome /path/to/my_brain.genome
 
-# Custom port configuration
-python -m feagi.main --api-port 9000 --zmq-rest-port 6000
+# Resume from a saved connectome
+feagi start --connectome /path/to/trained_brain.connectome
 
-# Development with debug logging
-python -m feagi.main --log-level DEBUG
+# Download the active genome
+feagi download genome --output current.genome --timeout <SECONDS>
 
-# Remote access configuration
-python -m feagi.main --host 0.0.0.0 --api-port 8001
-
-# Custom burst rate for high-frequency simulation
-python -m feagi.main --burst-rate 120
-
-# Debug NPU with detailed fire queue output
-python -m feagi.main --debug-npu
-
-# Debug both API and NPU for comprehensive debugging
-python -m feagi.main --debug-api --debug-npu
-
-# Test mode with NPU debugging for validation
-python -m feagi.main --test --debug-npu --test-duration 30
+# Download a full or lite connectome
+feagi download connectome --mode full --output current.connectome --timeout <SECONDS>
+feagi download connectome --mode lite --output current-lite.connectome --timeout <SECONDS>
 ```
 
 ## Architecture Components
@@ -247,7 +199,7 @@ cortical_areas = response.json()
     "req_port": 5555
   },
   "genome": {
-    "file_path": "/path/to/genome.json",
+    "file_path": "/path/to/brain.genome",
     "auto_load": true
   }
 }
@@ -258,7 +210,7 @@ cortical_areas = response.json()
 ```bash
 # Core configuration
 export FEAGI_CONFIG_FILE="/path/to/config.json"
-export FEAGI_GENOME_FILE="/path/to/genome.json"
+export FEAGI_GENOME_FILE="/path/to/brain.genome"
 export FEAGI_LOG_LEVEL="INFO"
 
 # API configuration

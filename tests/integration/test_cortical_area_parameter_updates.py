@@ -18,12 +18,9 @@ Tests cover:
 import pytest
 import requests
 import time
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, Tuple
 from dataclasses import dataclass
 
-from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.api.core.services.core_api_service import CoreAPIService
-from feagi.core.state_manager import get_state_manager
 from feagi.utils.config import FeagiConfig
 
 

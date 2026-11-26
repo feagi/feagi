@@ -15,7 +15,12 @@ import requests
 class GenomeAPIError(Exception):
     """Raised when a GenomeAPI operation fails."""
 
-    def __init__(self, message: str, status_code: int | None = None, response_text: str = ""):
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        response_text: str = "",
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.response_text = response_text
@@ -50,6 +55,27 @@ class GenomeAPI:
         json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any] | list[Any]:
         """Execute HTTP request and return JSON response."""
+        resp = self._request_response(method, path, json_data)
+
+        if not resp.content:
+            return {}
+
+        try:
+            return resp.json()
+        except json.JSONDecodeError as e:
+            raise GenomeAPIError(
+                f"Invalid JSON response: {e}",
+                status_code=resp.status_code,
+                response_text=resp.text[:500],
+            ) from e
+
+    def _request_response(
+        self,
+        method: str,
+        path: str,
+        json_data: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        """Execute an HTTP request and return its successful raw response."""
         url = self._url(path)
         try:
             resp = requests.request(
@@ -68,17 +94,7 @@ class GenomeAPI:
                 response_text=resp.text,
             )
 
-        if not resp.content:
-            return {}
-
-        try:
-            return resp.json()
-        except json.JSONDecodeError as e:
-            raise GenomeAPIError(
-                f"Invalid JSON response: {e}",
-                status_code=resp.status_code,
-                response_text=resp.text[:500],
-            ) from e
+        return resp
 
     # -------------------------------------------------------------------------
     # Genome operations
@@ -106,6 +122,10 @@ class GenomeAPI:
         """
         result = self._request("GET", "/genome/download")
         return result if isinstance(result, dict) else {}
+
+    def download_artifact(self) -> bytes:
+        """Download the current genome as encoded `.genome` artifact bytes."""
+        return self._request_response("GET", "/genome/download").content
 
     def add_custom_cortical_area(
         self,

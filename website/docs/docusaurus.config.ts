@@ -215,7 +215,7 @@ const config: Config = {
           items: [
             {
               label: 'Discord',
-              href: 'https://discord.gg/feagi',
+              href: 'https://discord.BrainsForRobots.com',
             },
             {
               label: 'Twitter',

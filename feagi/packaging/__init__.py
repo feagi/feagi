@@ -12,7 +12,7 @@ Example:
     from feagi.packaging import PackageBuilder
     
     builder = PackageBuilder()
-    builder.add_genome("vision_nav.json")
+    builder.add_genome("vision_nav.genome")
     builder.add_docs("README.md")
     builder.set_metadata(
         title="Vision Navigation",

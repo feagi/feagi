@@ -97,7 +97,14 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
 
     # Determine platform-specific package name
     if system.startswith("linux"):
-        package_name = "feagi_bv_linux"
+        if machine in ("arm64", "aarch64"):
+            package_name = "feagi_bv_linux_arm64"
+        elif machine in ("x86_64", "amd64"):
+            package_name = "feagi_bv_linux"
+        else:
+            raise BrainVisualizerLaunchError(
+                f"Unsupported Linux architecture: {machine}"
+            )
     elif system == "darwin":
         if machine in ("arm64", "aarch64"):
             package_name = "feagi_bv_macos_arm64"
@@ -165,7 +172,14 @@ def _resolve_bv_binary() -> Tuple[Path, Path]:
         working_dir = binary.parent
         pck_file = None
     elif system.startswith("linux"):
-        binary_names = ("BrainVisualizer", "BrainVisualizer-Remote")
+        binary_names = (
+            "BrainVisualizer",
+            "BrainVisualizer-Remote",
+            "BrainVisualizer.x86_64",
+            "BrainVisualizer.arm64",
+            "BrainVisualizer-Remote.x86_64",
+            "BrainVisualizer-Remote.arm64",
+        )
         candidates = _candidate_paths(bin_dir, binary_names, ("", "linux"))
         binary = _first_existing_path(candidates)
         if binary is None:

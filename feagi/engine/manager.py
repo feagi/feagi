@@ -46,7 +46,7 @@ class FeagiEngine:
         # Start with a fresh genome
         engine = FeagiEngine()
         engine.load_config("feagi_configuration.toml")
-        engine.load_genome("my_genome.json")
+        engine.load_genome("my_brain.genome")
         engine.start()
         
         # Do work...
@@ -117,11 +117,27 @@ class FeagiEngine:
         # 2. Check development/source builds
         possible_paths = [
             # Relative to SDK (feagi folder, not feagi-core)
-            Path(__file__).parent.parent.parent.parent / "feagi" / "target" / "release" / "feagi",
-            Path(__file__).parent.parent.parent.parent / "feagi" / "target" / "debug" / "feagi",
+            Path(__file__).parent.parent.parent.parent
+            / "feagi"
+            / "target"
+            / "release"
+            / "feagi",
+            Path(__file__).parent.parent.parent.parent
+            / "feagi"
+            / "target"
+            / "debug"
+            / "feagi",
             # Also check feagi-core for backward compatibility
-            Path(__file__).parent.parent.parent.parent / "feagi-core" / "target" / "release" / "feagi",
-            Path(__file__).parent.parent.parent.parent / "feagi-core" / "target" / "debug" / "feagi",
+            Path(__file__).parent.parent.parent.parent
+            / "feagi-core"
+            / "target"
+            / "release"
+            / "feagi",
+            Path(__file__).parent.parent.parent.parent
+            / "feagi-core"
+            / "target"
+            / "debug"
+            / "feagi",
         ]
         
         for path in possible_paths:
@@ -146,7 +162,9 @@ class FeagiEngine:
                 logger.info(f"Found FEAGI at: {path}")
                 return str(path)
         
-        logger.warning("FEAGI executable not found. Please specify feagi_path.")
+        logger.warning(
+            "FEAGI executable not found. Please specify feagi_path."
+        )
         return None
     
     def _find_bundled_binary(self) -> Optional[Path]:
@@ -191,7 +209,9 @@ class FeagiEngine:
             return None
         
         # Look for bundled binary
-        binary_path = Path(__file__).parent.parent / "bin" / platform_dir / binary_name
+        binary_path = (
+            Path(__file__).parent.parent / "bin" / platform_dir / binary_name
+        )
         
         if binary_path.exists():
             return binary_path
@@ -203,7 +223,8 @@ class FeagiEngine:
         Load FEAGI configuration file
         
         Args:
-            config_path: Path to feagi_configuration.toml. If None, uses default config.
+            config_path: Path to feagi_configuration.toml. If None, uses the
+                default configuration.
         
         Returns:
             Self for chaining
@@ -245,10 +266,11 @@ class FeagiEngine:
         Load genome file (initial neural structure)
         
         Args:
-            genome_path: Path to genome JSON file. Can be:
-                - Absolute path: /path/to/genome.json
-                - Relative path: ./genome.json (uses current directory)
-                - Filename only: genome.json (searches in default genomes directory)
+            genome_path: Path to a `.genome` artifact. Can be:
+                - Absolute path: /path/to/brain.genome
+                - Relative path: ./brain.genome (uses current directory)
+                - Filename only: brain.genome (searches the default genome
+                  directory)
         
         Returns:
             Self for chaining
@@ -258,12 +280,20 @@ class FeagiEngine:
             Use load_connectome() for loading a trained/saved state.
         """
         from feagi.paths import get_feagi_paths
+        from feagi.genome import GENOME_ARTIFACT_EXTENSION
         
         paths = get_feagi_paths()
         
         # Resolve path: if just a filename, look in genomes directory
         genome_path_obj = Path(genome_path)
-        if not genome_path_obj.is_absolute() and "/" not in genome_path and "\\" not in genome_path:
+        if genome_path_obj.suffix.lower() != GENOME_ARTIFACT_EXTENSION:
+            raise ValueError("Genome files must use the .genome extension")
+        is_bare_file_name = (
+            not genome_path_obj.is_absolute()
+            and "/" not in genome_path
+            and "\\" not in genome_path
+        )
+        if is_bare_file_name:
             # Just a filename, try genomes directory
             self.genome_path = paths.resolve_path(genome_path, "genome")
         else:
@@ -274,7 +304,9 @@ class FeagiEngine:
         
         # Clear connectome if genome is loaded (mutually exclusive)
         if self.connectome_path:
-            logger.warning("Genome loaded - clearing previously loaded connectome")
+            logger.warning(
+                "Genome loaded - clearing previously loaded connectome"
+            )
             self.connectome_path = None
         
         logger.info(f"Loaded genome: {self.genome_path}")
@@ -285,10 +317,11 @@ class FeagiEngine:
         Load connectome file (trained neural state)
         
         Args:
-            connectome_path: Path to connectome file. Can be:
+            connectome_path: Path to a `.connectome` artifact. Can be:
                 - Absolute path: /path/to/trained.connectome
                 - Relative path: ./trained.connectome (uses current directory)
-                - Filename only: trained.connectome (searches in default connectomes directory)
+                - Filename only: trained.connectome (searches the default
+                  connectome directory)
         
         Returns:
             Self for chaining
@@ -298,30 +331,48 @@ class FeagiEngine:
             Use load_connectome() to resume from a saved state.
             Use load_genome() to start fresh with initial structure.
         """
+        from feagi.connectome import CONNECTOME_ARTIFACT_EXTENSION
         from feagi.paths import get_feagi_paths
         
         paths = get_feagi_paths()
         
         # Resolve path: if just a filename, look in connectomes directory
         connectome_path_obj = Path(connectome_path)
-        if not connectome_path_obj.is_absolute() and "/" not in connectome_path and "\\" not in connectome_path:
+        if connectome_path_obj.suffix.lower() != CONNECTOME_ARTIFACT_EXTENSION:
+            raise ValueError(
+                "Connectome files must use the .connectome extension"
+            )
+        is_bare_file_name = (
+            not connectome_path_obj.is_absolute()
+            and "/" not in connectome_path
+            and "\\" not in connectome_path
+        )
+        if is_bare_file_name:
             # Just a filename, try connectomes directory
-            self.connectome_path = paths.resolve_path(connectome_path, "connectome")
+            self.connectome_path = paths.resolve_path(
+                connectome_path, "connectome"
+            )
         else:
             self.connectome_path = Path(connectome_path)
         
         if not self.connectome_path.exists():
-            raise FileNotFoundError(f"Connectome file not found: {connectome_path}")
+            raise FileNotFoundError(
+                f"Connectome file not found: {connectome_path}"
+            )
         
         # Clear genome if connectome is loaded (mutually exclusive)
         if self.genome_path:
-            logger.warning("Connectome loaded - clearing previously loaded genome")
+            logger.warning(
+                "Connectome loaded - clearing previously loaded genome"
+            )
             self.genome_path = None
         
         logger.info(f"Loaded connectome: {self.connectome_path}")
         return self
     
-    def start(self, wait_for_ready: bool = True, timeout: float = 60.0) -> bool:
+    def start(
+        self, wait_for_ready: bool = True, timeout: float = 60.0
+    ) -> bool:
         """
         Start FEAGI engine
         
@@ -338,7 +389,8 @@ class FeagiEngine:
         
         if self.feagi_path is None:
             raise RuntimeError(
-                "FEAGI executable not found. Please specify feagi_path in constructor."
+                "FEAGI executable not found. Specify feagi_path in the "
+                "constructor."
             )
         
         logger.info(f"Starting FEAGI engine: {self.feagi_path}")
@@ -376,7 +428,9 @@ class FeagiEngine:
                 logger.info("Starting FEAGI in detached/daemon mode")
                 from feagi.paths import get_feagi_paths
                 paths = get_feagi_paths()
-                log_dir = paths.create_log_run_dir(component="feagi", retention=10)
+                log_dir = paths.create_log_run_dir(
+                    component="feagi", retention=10
+                )
                 
                 log_file = log_dir / "feagi.log"
                 error_file = log_dir / "feagi_error.log"
@@ -424,8 +478,14 @@ class FeagiEngine:
         
         # Wait for ready
         if wait_for_ready:
-            logger.info(f"Waiting for FEAGI to be ready (timeout: {timeout}s)...")
-            logger.info(f"Checking REST API at: http://{self.host}:{self.rest_port}/v1/system/health_check")
+            logger.info(
+                "Waiting for FEAGI to be ready (timeout: %ss)...", timeout
+            )
+            logger.info(
+                "Checking REST API at: http://%s:%s/v1/system/health_check",
+                self.host,
+                self.rest_port,
+            )
             
             if self._wait_for_ready(timeout):
                 logger.info("[OK] FEAGI is ready!")
@@ -455,7 +515,9 @@ class FeagiEngine:
             elapsed = time.time() - start_time
             
             if attempts % 10 == 0:  # Log every 10 attempts (5 seconds)
-                logger.info(f"  Still waiting... ({elapsed:.1f}s / {timeout:.0f}s)")
+                logger.info(
+                    "  Still waiting... (%.1fs / %.0fs)", elapsed, timeout
+                )
             # Check if process died
             if self.process and self.process.poll() is not None:
                 logger.error("FEAGI process terminated unexpectedly")

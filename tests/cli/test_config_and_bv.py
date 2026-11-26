@@ -321,3 +321,66 @@ class TestWindowsBVBinaryResolution:
             "feagi.cli.bv.importlib.util.find_spec", return_value=spec
         ), pytest.raises(BrainVisualizerLaunchError, match="BV Windows runtime not found"):
             _resolve_bv_binary()
+
+
+class TestLinuxBVBinaryResolution:
+    """Test Linux Brain Visualizer package and binary selection."""
+
+    def test_resolves_x86_64_remote_binary(self, tmp_path):
+        """x86_64 Linux loads feagi_bv_linux and the x86_64 export."""
+        package_dir = tmp_path / "feagi_bv_linux"
+        bin_dir = package_dir / "bin"
+        bin_dir.mkdir(parents=True)
+        binary_path = bin_dir / "BrainVisualizer-Remote.x86_64"
+        binary_path.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Linux"), patch(
+            "feagi.cli.bv.platform.machine", return_value="x86_64"
+        ), patch("feagi.cli.bv.importlib.util.find_spec", return_value=spec):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == binary_path
+        assert working_dir == bin_dir
+
+    def test_resolves_aarch64_remote_binary(self, tmp_path):
+        """aarch64 Linux loads feagi_bv_linux_arm64 and the arm64 export."""
+        package_dir = tmp_path / "feagi_bv_linux_arm64"
+        bin_dir = package_dir / "bin"
+        bin_dir.mkdir(parents=True)
+        binary_path = bin_dir / "BrainVisualizer-Remote.arm64"
+        binary_path.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Linux"), patch(
+            "feagi.cli.bv.platform.machine", return_value="aarch64"
+        ), patch("feagi.cli.bv.importlib.util.find_spec", return_value=spec):
+            binary, working_dir = _resolve_bv_binary()
+
+        assert binary == binary_path
+        assert working_dir == bin_dir
+
+    def test_arm64_machine_name_uses_arm64_package(self, tmp_path):
+        """arm64 is the same CPU as aarch64 and selects the ARM64 package."""
+        package_dir = tmp_path / "feagi_bv_linux_arm64"
+        bin_dir = package_dir / "bin"
+        bin_dir.mkdir(parents=True)
+        binary_path = bin_dir / "BrainVisualizer-Remote.arm64"
+        binary_path.write_text("")
+
+        spec = SimpleNamespace(submodule_search_locations=[str(package_dir)])
+        with patch("feagi.cli.bv.platform.system", return_value="Linux"), patch(
+            "feagi.cli.bv.platform.machine", return_value="arm64"
+        ), patch("feagi.cli.bv.importlib.util.find_spec", return_value=spec):
+            binary, _working_dir = _resolve_bv_binary()
+
+        assert binary == binary_path
+
+    def test_rejects_unknown_linux_architecture(self):
+        """An unrecognized Linux CPU does not select a package."""
+        with patch("feagi.cli.bv.platform.system", return_value="Linux"), patch(
+            "feagi.cli.bv.platform.machine", return_value="riscv64"
+        ), pytest.raises(
+            BrainVisualizerLaunchError, match="Unsupported Linux architecture"
+        ):
+            _resolve_bv_binary()

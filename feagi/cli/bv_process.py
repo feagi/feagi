@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from feagi.paths import get_feagi_paths
-from feagi.cli.process_utils import force_kill_process
+from feagi.cli.process_utils import force_kill_process, pid_alive
 
 
 class BVProcessError(RuntimeError):
@@ -313,15 +313,5 @@ class BVProcessManager:
     
     @staticmethod
     def _is_process_running(pid: int) -> bool:
-        """Check if process with given PID is running."""
-        try:
-            # Send signal 0 to check if process exists
-            os.kill(pid, 0)
-            return True
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            # Process exists but we don't have permission
-            return True
-        except Exception:
-            return False
+        """Check if process with given PID is running (never kills it)."""
+        return pid_alive(pid)

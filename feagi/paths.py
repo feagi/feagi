@@ -208,7 +208,7 @@ class FeagiPaths:
         Get full path to a genome file in the genomes directory.
         
         Args:
-            filename: Genome filename (e.g., "my_brain.json")
+            filename: Genome filename (e.g., "my_brain.genome")
         
         Returns:
             Full path to genome file
@@ -239,32 +239,36 @@ class FeagiPaths:
         """
         return self.logs_dir / filename
     
-    def resolve_path(self, path: str | Path, category: Optional[str] = None) -> Path:
+    def resolve_path(
+        self, path: str | Path, category: Optional[str] = None
+    ) -> Path:
         """
         Resolve a path, handling relative paths based on category.
         
         If path is absolute, returns as-is.
-        If path is relative and category is specified, resolves relative to category dir.
+        If path is relative and category is specified, resolves it relative to
+        the category directory.
         Otherwise resolves relative to current working directory.
         
         Args:
             path: Path to resolve (string or Path object)
-            category: Optional category ("genome", "connectome", "config", "log")
+            category: Optional path category such as genome, connectome,
+                configuration, or log.
         
         Returns:
             Resolved absolute Path
         
         Example:
             # Absolute path - returns as-is
-            paths.resolve_path("/absolute/path/brain.json")
+            paths.resolve_path("/absolute/path/brain.genome")
             
             # Relative path with category
-            paths.resolve_path("my_brain.json", "genome")
-            # -> ~/Documents/FEAGI/Genomes/my_brain.json (on macOS/Windows)
+            paths.resolve_path("my_brain.genome", "genome")
+            # -> ~/Documents/FEAGI/Genomes/my_brain.genome
             
             # Relative path without category
-            paths.resolve_path("my_brain.json")
-            # -> ./my_brain.json (current directory)
+            paths.resolve_path("my_brain.genome")
+            # -> ./my_brain.genome (current directory)
         """
         p = Path(path)
         

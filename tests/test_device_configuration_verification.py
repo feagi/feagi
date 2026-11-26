@@ -41,6 +41,17 @@ def test_send_device_configuration_without_expectations() -> None:
     assert client._client.sent_payloads == ['{"foo":"bar"}']
 
 
+def test_send_device_configuration_empty_list_uses_retry_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit empty list must not skip the retry loop (regression: falsy list vs None)."""
+    client = _make_client()
+    monkeypatch.setattr(client, "_fetch_existing_cortical_areas", lambda _ids: set())
+    monkeypatch.setattr("feagi.pns.client.time.sleep", lambda _s: None)
+    client.send_device_configuration('{"foo":"bar"}', expected_cortical_ids=[])
+    assert len(client._client.sent_payloads) == 1
+
+
 def test_send_device_configuration_retries_until_areas_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

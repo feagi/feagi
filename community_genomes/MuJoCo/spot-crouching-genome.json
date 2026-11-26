@@ -1,0 +1,3553 @@
+{
+  "blueprint": {
+    "_____10c-X19fZGVhdGg=-cx-2dcorx-i": -10,
+    "_____10c-X19fZGVhdGg=-cx-2dcory-i": -20,
+    "_____10c-X19fZGVhdGg=-cx-___bbx-i": 1,
+    "_____10c-X19fZGVhdGg=-cx-___bby-i": 1,
+    "_____10c-X19fZGVhdGg=-cx-___bbz-i": 1,
+    "_____10c-X19fZGVhdGg=-cx-__name-t": "Death",
+    "_____10c-X19fZGVhdGg=-cx-_group-t": "CORE",
+    "_____10c-X19fZGVhdGg=-cx-_n_cnt-i": 1,
+    "_____10c-X19fZGVhdGg=-cx-de_gen-f": 0,
+    "_____10c-X19fZGVhdGg=-cx-dstmap-d": {},
+    "_____10c-X19fZGVhdGg=-cx-gd_vis-b": true,
+    "_____10c-X19fZGVhdGg=-cx-mem__t-i": 100,
+    "_____10c-X19fZGVhdGg=-cx-mem_gr-i": 1,
+    "_____10c-X19fZGVhdGg=-cx-mem_ls-i": 9,
+    "_____10c-X19fZGVhdGg=-cx-memory-b": false,
+    "_____10c-X19fZGVhdGg=-cx-pspuni-b": true,
+    "_____10c-X19fZGVhdGg=-cx-rcordx-i": 0,
+    "_____10c-X19fZGVhdGg=-cx-rcordy-i": 0,
+    "_____10c-X19fZGVhdGg=-cx-rcordz-i": -20,
+    "_____10c-X19fZGVhdGg=-cx-subgrp-t": "",
+    "_____10c-X19fZGVhdGg=-cx-synatt-f": 100,
+    "_____10c-X19fZGVhdGg=-nx-c_fr_c-i": 0,
+    "_____10c-X19fZGVhdGg=-nx-excite-f": 1,
+    "_____10c-X19fZGVhdGg=-nx-fire_t-f": 0.1,
+    "_____10c-X19fZGVhdGg=-nx-fthlim-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-ftincx-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-ftincy-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-ftincz-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-leak_c-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-leak_v-f": 0,
+    "_____10c-X19fZGVhdGg=-nx-mp_acc-b": false,
+    "_____10c-X19fZGVhdGg=-nx-mp_psp-b": false,
+    "_____10c-X19fZGVhdGg=-nx-pstcr_-f": 500,
+    "_____10c-X19fZGVhdGg=-nx-pstcrm-f": 10000,
+    "_____10c-X19fZGVhdGg=-nx-refrac-i": 0,
+    "_____10c-X19fZGVhdGg=-nx-snooze-i": 0,
+    "_____10c-X19fZmF0aWc=-cx-2dcorx-i": -10,
+    "_____10c-X19fZmF0aWc=-cx-2dcory-i": 0,
+    "_____10c-X19fZmF0aWc=-cx-___bbx-i": 1,
+    "_____10c-X19fZmF0aWc=-cx-___bby-i": 1,
+    "_____10c-X19fZmF0aWc=-cx-___bbz-i": 1,
+    "_____10c-X19fZmF0aWc=-cx-__name-t": "Fatigue",
+    "_____10c-X19fZmF0aWc=-cx-_group-t": "CORE",
+    "_____10c-X19fZmF0aWc=-cx-_n_cnt-i": 1,
+    "_____10c-X19fZmF0aWc=-cx-de_gen-f": 0,
+    "_____10c-X19fZmF0aWc=-cx-dstmap-d": {},
+    "_____10c-X19fZmF0aWc=-cx-gd_vis-b": true,
+    "_____10c-X19fZmF0aWc=-cx-mem__t-i": 100,
+    "_____10c-X19fZmF0aWc=-cx-mem_gr-i": 1,
+    "_____10c-X19fZmF0aWc=-cx-mem_ls-i": 9,
+    "_____10c-X19fZmF0aWc=-cx-memory-b": false,
+    "_____10c-X19fZmF0aWc=-cx-pspuni-b": true,
+    "_____10c-X19fZmF0aWc=-cx-rcordx-i": 0,
+    "_____10c-X19fZmF0aWc=-cx-rcordy-i": 0,
+    "_____10c-X19fZmF0aWc=-cx-rcordz-i": -30,
+    "_____10c-X19fZmF0aWc=-cx-subgrp-t": "",
+    "_____10c-X19fZmF0aWc=-cx-synatt-f": 100,
+    "_____10c-X19fZmF0aWc=-nx-c_fr_c-i": 0,
+    "_____10c-X19fZmF0aWc=-nx-excite-f": 1,
+    "_____10c-X19fZmF0aWc=-nx-fire_t-f": 0.1,
+    "_____10c-X19fZmF0aWc=-nx-fthlim-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-ftincx-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-ftincy-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-ftincz-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-leak_c-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-leak_v-f": 0,
+    "_____10c-X19fZmF0aWc=-nx-mp_acc-b": false,
+    "_____10c-X19fZmF0aWc=-nx-mp_psp-b": false,
+    "_____10c-X19fZmF0aWc=-nx-pstcr_-f": 500,
+    "_____10c-X19fZmF0aWc=-nx-pstcrm-f": 10000,
+    "_____10c-X19fZmF0aWc=-nx-refrac-i": 0,
+    "_____10c-X19fZmF0aWc=-nx-snooze-i": 0,
+    "_____10c-X19fcG93ZXI=-cx-2dcorx-i": -319,
+    "_____10c-X19fcG93ZXI=-cx-2dcory-i": -682,
+    "_____10c-X19fcG93ZXI=-cx-___bbx-i": 1,
+    "_____10c-X19fcG93ZXI=-cx-___bby-i": 1,
+    "_____10c-X19fcG93ZXI=-cx-___bbz-i": 1,
+    "_____10c-X19fcG93ZXI=-cx-__name-t": "Brain_Power",
+    "_____10c-X19fcG93ZXI=-cx-_group-t": "CORE",
+    "_____10c-X19fcG93ZXI=-cx-_n_cnt-i": 1,
+    "_____10c-X19fcG93ZXI=-cx-de_gen-f": 0,
+    "_____10c-X19fcG93ZXI=-cx-dstmap-d": {},
+    "_____10c-X19fcG93ZXI=-cx-gd_vis-b": true,
+    "_____10c-X19fcG93ZXI=-cx-mem__t-i": 100,
+    "_____10c-X19fcG93ZXI=-cx-mem_gr-i": 1,
+    "_____10c-X19fcG93ZXI=-cx-mem_ls-i": 9,
+    "_____10c-X19fcG93ZXI=-cx-memory-b": false,
+    "_____10c-X19fcG93ZXI=-cx-pspuni-b": true,
+    "_____10c-X19fcG93ZXI=-cx-rcordx-i": 10,
+    "_____10c-X19fcG93ZXI=-cx-rcordy-i": 0,
+    "_____10c-X19fcG93ZXI=-cx-rcordz-i": -20,
+    "_____10c-X19fcG93ZXI=-cx-subgrp-t": "",
+    "_____10c-X19fcG93ZXI=-cx-synatt-f": 100,
+    "_____10c-X19fcG93ZXI=-nx-c_fr_c-i": 0,
+    "_____10c-X19fcG93ZXI=-nx-excite-f": 100,
+    "_____10c-X19fcG93ZXI=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-X19fcG93ZXI=-nx-fthlim-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-ftincx-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-ftincy-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-ftincz-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-leak_c-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-leak_v-f": 0,
+    "_____10c-X19fcG93ZXI=-nx-mp_acc-b": false,
+    "_____10c-X19fcG93ZXI=-nx-mp_psp-b": false,
+    "_____10c-X19fcG93ZXI=-nx-pstcr_-f": 500,
+    "_____10c-X19fcG93ZXI=-nx-pstcrm-f": 10000,
+    "_____10c-X19fcG93ZXI=-nx-refrac-i": 0,
+    "_____10c-X19fcG93ZXI=-nx-snooze-i": 0,
+    "_____10c-Y080TTNfX18=-cx-2dcorx-i": 1517,
+    "_____10c-Y080TTNfX18=-cx-2dcory-i": 403,
+    "_____10c-Y080TTNfX18=-cx-___bbx-i": 1,
+    "_____10c-Y080TTNfX18=-cx-___bby-i": 1,
+    "_____10c-Y080TTNfX18=-cx-___bbz-i": 1,
+    "_____10c-Y080TTNfX18=-cx-__name-t": "M3_FW",
+    "_____10c-Y080TTNfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y080TTNfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y080TTNfX18=-cx-de_gen-f": 0,
+    "_____10c-Y080TTNfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-4_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y080TTNfX18=-cx-gd_vis-b": true,
+    "_____10c-Y080TTNfX18=-cx-mem__t-i": 100,
+    "_____10c-Y080TTNfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y080TTNfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y080TTNfX18=-cx-memory-b": false,
+    "_____10c-Y080TTNfX18=-cx-pspuni-b": false,
+    "_____10c-Y080TTNfX18=-cx-rcordx-i": -30,
+    "_____10c-Y080TTNfX18=-cx-rcordy-i": 0,
+    "_____10c-Y080TTNfX18=-cx-rcordz-i": -14,
+    "_____10c-Y080TTNfX18=-cx-subgrp-t": "",
+    "_____10c-Y080TTNfX18=-cx-synatt-f": 100,
+    "_____10c-Y080TTNfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y080TTNfX18=-nx-excite-f": 100,
+    "_____10c-Y080TTNfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y080TTNfX18=-nx-fthlim-f": 0,
+    "_____10c-Y080TTNfX18=-nx-ftincx-f": 0,
+    "_____10c-Y080TTNfX18=-nx-ftincy-f": 0,
+    "_____10c-Y080TTNfX18=-nx-ftincz-f": 0,
+    "_____10c-Y080TTNfX18=-nx-leak_c-f": 0,
+    "_____10c-Y080TTNfX18=-nx-leak_v-f": 0,
+    "_____10c-Y080TTNfX18=-nx-mp_acc-b": false,
+    "_____10c-Y080TTNfX18=-nx-mp_psp-b": false,
+    "_____10c-Y080TTNfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y080TTNfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y080TTNfX18=-nx-refrac-i": 0,
+    "_____10c-Y080TTNfX18=-nx-snooze-i": 0,
+    "_____10c-Y0lITW90X18=-cx-2dcorx-i": 1510,
+    "_____10c-Y0lITW90X18=-cx-2dcory-i": -106,
+    "_____10c-Y0lITW90X18=-cx-___bbx-i": 1,
+    "_____10c-Y0lITW90X18=-cx-___bby-i": 1,
+    "_____10c-Y0lITW90X18=-cx-___bbz-i": 1,
+    "_____10c-Y0lITW90X18=-cx-__name-t": "M1_BW",
+    "_____10c-Y0lITW90X18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y0lITW90X18=-cx-_n_cnt-i": 1,
+    "_____10c-Y0lITW90X18=-cx-de_gen-f": 0,
+    "_____10c-Y0lITW90X18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-1_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y0lITW90X18=-cx-gd_vis-b": true,
+    "_____10c-Y0lITW90X18=-cx-mem__t-i": 100,
+    "_____10c-Y0lITW90X18=-cx-mem_gr-i": 1,
+    "_____10c-Y0lITW90X18=-cx-mem_ls-i": 9,
+    "_____10c-Y0lITW90X18=-cx-memory-b": false,
+    "_____10c-Y0lITW90X18=-cx-pspuni-b": false,
+    "_____10c-Y0lITW90X18=-cx-rcordx-i": -45,
+    "_____10c-Y0lITW90X18=-cx-rcordy-i": 0,
+    "_____10c-Y0lITW90X18=-cx-rcordz-i": -14,
+    "_____10c-Y0lITW90X18=-cx-subgrp-t": "",
+    "_____10c-Y0lITW90X18=-cx-synatt-f": 100,
+    "_____10c-Y0lITW90X18=-nx-c_fr_c-i": 0,
+    "_____10c-Y0lITW90X18=-nx-excite-f": 100,
+    "_____10c-Y0lITW90X18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y0lITW90X18=-nx-fthlim-f": 0,
+    "_____10c-Y0lITW90X18=-nx-ftincx-f": 0,
+    "_____10c-Y0lITW90X18=-nx-ftincy-f": 0,
+    "_____10c-Y0lITW90X18=-nx-ftincz-f": 0,
+    "_____10c-Y0lITW90X18=-nx-leak_c-f": 0,
+    "_____10c-Y0lITW90X18=-nx-leak_v-f": 0,
+    "_____10c-Y0lITW90X18=-nx-mp_acc-b": false,
+    "_____10c-Y0lITW90X18=-nx-mp_psp-b": false,
+    "_____10c-Y0lITW90X18=-nx-pstcr_-f": 1,
+    "_____10c-Y0lITW90X18=-nx-pstcrm-f": 99999,
+    "_____10c-Y0lITW90X18=-nx-refrac-i": 0,
+    "_____10c-Y0lITW90X18=-nx-snooze-i": 0,
+    "_____10c-Y0pXTTNfX18=-cx-2dcorx-i": 1514,
+    "_____10c-Y0pXTTNfX18=-cx-2dcory-i": 519,
+    "_____10c-Y0pXTTNfX18=-cx-___bbx-i": 1,
+    "_____10c-Y0pXTTNfX18=-cx-___bby-i": 1,
+    "_____10c-Y0pXTTNfX18=-cx-___bbz-i": 1,
+    "_____10c-Y0pXTTNfX18=-cx-__name-t": "M3_BW",
+    "_____10c-Y0pXTTNfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y0pXTTNfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y0pXTTNfX18=-cx-de_gen-f": 0,
+    "_____10c-Y0pXTTNfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-5_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y0pXTTNfX18=-cx-gd_vis-b": true,
+    "_____10c-Y0pXTTNfX18=-cx-mem__t-i": 100,
+    "_____10c-Y0pXTTNfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y0pXTTNfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y0pXTTNfX18=-cx-memory-b": false,
+    "_____10c-Y0pXTTNfX18=-cx-pspuni-b": false,
+    "_____10c-Y0pXTTNfX18=-cx-rcordx-i": -25,
+    "_____10c-Y0pXTTNfX18=-cx-rcordy-i": 0,
+    "_____10c-Y0pXTTNfX18=-cx-rcordz-i": -14,
+    "_____10c-Y0pXTTNfX18=-cx-subgrp-t": "",
+    "_____10c-Y0pXTTNfX18=-cx-synatt-f": 100,
+    "_____10c-Y0pXTTNfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y0pXTTNfX18=-nx-excite-f": 100,
+    "_____10c-Y0pXTTNfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y0pXTTNfX18=-nx-fthlim-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-ftincx-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-ftincy-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-ftincz-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-leak_c-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-leak_v-f": 0,
+    "_____10c-Y0pXTTNfX18=-nx-mp_acc-b": false,
+    "_____10c-Y0pXTTNfX18=-nx-mp_psp-b": false,
+    "_____10c-Y0pXTTNfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y0pXTTNfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y0pXTTNfX18=-nx-refrac-i": 0,
+    "_____10c-Y0pXTTNfX18=-nx-snooze-i": 0,
+    "_____10c-Y0tRTTJfX18=-cx-2dcorx-i": 1509,
+    "_____10c-Y0tRTTJfX18=-cx-2dcory-i": 81,
+    "_____10c-Y0tRTTJfX18=-cx-___bbx-i": 1,
+    "_____10c-Y0tRTTJfX18=-cx-___bby-i": 1,
+    "_____10c-Y0tRTTJfX18=-cx-___bbz-i": 1,
+    "_____10c-Y0tRTTJfX18=-cx-__name-t": "M2_FW",
+    "_____10c-Y0tRTTJfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y0tRTTJfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y0tRTTJfX18=-cx-de_gen-f": 0,
+    "_____10c-Y0tRTTJfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-2_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y0tRTTJfX18=-cx-gd_vis-b": true,
+    "_____10c-Y0tRTTJfX18=-cx-mem__t-i": 100,
+    "_____10c-Y0tRTTJfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y0tRTTJfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y0tRTTJfX18=-cx-memory-b": false,
+    "_____10c-Y0tRTTJfX18=-cx-pspuni-b": false,
+    "_____10c-Y0tRTTJfX18=-cx-rcordx-i": -40,
+    "_____10c-Y0tRTTJfX18=-cx-rcordy-i": 0,
+    "_____10c-Y0tRTTJfX18=-cx-rcordz-i": -14,
+    "_____10c-Y0tRTTJfX18=-cx-subgrp-t": "",
+    "_____10c-Y0tRTTJfX18=-cx-synatt-f": 100,
+    "_____10c-Y0tRTTJfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y0tRTTJfX18=-nx-excite-f": 100,
+    "_____10c-Y0tRTTJfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y0tRTTJfX18=-nx-fthlim-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-ftincx-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-ftincy-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-ftincz-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-leak_c-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-leak_v-f": 0,
+    "_____10c-Y0tRTTJfX18=-nx-mp_acc-b": false,
+    "_____10c-Y0tRTTJfX18=-nx-mp_psp-b": false,
+    "_____10c-Y0tRTTJfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y0tRTTJfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y0tRTTJfX18=-nx-refrac-i": 0,
+    "_____10c-Y0tRTTJfX18=-nx-snooze-i": 0,
+    "_____10c-Y0tZTTJfX18=-cx-2dcorx-i": 1518,
+    "_____10c-Y0tZTTJfX18=-cx-2dcory-i": 239,
+    "_____10c-Y0tZTTJfX18=-cx-___bbx-i": 1,
+    "_____10c-Y0tZTTJfX18=-cx-___bby-i": 1,
+    "_____10c-Y0tZTTJfX18=-cx-___bbz-i": 1,
+    "_____10c-Y0tZTTJfX18=-cx-__name-t": "M2_BW",
+    "_____10c-Y0tZTTJfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y0tZTTJfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y0tZTTJfX18=-cx-de_gen-f": 0,
+    "_____10c-Y0tZTTJfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-3_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y0tZTTJfX18=-cx-gd_vis-b": true,
+    "_____10c-Y0tZTTJfX18=-cx-mem__t-i": 100,
+    "_____10c-Y0tZTTJfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y0tZTTJfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y0tZTTJfX18=-cx-memory-b": false,
+    "_____10c-Y0tZTTJfX18=-cx-pspuni-b": false,
+    "_____10c-Y0tZTTJfX18=-cx-rcordx-i": -35,
+    "_____10c-Y0tZTTJfX18=-cx-rcordy-i": 0,
+    "_____10c-Y0tZTTJfX18=-cx-rcordz-i": -14,
+    "_____10c-Y0tZTTJfX18=-cx-subgrp-t": "",
+    "_____10c-Y0tZTTJfX18=-cx-synatt-f": 100,
+    "_____10c-Y0tZTTJfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y0tZTTJfX18=-nx-excite-f": 100,
+    "_____10c-Y0tZTTJfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y0tZTTJfX18=-nx-fthlim-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-ftincx-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-ftincy-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-ftincz-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-leak_c-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-leak_v-f": 0,
+    "_____10c-Y0tZTTJfX18=-nx-mp_acc-b": false,
+    "_____10c-Y0tZTTJfX18=-nx-mp_psp-b": false,
+    "_____10c-Y0tZTTJfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y0tZTTJfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y0tZTTJfX18=-nx-refrac-i": 0,
+    "_____10c-Y0tZTTJfX18=-nx-snooze-i": 0,
+    "_____10c-Y0xXTTRfX18=-cx-2dcorx-i": 1520,
+    "_____10c-Y0xXTTRfX18=-cx-2dcory-i": 825,
+    "_____10c-Y0xXTTRfX18=-cx-___bbx-i": 1,
+    "_____10c-Y0xXTTRfX18=-cx-___bby-i": 1,
+    "_____10c-Y0xXTTRfX18=-cx-___bbz-i": 1,
+    "_____10c-Y0xXTTRfX18=-cx-__name-t": "M4_BW",
+    "_____10c-Y0xXTTRfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y0xXTTRfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y0xXTTRfX18=-cx-de_gen-f": 0,
+    "_____10c-Y0xXTTRfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-7_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y0xXTTRfX18=-cx-gd_vis-b": true,
+    "_____10c-Y0xXTTRfX18=-cx-mem__t-i": 100,
+    "_____10c-Y0xXTTRfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y0xXTTRfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y0xXTTRfX18=-cx-memory-b": false,
+    "_____10c-Y0xXTTRfX18=-cx-pspuni-b": false,
+    "_____10c-Y0xXTTRfX18=-cx-rcordx-i": -15,
+    "_____10c-Y0xXTTRfX18=-cx-rcordy-i": 0,
+    "_____10c-Y0xXTTRfX18=-cx-rcordz-i": -14,
+    "_____10c-Y0xXTTRfX18=-cx-subgrp-t": "",
+    "_____10c-Y0xXTTRfX18=-cx-synatt-f": 100,
+    "_____10c-Y0xXTTRfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y0xXTTRfX18=-nx-excite-f": 100,
+    "_____10c-Y0xXTTRfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y0xXTTRfX18=-nx-fthlim-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-ftincx-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-ftincy-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-ftincz-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-leak_c-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-leak_v-f": 0,
+    "_____10c-Y0xXTTRfX18=-nx-mp_acc-b": false,
+    "_____10c-Y0xXTTRfX18=-nx-mp_psp-b": false,
+    "_____10c-Y0xXTTRfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y0xXTTRfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y0xXTTRfX18=-nx-refrac-i": 0,
+    "_____10c-Y0xXTTRfX18=-nx-snooze-i": 0,
+    "_____10c-Y19fYmFjX18=-cx-2dcorx-i": 892,
+    "_____10c-Y19fYmFjX18=-cx-2dcory-i": 859,
+    "_____10c-Y19fYmFjX18=-cx-___bbx-i": 1,
+    "_____10c-Y19fYmFjX18=-cx-___bby-i": 1,
+    "_____10c-Y19fYmFjX18=-cx-___bbz-i": 1,
+    "_____10c-Y19fYmFjX18=-cx-__name-t": "backward",
+    "_____10c-Y19fYmFjX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y19fYmFjX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y19fYmFjX18=-cx-de_gen-f": 0,
+    "_____10c-Y19fYmFjX18=-cx-dstmap-d": {
+      "Y0lITW90X18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y0pXTTNfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y0tZTTJfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y0xXTTRfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y19fYmFjX18=-cx-gd_vis-b": true,
+    "_____10c-Y19fYmFjX18=-cx-mem__t-i": 100,
+    "_____10c-Y19fYmFjX18=-cx-mem_gr-i": 1,
+    "_____10c-Y19fYmFjX18=-cx-mem_ls-i": 9,
+    "_____10c-Y19fYmFjX18=-cx-memory-b": false,
+    "_____10c-Y19fYmFjX18=-cx-pspuni-b": true,
+    "_____10c-Y19fYmFjX18=-cx-rcordx-i": -38,
+    "_____10c-Y19fYmFjX18=-cx-rcordy-i": 0,
+    "_____10c-Y19fYmFjX18=-cx-rcordz-i": 10,
+    "_____10c-Y19fYmFjX18=-cx-subgrp-t": "",
+    "_____10c-Y19fYmFjX18=-cx-synatt-f": 100,
+    "_____10c-Y19fYmFjX18=-nx-c_fr_c-i": 3,
+    "_____10c-Y19fYmFjX18=-nx-excite-f": 100,
+    "_____10c-Y19fYmFjX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y19fYmFjX18=-nx-fthlim-f": 0,
+    "_____10c-Y19fYmFjX18=-nx-ftincx-f": 0,
+    "_____10c-Y19fYmFjX18=-nx-ftincy-f": 0,
+    "_____10c-Y19fYmFjX18=-nx-ftincz-f": 0,
+    "_____10c-Y19fYmFjX18=-nx-leak_c-f": 10,
+    "_____10c-Y19fYmFjX18=-nx-leak_v-f": 0,
+    "_____10c-Y19fYmFjX18=-nx-mp_acc-b": true,
+    "_____10c-Y19fYmFjX18=-nx-mp_psp-b": false,
+    "_____10c-Y19fYmFjX18=-nx-pstcr_-f": 5,
+    "_____10c-Y19fYmFjX18=-nx-pstcrm-f": 35,
+    "_____10c-Y19fYmFjX18=-nx-refrac-i": 0,
+    "_____10c-Y19fYmFjX18=-nx-snooze-i": 0,
+    "_____10c-Y19fZm9yX18=-cx-2dcorx-i": 894,
+    "_____10c-Y19fZm9yX18=-cx-2dcory-i": -204,
+    "_____10c-Y19fZm9yX18=-cx-___bbx-i": 1,
+    "_____10c-Y19fZm9yX18=-cx-___bby-i": 1,
+    "_____10c-Y19fZm9yX18=-cx-___bbz-i": 1,
+    "_____10c-Y19fZm9yX18=-cx-__name-t": "forward",
+    "_____10c-Y19fZm9yX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y19fZm9yX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y19fZm9yX18=-cx-de_gen-f": 0,
+    "_____10c-Y19fZm9yX18=-cx-dstmap-d": {
+      "Y080TTNfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y0tRTTJfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y1JTTW90X18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "Y1RHTTRfX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y19fZm9yX18=-cx-gd_vis-b": true,
+    "_____10c-Y19fZm9yX18=-cx-mem__t-i": 100,
+    "_____10c-Y19fZm9yX18=-cx-mem_gr-i": 1,
+    "_____10c-Y19fZm9yX18=-cx-mem_ls-i": 9,
+    "_____10c-Y19fZm9yX18=-cx-memory-b": false,
+    "_____10c-Y19fZm9yX18=-cx-pspuni-b": true,
+    "_____10c-Y19fZm9yX18=-cx-rcordx-i": -38,
+    "_____10c-Y19fZm9yX18=-cx-rcordy-i": 0,
+    "_____10c-Y19fZm9yX18=-cx-rcordz-i": 0,
+    "_____10c-Y19fZm9yX18=-cx-subgrp-t": "",
+    "_____10c-Y19fZm9yX18=-cx-synatt-f": 100,
+    "_____10c-Y19fZm9yX18=-nx-c_fr_c-i": 3,
+    "_____10c-Y19fZm9yX18=-nx-excite-f": 100,
+    "_____10c-Y19fZm9yX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y19fZm9yX18=-nx-fthlim-f": 0,
+    "_____10c-Y19fZm9yX18=-nx-ftincx-f": 0,
+    "_____10c-Y19fZm9yX18=-nx-ftincy-f": 0,
+    "_____10c-Y19fZm9yX18=-nx-ftincz-f": 0,
+    "_____10c-Y19fZm9yX18=-nx-leak_c-f": 10,
+    "_____10c-Y19fZm9yX18=-nx-leak_v-f": 0,
+    "_____10c-Y19fZm9yX18=-nx-mp_acc-b": true,
+    "_____10c-Y19fZm9yX18=-nx-mp_psp-b": false,
+    "_____10c-Y19fZm9yX18=-nx-pstcr_-f": 5,
+    "_____10c-Y19fZm9yX18=-nx-pstcrm-f": 35,
+    "_____10c-Y19fZm9yX18=-nx-refrac-i": 0,
+    "_____10c-Y19fZm9yX18=-nx-snooze-i": 0,
+    "_____10c-Y19fbGVmX18=-cx-2dcorx-i": 887,
+    "_____10c-Y19fbGVmX18=-cx-2dcory-i": 533,
+    "_____10c-Y19fbGVmX18=-cx-___bbx-i": 1,
+    "_____10c-Y19fbGVmX18=-cx-___bby-i": 1,
+    "_____10c-Y19fbGVmX18=-cx-___bbz-i": 1,
+    "_____10c-Y19fbGVmX18=-cx-__name-t": "turn_left",
+    "_____10c-Y19fbGVmX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y19fbGVmX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y19fbGVmX18=-cx-de_gen-f": 0,
+    "_____10c-Y19fbGVmX18=-cx-dstmap-d": {},
+    "_____10c-Y19fbGVmX18=-cx-gd_vis-b": true,
+    "_____10c-Y19fbGVmX18=-cx-mem__t-i": 100,
+    "_____10c-Y19fbGVmX18=-cx-mem_gr-i": 1,
+    "_____10c-Y19fbGVmX18=-cx-mem_ls-i": 9,
+    "_____10c-Y19fbGVmX18=-cx-memory-b": false,
+    "_____10c-Y19fbGVmX18=-cx-pspuni-b": true,
+    "_____10c-Y19fbGVmX18=-cx-rcordx-i": -48,
+    "_____10c-Y19fbGVmX18=-cx-rcordy-i": 0,
+    "_____10c-Y19fbGVmX18=-cx-rcordz-i": 5,
+    "_____10c-Y19fbGVmX18=-cx-subgrp-t": "",
+    "_____10c-Y19fbGVmX18=-cx-synatt-f": 100,
+    "_____10c-Y19fbGVmX18=-nx-c_fr_c-i": 3,
+    "_____10c-Y19fbGVmX18=-nx-excite-f": 100,
+    "_____10c-Y19fbGVmX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y19fbGVmX18=-nx-fthlim-f": 0,
+    "_____10c-Y19fbGVmX18=-nx-ftincx-f": 0,
+    "_____10c-Y19fbGVmX18=-nx-ftincy-f": 0,
+    "_____10c-Y19fbGVmX18=-nx-ftincz-f": 0,
+    "_____10c-Y19fbGVmX18=-nx-leak_c-f": 10,
+    "_____10c-Y19fbGVmX18=-nx-leak_v-f": 0,
+    "_____10c-Y19fbGVmX18=-nx-mp_acc-b": true,
+    "_____10c-Y19fbGVmX18=-nx-mp_psp-b": false,
+    "_____10c-Y19fbGVmX18=-nx-pstcr_-f": 5,
+    "_____10c-Y19fbGVmX18=-nx-pstcrm-f": 35,
+    "_____10c-Y19fbGVmX18=-nx-refrac-i": 0,
+    "_____10c-Y19fbGVmX18=-nx-snooze-i": 0,
+    "_____10c-Y19fcmlnX18=-cx-2dcorx-i": 896,
+    "_____10c-Y19fcmlnX18=-cx-2dcory-i": 239,
+    "_____10c-Y19fcmlnX18=-cx-___bbx-i": 1,
+    "_____10c-Y19fcmlnX18=-cx-___bby-i": 1,
+    "_____10c-Y19fcmlnX18=-cx-___bbz-i": 1,
+    "_____10c-Y19fcmlnX18=-cx-__name-t": "turn_right",
+    "_____10c-Y19fcmlnX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y19fcmlnX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y19fcmlnX18=-cx-de_gen-f": 0,
+    "_____10c-Y19fcmlnX18=-cx-dstmap-d": {},
+    "_____10c-Y19fcmlnX18=-cx-gd_vis-b": true,
+    "_____10c-Y19fcmlnX18=-cx-mem__t-i": 100,
+    "_____10c-Y19fcmlnX18=-cx-mem_gr-i": 1,
+    "_____10c-Y19fcmlnX18=-cx-mem_ls-i": 9,
+    "_____10c-Y19fcmlnX18=-cx-memory-b": false,
+    "_____10c-Y19fcmlnX18=-cx-pspuni-b": true,
+    "_____10c-Y19fcmlnX18=-cx-rcordx-i": -28,
+    "_____10c-Y19fcmlnX18=-cx-rcordy-i": 0,
+    "_____10c-Y19fcmlnX18=-cx-rcordz-i": 5,
+    "_____10c-Y19fcmlnX18=-cx-subgrp-t": "",
+    "_____10c-Y19fcmlnX18=-cx-synatt-f": 100,
+    "_____10c-Y19fcmlnX18=-nx-c_fr_c-i": 3,
+    "_____10c-Y19fcmlnX18=-nx-excite-f": 100,
+    "_____10c-Y19fcmlnX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y19fcmlnX18=-nx-fthlim-f": 0,
+    "_____10c-Y19fcmlnX18=-nx-ftincx-f": 0,
+    "_____10c-Y19fcmlnX18=-nx-ftincy-f": 0,
+    "_____10c-Y19fcmlnX18=-nx-ftincz-f": 0,
+    "_____10c-Y19fcmlnX18=-nx-leak_c-f": 10,
+    "_____10c-Y19fcmlnX18=-nx-leak_v-f": 0,
+    "_____10c-Y19fcmlnX18=-nx-mp_acc-b": true,
+    "_____10c-Y19fcmlnX18=-nx-mp_psp-b": false,
+    "_____10c-Y19fcmlnX18=-nx-pstcr_-f": 5,
+    "_____10c-Y19fcmlnX18=-nx-pstcrm-f": 35,
+    "_____10c-Y19fcmlnX18=-nx-refrac-i": 0,
+    "_____10c-Y19fcmlnX18=-nx-snooze-i": 0,
+    "_____10c-Y1JTTW90X18=-cx-2dcorx-i": 1503,
+    "_____10c-Y1JTTW90X18=-cx-2dcory-i": -284,
+    "_____10c-Y1JTTW90X18=-cx-___bbx-i": 1,
+    "_____10c-Y1JTTW90X18=-cx-___bby-i": 1,
+    "_____10c-Y1JTTW90X18=-cx-___bbz-i": 1,
+    "_____10c-Y1JTTW90X18=-cx-__name-t": "M1_FW",
+    "_____10c-Y1JTTW90X18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y1JTTW90X18=-cx-_n_cnt-i": 1,
+    "_____10c-Y1JTTW90X18=-cx-de_gen-f": 0,
+    "_____10c-Y1JTTW90X18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-_0_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y1JTTW90X18=-cx-gd_vis-b": true,
+    "_____10c-Y1JTTW90X18=-cx-mem__t-i": 100,
+    "_____10c-Y1JTTW90X18=-cx-mem_gr-i": 1,
+    "_____10c-Y1JTTW90X18=-cx-mem_ls-i": 9,
+    "_____10c-Y1JTTW90X18=-cx-memory-b": false,
+    "_____10c-Y1JTTW90X18=-cx-pspuni-b": false,
+    "_____10c-Y1JTTW90X18=-cx-rcordx-i": -50,
+    "_____10c-Y1JTTW90X18=-cx-rcordy-i": 0,
+    "_____10c-Y1JTTW90X18=-cx-rcordz-i": -14,
+    "_____10c-Y1JTTW90X18=-cx-subgrp-t": "",
+    "_____10c-Y1JTTW90X18=-cx-synatt-f": 100,
+    "_____10c-Y1JTTW90X18=-nx-c_fr_c-i": 0,
+    "_____10c-Y1JTTW90X18=-nx-excite-f": 100,
+    "_____10c-Y1JTTW90X18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y1JTTW90X18=-nx-fthlim-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-ftincx-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-ftincy-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-ftincz-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-leak_c-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-leak_v-f": 0,
+    "_____10c-Y1JTTW90X18=-nx-mp_acc-b": false,
+    "_____10c-Y1JTTW90X18=-nx-mp_psp-b": false,
+    "_____10c-Y1JTTW90X18=-nx-pstcr_-f": 1,
+    "_____10c-Y1JTTW90X18=-nx-pstcrm-f": 99999,
+    "_____10c-Y1JTTW90X18=-nx-refrac-i": 0,
+    "_____10c-Y1JTTW90X18=-nx-snooze-i": 0,
+    "_____10c-Y1RHTTRfX18=-cx-2dcorx-i": 1516,
+    "_____10c-Y1RHTTRfX18=-cx-2dcory-i": 670,
+    "_____10c-Y1RHTTRfX18=-cx-___bbx-i": 1,
+    "_____10c-Y1RHTTRfX18=-cx-___bby-i": 1,
+    "_____10c-Y1RHTTRfX18=-cx-___bbz-i": 1,
+    "_____10c-Y1RHTTRfX18=-cx-__name-t": "M4_FW",
+    "_____10c-Y1RHTTRfX18=-cx-_group-t": "CUSTOM",
+    "_____10c-Y1RHTTRfX18=-cx-_n_cnt-i": 1,
+    "_____10c-Y1RHTTRfX18=-cx-de_gen-f": 0,
+    "_____10c-Y1RHTTRfX18=-cx-dstmap-d": {
+      "b21vdAUAAAA=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "0_0_0-6_0_0",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-Y1RHTTRfX18=-cx-gd_vis-b": true,
+    "_____10c-Y1RHTTRfX18=-cx-mem__t-i": 100,
+    "_____10c-Y1RHTTRfX18=-cx-mem_gr-i": 1,
+    "_____10c-Y1RHTTRfX18=-cx-mem_ls-i": 9,
+    "_____10c-Y1RHTTRfX18=-cx-memory-b": false,
+    "_____10c-Y1RHTTRfX18=-cx-pspuni-b": false,
+    "_____10c-Y1RHTTRfX18=-cx-rcordx-i": -20,
+    "_____10c-Y1RHTTRfX18=-cx-rcordy-i": 0,
+    "_____10c-Y1RHTTRfX18=-cx-rcordz-i": -14,
+    "_____10c-Y1RHTTRfX18=-cx-subgrp-t": "",
+    "_____10c-Y1RHTTRfX18=-cx-synatt-f": 100,
+    "_____10c-Y1RHTTRfX18=-nx-c_fr_c-i": 0,
+    "_____10c-Y1RHTTRfX18=-nx-excite-f": 100,
+    "_____10c-Y1RHTTRfX18=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-Y1RHTTRfX18=-nx-fthlim-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-ftincx-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-ftincy-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-ftincz-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-leak_c-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-leak_v-f": 0,
+    "_____10c-Y1RHTTRfX18=-nx-mp_acc-b": false,
+    "_____10c-Y1RHTTRfX18=-nx-mp_psp-b": false,
+    "_____10c-Y1RHTTRfX18=-nx-pstcr_-f": 1,
+    "_____10c-Y1RHTTRfX18=-nx-pstcrm-f": 99999,
+    "_____10c-Y1RHTTRfX18=-nx-refrac-i": 0,
+    "_____10c-Y1RHTTRfX18=-nx-snooze-i": 0,
+    "_____10c-aW1pcwoAAAA=-cx-___bbx-i": 8,
+    "_____10c-aW1pcwoAAAA=-cx-___bby-i": 8,
+    "_____10c-aW1pcwoAAAA=-cx-___bbz-i": 1,
+    "_____10c-aW1pcwoAAAA=-cx-__name-t": "actuator_force_fl_hx",
+    "_____10c-aW1pcwoAAAA=-cx-_group-t": "IPU",
+    "_____10c-aW1pcwoAAAA=-cx-_n_cnt-i": 1,
+    "_____10c-aW1pcwoAAAA=-cx-de_gen-f": 0,
+    "_____10c-aW1pcwoAAAA=-cx-devcnt-i": 12,
+    "_____10c-aW1pcwoAAAA=-cx-gd_vis-b": true,
+    "_____10c-aW1pcwoAAAA=-cx-mem__t-i": 100,
+    "_____10c-aW1pcwoAAAA=-cx-mem_gr-i": 1,
+    "_____10c-aW1pcwoAAAA=-cx-mem_ls-i": 9,
+    "_____10c-aW1pcwoAAAA=-cx-memory-b": false,
+    "_____10c-aW1pcwoAAAA=-cx-pspuni-b": false,
+    "_____10c-aW1pcwoAAAA=-cx-rcordx-i": 220,
+    "_____10c-aW1pcwoAAAA=-cx-rcordy-i": 0,
+    "_____10c-aW1pcwoAAAA=-cx-rcordz-i": -30,
+    "_____10c-aW1pcwoAAAA=-cx-subgrp-t": "",
+    "_____10c-aW1pcwoAAAA=-cx-synatt-f": 100,
+    "_____10c-aW1pcwoAAAA=-nx-c_fr_c-i": 0,
+    "_____10c-aW1pcwoAAAA=-nx-excite-f": 100,
+    "_____10c-aW1pcwoAAAA=-nx-fire_t-f": 0.1,
+    "_____10c-aW1pcwoAAAA=-nx-fthlim-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-ftincx-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-ftincy-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-ftincz-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-leak_c-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-leak_v-f": 0,
+    "_____10c-aW1pcwoAAAA=-nx-mp_acc-b": false,
+    "_____10c-aW1pcwoAAAA=-nx-mp_psp-b": false,
+    "_____10c-aW1pcwoAAAA=-nx-pstcr_-f": 1,
+    "_____10c-aW1pcwoAAAA=-nx-pstcrm-f": 35,
+    "_____10c-aW1pcwoAAAA=-nx-refrac-i": 0,
+    "_____10c-aW1pcwoAAAA=-nx-snooze-i": 0,
+    "_____10c-aXBybwEAAAE=-cx-___bbx-i": 1,
+    "_____10c-aXBybwEAAAE=-cx-___bby-i": 1,
+    "_____10c-aXBybwEAAAE=-cx-___bbz-i": 10,
+    "_____10c-aXBybwEAAAE=-cx-__name-t": "joint_position_front_left_hip_roll",
+    "_____10c-aXBybwEAAAE=-cx-_group-t": "IPU",
+    "_____10c-aXBybwEAAAE=-cx-_n_cnt-i": 1,
+    "_____10c-aXBybwEAAAE=-cx-de_gen-f": 0,
+    "_____10c-aXBybwEAAAE=-cx-devcnt-i": 24,
+    "_____10c-aXBybwEAAAE=-cx-gd_vis-b": true,
+    "_____10c-aXBybwEAAAE=-cx-mem__t-i": 100,
+    "_____10c-aXBybwEAAAE=-cx-mem_gr-i": 1,
+    "_____10c-aXBybwEAAAE=-cx-mem_ls-i": 9,
+    "_____10c-aXBybwEAAAE=-cx-memory-b": false,
+    "_____10c-aXBybwEAAAE=-cx-pspuni-b": false,
+    "_____10c-aXBybwEAAAE=-cx-rcordx-i": 20,
+    "_____10c-aXBybwEAAAE=-cx-rcordy-i": 0,
+    "_____10c-aXBybwEAAAE=-cx-rcordz-i": -20,
+    "_____10c-aXBybwEAAAE=-cx-subgrp-t": "",
+    "_____10c-aXBybwEAAAE=-cx-synatt-f": 100,
+    "_____10c-aXBybwEAAAE=-nx-c_fr_c-i": 0,
+    "_____10c-aXBybwEAAAE=-nx-excite-f": 100,
+    "_____10c-aXBybwEAAAE=-nx-fire_t-f": 0.1,
+    "_____10c-aXBybwEAAAE=-nx-fthlim-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-ftincx-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-ftincy-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-ftincz-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-leak_c-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-leak_v-f": 0,
+    "_____10c-aXBybwEAAAE=-nx-mp_acc-b": false,
+    "_____10c-aXBybwEAAAE=-nx-mp_psp-b": false,
+    "_____10c-aXBybwEAAAE=-nx-pstcr_-f": 1,
+    "_____10c-aXBybwEAAAE=-nx-pstcrm-f": 35,
+    "_____10c-aXBybwEAAAE=-nx-refrac-i": 0,
+    "_____10c-aXBybwEAAAE=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkAAAA=-cx-2dcorx-i": -614,
+    "_____10c-aXN2aQkAAAA=-cx-2dcory-i": 317,
+    "_____10c-aXN2aQkAAAA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkAAAA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkAAAA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkAAAA=-cx-__name-t": "vision_LL",
+    "_____10c-aXN2aQkAAAA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkAAAA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkAAAA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkAAAA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkAAAA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkAAAA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkAAAA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkAAAA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkAAAA=-cx-memory-b": false,
+    "_____10c-aXN2aQkAAAA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkAAAA=-cx-rcordx-i": 20,
+    "_____10c-aXN2aQkAAAA=-cx-rcordy-i": 30,
+    "_____10c-aXN2aQkAAAA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkAAAA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkAAAA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkAAAA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkAAAA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkAAAA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkAAAA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkAAAA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkAAAA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkAAAA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkAAAA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkAAAA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkAAAA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkAAQA=-cx-2dcorx-i": -253,
+    "_____10c-aXN2aQkAAQA=-cx-2dcory-i": 324,
+    "_____10c-aXN2aQkAAQA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkAAQA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkAAQA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkAAQA=-cx-__name-t": "vision_LM",
+    "_____10c-aXN2aQkAAQA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkAAQA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkAAQA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkAAQA=-cx-dstmap-d": {
+      "Y19fYmFjX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-aXN2aQkAAQA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkAAQA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkAAQA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkAAQA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkAAQA=-cx-memory-b": false,
+    "_____10c-aXN2aQkAAQA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkAAQA=-cx-rcordx-i": 100,
+    "_____10c-aXN2aQkAAQA=-cx-rcordy-i": 30,
+    "_____10c-aXN2aQkAAQA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkAAQA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkAAQA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkAAQA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkAAQA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkAAQA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkAAQA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkAAQA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkAAQA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkAAQA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkAAQA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkAAQA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkAAQA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkAAgA=-cx-2dcorx-i": 86,
+    "_____10c-aXN2aQkAAgA=-cx-2dcory-i": 319,
+    "_____10c-aXN2aQkAAgA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkAAgA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkAAgA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkAAgA=-cx-__name-t": "vision_LR",
+    "_____10c-aXN2aQkAAgA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkAAgA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkAAgA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkAAgA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkAAgA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkAAgA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkAAgA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkAAgA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkAAgA=-cx-memory-b": false,
+    "_____10c-aXN2aQkAAgA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkAAgA=-cx-rcordx-i": 180,
+    "_____10c-aXN2aQkAAgA=-cx-rcordy-i": 30,
+    "_____10c-aXN2aQkAAgA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkAAgA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkAAgA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkAAgA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkAAgA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkAAgA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkAAgA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkAAgA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkAAgA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkAAgA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkAAgA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkAAgA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkAAgA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkAAwA=-cx-2dcorx-i": -609,
+    "_____10c-aXN2aQkAAwA=-cx-2dcory-i": 129,
+    "_____10c-aXN2aQkAAwA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkAAwA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkAAwA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkAAwA=-cx-__name-t": "vision_ML",
+    "_____10c-aXN2aQkAAwA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkAAwA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkAAwA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkAAwA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkAAwA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkAAwA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkAAwA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkAAwA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkAAwA=-cx-memory-b": false,
+    "_____10c-aXN2aQkAAwA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkAAwA=-cx-rcordx-i": 20,
+    "_____10c-aXN2aQkAAwA=-cx-rcordy-i": 120,
+    "_____10c-aXN2aQkAAwA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkAAwA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkAAwA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkAAwA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkAAwA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkAAwA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkAAwA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkAAwA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkAAwA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkAAwA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkAAwA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkAAwA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkAAwA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkABAA=-cx-2dcorx-i": -262,
+    "_____10c-aXN2aQkABAA=-cx-2dcory-i": 127,
+    "_____10c-aXN2aQkABAA=-cx-___bbx-i": 128,
+    "_____10c-aXN2aQkABAA=-cx-___bby-i": 128,
+    "_____10c-aXN2aQkABAA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkABAA=-cx-__name-t": "vision_C",
+    "_____10c-aXN2aQkABAA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkABAA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkABAA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkABAA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkABAA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkABAA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkABAA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkABAA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkABAA=-cx-memory-b": false,
+    "_____10c-aXN2aQkABAA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkABAA=-cx-rcordx-i": 45,
+    "_____10c-aXN2aQkABAA=-cx-rcordy-i": 60,
+    "_____10c-aXN2aQkABAA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkABAA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkABAA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkABAA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkABAA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkABAA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkABAA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkABAA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkABAA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkABAA=-nx-pstcr_-f": 25,
+    "_____10c-aXN2aQkABAA=-nx-pstcrm-f": 100,
+    "_____10c-aXN2aQkABAA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkABAA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkABQA=-cx-2dcorx-i": 81,
+    "_____10c-aXN2aQkABQA=-cx-2dcory-i": 131,
+    "_____10c-aXN2aQkABQA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkABQA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkABQA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkABQA=-cx-__name-t": "vision_MR",
+    "_____10c-aXN2aQkABQA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkABQA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkABQA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkABQA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkABQA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkABQA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkABQA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkABQA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkABQA=-cx-memory-b": false,
+    "_____10c-aXN2aQkABQA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkABQA=-cx-rcordx-i": 180,
+    "_____10c-aXN2aQkABQA=-cx-rcordy-i": 120,
+    "_____10c-aXN2aQkABQA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkABQA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkABQA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkABQA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkABQA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkABQA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkABQA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkABQA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkABQA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkABQA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkABQA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkABQA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkABQA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkABgA=-cx-2dcorx-i": -606,
+    "_____10c-aXN2aQkABgA=-cx-2dcory-i": -61,
+    "_____10c-aXN2aQkABgA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkABgA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkABgA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkABgA=-cx-__name-t": "vision_TL",
+    "_____10c-aXN2aQkABgA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkABgA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkABgA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkABgA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkABgA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkABgA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkABgA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkABgA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkABgA=-cx-memory-b": false,
+    "_____10c-aXN2aQkABgA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkABgA=-cx-rcordx-i": 20,
+    "_____10c-aXN2aQkABgA=-cx-rcordy-i": 195,
+    "_____10c-aXN2aQkABgA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkABgA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkABgA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkABgA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkABgA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkABgA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkABgA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkABgA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkABgA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkABgA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkABgA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkABgA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkABgA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkABwA=-cx-2dcorx-i": -271,
+    "_____10c-aXN2aQkABwA=-cx-2dcory-i": -65,
+    "_____10c-aXN2aQkABwA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkABwA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkABwA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkABwA=-cx-__name-t": "vision_TM",
+    "_____10c-aXN2aQkABwA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkABwA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkABwA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkABwA=-cx-dstmap-d": {
+      "Y19fZm9yX18=": [
+        {
+          "ltd_multiplier": 1,
+          "ltp_multiplier": 1,
+          "morphology_id": "projector",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_constant": 1,
+          "plasticity_flag": false,
+          "plasticity_window": 0,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-aXN2aQkABwA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkABwA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkABwA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkABwA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkABwA=-cx-memory-b": false,
+    "_____10c-aXN2aQkABwA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkABwA=-cx-rcordx-i": 100,
+    "_____10c-aXN2aQkABwA=-cx-rcordy-i": 195,
+    "_____10c-aXN2aQkABwA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkABwA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkABwA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkABwA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkABwA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkABwA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkABwA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkABwA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkABwA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkABwA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkABwA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkABwA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkABwA=-nx-snooze-i": 0,
+    "_____10c-aXN2aQkACAA=-cx-2dcorx-i": 72,
+    "_____10c-aXN2aQkACAA=-cx-2dcory-i": -62,
+    "_____10c-aXN2aQkACAA=-cx-___bbx-i": 16,
+    "_____10c-aXN2aQkACAA=-cx-___bby-i": 16,
+    "_____10c-aXN2aQkACAA=-cx-___bbz-i": 3,
+    "_____10c-aXN2aQkACAA=-cx-__name-t": "vision_TR",
+    "_____10c-aXN2aQkACAA=-cx-_group-t": "IPU",
+    "_____10c-aXN2aQkACAA=-cx-_n_cnt-i": 1,
+    "_____10c-aXN2aQkACAA=-cx-de_gen-f": 0,
+    "_____10c-aXN2aQkACAA=-cx-dstmap-d": {},
+    "_____10c-aXN2aQkACAA=-cx-gd_vis-b": true,
+    "_____10c-aXN2aQkACAA=-cx-mem__t-i": 100,
+    "_____10c-aXN2aQkACAA=-cx-mem_gr-i": 1,
+    "_____10c-aXN2aQkACAA=-cx-mem_ls-i": 9,
+    "_____10c-aXN2aQkACAA=-cx-memory-b": false,
+    "_____10c-aXN2aQkACAA=-cx-pspuni-b": false,
+    "_____10c-aXN2aQkACAA=-cx-rcordx-i": 180,
+    "_____10c-aXN2aQkACAA=-cx-rcordy-i": 195,
+    "_____10c-aXN2aQkACAA=-cx-rcordz-i": -20,
+    "_____10c-aXN2aQkACAA=-cx-subgrp-t": "",
+    "_____10c-aXN2aQkACAA=-cx-synatt-f": 100,
+    "_____10c-aXN2aQkACAA=-nx-c_fr_c-i": 3,
+    "_____10c-aXN2aQkACAA=-nx-excite-f": 100,
+    "_____10c-aXN2aQkACAA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-aXN2aQkACAA=-nx-fthlim-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-ftincx-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-ftincy-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-ftincz-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-leak_c-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-leak_v-f": 0,
+    "_____10c-aXN2aQkACAA=-nx-mp_acc-b": true,
+    "_____10c-aXN2aQkACAA=-nx-mp_psp-b": false,
+    "_____10c-aXN2aQkACAA=-nx-pstcr_-f": 5,
+    "_____10c-aXN2aQkACAA=-nx-pstcrm-f": 35,
+    "_____10c-aXN2aQkACAA=-nx-refrac-i": 0,
+    "_____10c-aXN2aQkACAA=-nx-snooze-i": 0,
+    "_____10c-b21vdAUAAAA=-cx-2dcorx-i": 2083,
+    "_____10c-b21vdAUAAAA=-cx-2dcory-i": 187,
+    "_____10c-b21vdAUAAAA=-cx-___bbx-i": 8,
+    "_____10c-b21vdAUAAAA=-cx-___bby-i": 1,
+    "_____10c-b21vdAUAAAA=-cx-___bbz-i": 1,
+    "_____10c-b21vdAUAAAA=-cx-__name-t": "Motor Output",
+    "_____10c-b21vdAUAAAA=-cx-_group-t": "OPU",
+    "_____10c-b21vdAUAAAA=-cx-_n_cnt-i": 1,
+    "_____10c-b21vdAUAAAA=-cx-de_gen-f": 0,
+    "_____10c-b21vdAUAAAA=-cx-dstmap-d": {
+      "b3BzZQEAAAA=": [
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B222",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        },
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B2222222",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "b3BzZQEAAAE=": [
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B22",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        },
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B222222",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "b3BzZQEAAAI=": [
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B2",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        },
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B22222",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ],
+      "b3BzZQEAAAM=": [
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        },
+        {
+          "morphology_id": "b21vdAUAAAA=_b3B2222",
+          "morphology_scalar": [
+            1,
+            1,
+            1
+          ],
+          "plasticity_flag": false,
+          "postSynapticCurrent_multiplier": 1,
+          "synaptic_delay_bursts": 1
+        }
+      ]
+    },
+    "_____10c-b21vdAUAAAA=-cx-gd_vis-b": true,
+    "_____10c-b21vdAUAAAA=-cx-mem__t-i": 100,
+    "_____10c-b21vdAUAAAA=-cx-mem_gr-i": 1,
+    "_____10c-b21vdAUAAAA=-cx-mem_ls-i": 9,
+    "_____10c-b21vdAUAAAA=-cx-memory-b": false,
+    "_____10c-b21vdAUAAAA=-cx-pspuni-b": false,
+    "_____10c-b21vdAUAAAA=-cx-rcordx-i": -31,
+    "_____10c-b21vdAUAAAA=-cx-rcordy-i": 0,
+    "_____10c-b21vdAUAAAA=-cx-rcordz-i": -22,
+    "_____10c-b21vdAUAAAA=-cx-subgrp-t": "",
+    "_____10c-b21vdAUAAAA=-cx-synatt-f": 100,
+    "_____10c-b21vdAUAAAA=-nx-c_fr_c-i": 0,
+    "_____10c-b21vdAUAAAA=-nx-excite-f": 100,
+    "_____10c-b21vdAUAAAA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-b21vdAUAAAA=-nx-fthlim-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-ftincx-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-ftincy-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-ftincz-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-leak_c-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-leak_v-f": 0,
+    "_____10c-b21vdAUAAAA=-nx-mp_acc-b": false,
+    "_____10c-b21vdAUAAAA=-nx-mp_psp-b": false,
+    "_____10c-b21vdAUAAAA=-nx-pstcr_-f": 6,
+    "_____10c-b21vdAUAAAA=-nx-pstcrm-f": 35,
+    "_____10c-b21vdAUAAAA=-nx-refrac-i": 0,
+    "_____10c-b21vdAUAAAA=-nx-snooze-i": 0,
+    "_____10c-b2dhegIAAAA=-cx-2dcorx-i": 2083,
+    "_____10c-b2dhegIAAAA=-cx-2dcory-i": 187,
+    "_____10c-b2dhegIAAAA=-cx-___bbx-i": 4,
+    "_____10c-b2dhegIAAAA=-cx-___bby-i": 1,
+    "_____10c-b2dhegIAAAA=-cx-___bbz-i": 10,
+    "_____10c-b2dhegIAAAA=-cx-__name-t": "Central Vision Gaze Control",
+    "_____10c-b2dhegIAAAA=-cx-_group-t": "OPU",
+    "_____10c-b2dhegIAAAA=-cx-_n_cnt-i": 1,
+    "_____10c-b2dhegIAAAA=-cx-de_gen-f": 0,
+    "_____10c-b2dhegIAAAA=-cx-dstmap-d": {},
+    "_____10c-b2dhegIAAAA=-cx-gd_vis-b": true,
+    "_____10c-b2dhegIAAAA=-cx-mem__t-i": 100,
+    "_____10c-b2dhegIAAAA=-cx-mem_gr-i": 1,
+    "_____10c-b2dhegIAAAA=-cx-mem_ls-i": 9,
+    "_____10c-b2dhegIAAAA=-cx-memory-b": false,
+    "_____10c-b2dhegIAAAA=-cx-pspuni-b": false,
+    "_____10c-b2dhegIAAAA=-cx-rcordx-i": 80,
+    "_____10c-b2dhegIAAAA=-cx-rcordy-i": 0,
+    "_____10c-b2dhegIAAAA=-cx-rcordz-i": 0,
+    "_____10c-b2dhegIAAAA=-cx-subgrp-t": "",
+    "_____10c-b2dhegIAAAA=-cx-synatt-f": 100,
+    "_____10c-b2dhegIAAAA=-nx-c_fr_c-i": 0,
+    "_____10c-b2dhegIAAAA=-nx-excite-f": 100,
+    "_____10c-b2dhegIAAAA=-nx-fire_t-f": 0.10000000149011612,
+    "_____10c-b2dhegIAAAA=-nx-fthlim-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-ftincx-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-ftincy-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-ftincz-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-leak_c-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-leak_v-f": 0,
+    "_____10c-b2dhegIAAAA=-nx-mp_acc-b": false,
+    "_____10c-b2dhegIAAAA=-nx-mp_psp-b": false,
+    "_____10c-b2dhegIAAAA=-nx-pstcr_-f": 6,
+    "_____10c-b2dhegIAAAA=-nx-pstcrm-f": 35,
+    "_____10c-b2dhegIAAAA=-nx-refrac-i": 0,
+    "_____10c-b2dhegIAAAA=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEAAAA=-cx-___bbx-i": 3,
+    "_____10c-b3BzZQEAAAA=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEAAAA=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEAAAA=-cx-__name-t": "fl_hip-0",
+    "_____10c-b3BzZQEAAAA=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEAAAA=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEAAAA=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEAAAA=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEAAAA=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEAAAA=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEAAAA=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEAAAA=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEAAAA=-cx-memory-b": false,
+    "_____10c-b3BzZQEAAAA=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEAAAA=-cx-rcordx-i": -20,
+    "_____10c-b3BzZQEAAAA=-cx-rcordy-i": 0,
+    "_____10c-b3BzZQEAAAA=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEAAAA=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEAAAA=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEAAAA=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEAAAA=-nx-excite-f": 100,
+    "_____10c-b3BzZQEAAAA=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEAAAA=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEAAAA=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEAAAA=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEAAAA=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEAAAA=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEAAAA=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEAAAA=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEAAAE=-cx-___bbx-i": 3,
+    "_____10c-b3BzZQEAAAE=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEAAAE=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEAAAE=-cx-__name-t": "fr_hip-0",
+    "_____10c-b3BzZQEAAAE=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEAAAE=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEAAAE=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEAAAE=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEAAAE=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEAAAE=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEAAAE=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEAAAE=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEAAAE=-cx-memory-b": false,
+    "_____10c-b3BzZQEAAAE=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEAAAE=-cx-rcordx-i": -20,
+    "_____10c-b3BzZQEAAAE=-cx-rcordy-i": 20,
+    "_____10c-b3BzZQEAAAE=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEAAAE=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEAAAE=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEAAAE=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEAAAE=-nx-excite-f": 100,
+    "_____10c-b3BzZQEAAAE=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEAAAE=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEAAAE=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEAAAE=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEAAAE=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEAAAE=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEAAAE=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEAAAE=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEAAAI=-cx-___bbx-i": 3,
+    "_____10c-b3BzZQEAAAI=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEAAAI=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEAAAI=-cx-__name-t": "hl_hip-0",
+    "_____10c-b3BzZQEAAAI=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEAAAI=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEAAAI=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEAAAI=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEAAAI=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEAAAI=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEAAAI=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEAAAI=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEAAAI=-cx-memory-b": false,
+    "_____10c-b3BzZQEAAAI=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEAAAI=-cx-rcordx-i": -20,
+    "_____10c-b3BzZQEAAAI=-cx-rcordy-i": 40,
+    "_____10c-b3BzZQEAAAI=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEAAAI=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEAAAI=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEAAAI=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEAAAI=-nx-excite-f": 100,
+    "_____10c-b3BzZQEAAAI=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEAAAI=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEAAAI=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEAAAI=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEAAAI=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEAAAI=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEAAAI=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEAAAI=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEAAAM=-cx-___bbx-i": 3,
+    "_____10c-b3BzZQEAAAM=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEAAAM=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEAAAM=-cx-__name-t": "hr_hip-0",
+    "_____10c-b3BzZQEAAAM=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEAAAM=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEAAAM=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEAAAM=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEAAAM=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEAAAM=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEAAAM=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEAAAM=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEAAAM=-cx-memory-b": false,
+    "_____10c-b3BzZQEAAAM=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEAAAM=-cx-rcordx-i": -20,
+    "_____10c-b3BzZQEAAAM=-cx-rcordy-i": 60,
+    "_____10c-b3BzZQEAAAM=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEAAAM=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEAAAM=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEAAAM=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEAAAM=-nx-excite-f": 100,
+    "_____10c-b3BzZQEAAAM=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEAAAM=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEAAAM=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEAAAM=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEAAAM=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEAAAM=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEAAAM=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEAAAM=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEBAQA=-cx-___bbx-i": 6,
+    "_____10c-b3BzZQEBAQA=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEBAQA=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEBAQA=-cx-__name-t": "fl_hip-1",
+    "_____10c-b3BzZQEBAQA=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEBAQA=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEBAQA=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEBAQA=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEBAQA=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEBAQA=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEBAQA=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEBAQA=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEBAQA=-cx-memory-b": false,
+    "_____10c-b3BzZQEBAQA=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEBAQA=-cx-rcordx-i": -36,
+    "_____10c-b3BzZQEBAQA=-cx-rcordy-i": 0,
+    "_____10c-b3BzZQEBAQA=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEBAQA=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEBAQA=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEBAQA=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEBAQA=-nx-excite-f": 100,
+    "_____10c-b3BzZQEBAQA=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEBAQA=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEBAQA=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEBAQA=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEBAQA=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEBAQA=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEBAQA=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEBAQA=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEBAQE=-cx-___bbx-i": 6,
+    "_____10c-b3BzZQEBAQE=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEBAQE=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEBAQE=-cx-__name-t": "fr_hip-1",
+    "_____10c-b3BzZQEBAQE=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEBAQE=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEBAQE=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEBAQE=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEBAQE=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEBAQE=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEBAQE=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEBAQE=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEBAQE=-cx-memory-b": false,
+    "_____10c-b3BzZQEBAQE=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEBAQE=-cx-rcordx-i": -36,
+    "_____10c-b3BzZQEBAQE=-cx-rcordy-i": 20,
+    "_____10c-b3BzZQEBAQE=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEBAQE=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEBAQE=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEBAQE=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEBAQE=-nx-excite-f": 100,
+    "_____10c-b3BzZQEBAQE=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEBAQE=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEBAQE=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEBAQE=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEBAQE=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEBAQE=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEBAQE=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEBAQE=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEBAQI=-cx-___bbx-i": 6,
+    "_____10c-b3BzZQEBAQI=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEBAQI=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEBAQI=-cx-__name-t": "hl_hip-1",
+    "_____10c-b3BzZQEBAQI=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEBAQI=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEBAQI=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEBAQI=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEBAQI=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEBAQI=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEBAQI=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEBAQI=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEBAQI=-cx-memory-b": false,
+    "_____10c-b3BzZQEBAQI=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEBAQI=-cx-rcordx-i": -36,
+    "_____10c-b3BzZQEBAQI=-cx-rcordy-i": 40,
+    "_____10c-b3BzZQEBAQI=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEBAQI=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEBAQI=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEBAQI=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEBAQI=-nx-excite-f": 100,
+    "_____10c-b3BzZQEBAQI=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEBAQI=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEBAQI=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEBAQI=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEBAQI=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEBAQI=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEBAQI=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEBAQI=-nx-snooze-i": 0,
+    "_____10c-b3BzZQEBAQM=-cx-___bbx-i": 6,
+    "_____10c-b3BzZQEBAQM=-cx-___bby-i": 1,
+    "_____10c-b3BzZQEBAQM=-cx-___bbz-i": 10,
+    "_____10c-b3BzZQEBAQM=-cx-__name-t": "hr_hip-1",
+    "_____10c-b3BzZQEBAQM=-cx-_group-t": "OPU",
+    "_____10c-b3BzZQEBAQM=-cx-_n_cnt-i": 1,
+    "_____10c-b3BzZQEBAQM=-cx-de_gen-f": 0,
+    "_____10c-b3BzZQEBAQM=-cx-devcnt-i": 3,
+    "_____10c-b3BzZQEBAQM=-cx-gd_vis-b": true,
+    "_____10c-b3BzZQEBAQM=-cx-mem__t-i": 100,
+    "_____10c-b3BzZQEBAQM=-cx-mem_gr-i": 1,
+    "_____10c-b3BzZQEBAQM=-cx-mem_ls-i": 9,
+    "_____10c-b3BzZQEBAQM=-cx-memory-b": false,
+    "_____10c-b3BzZQEBAQM=-cx-pspuni-b": false,
+    "_____10c-b3BzZQEBAQM=-cx-rcordx-i": -36,
+    "_____10c-b3BzZQEBAQM=-cx-rcordy-i": 60,
+    "_____10c-b3BzZQEBAQM=-cx-rcordz-i": -10,
+    "_____10c-b3BzZQEBAQM=-cx-subgrp-t": "",
+    "_____10c-b3BzZQEBAQM=-cx-synatt-f": 100,
+    "_____10c-b3BzZQEBAQM=-nx-c_fr_c-i": 0,
+    "_____10c-b3BzZQEBAQM=-nx-excite-f": 100,
+    "_____10c-b3BzZQEBAQM=-nx-fire_t-f": 0.1,
+    "_____10c-b3BzZQEBAQM=-nx-fthlim-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-ftincx-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-ftincy-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-ftincz-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-leak_c-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-leak_v-f": 0,
+    "_____10c-b3BzZQEBAQM=-nx-mp_acc-b": false,
+    "_____10c-b3BzZQEBAQM=-nx-mp_psp-b": false,
+    "_____10c-b3BzZQEBAQM=-nx-pstcr_-f": 1,
+    "_____10c-b3BzZQEBAQM=-nx-pstcrm-f": 35,
+    "_____10c-b3BzZQEBAQM=-nx-refrac-i": 0,
+    "_____10c-b3BzZQEBAQM=-nx-snooze-i": 0
+  },
+  "brain_regions": {
+    "019df3e7-1633-77b2-9a99-5d591aa697de": {
+      "cortical_areas": [
+        "X19fZGVhdGg=",
+        "aW1pcwoAAAA=",
+        "b2dhegIAAAA=",
+        "X19fZmF0aWc=",
+        "aXN2aQkABgA=",
+        "b3BzZQEAAAI=",
+        "b3BzZQEBAQI=",
+        "b3BzZQEBAQA=",
+        "b3BzZQEAAAE=",
+        "b3BzZQEBAQM=",
+        "aXN2aQkAAwA=",
+        "b3BzZQEAAAM=",
+        "aXN2aQkAAQA=",
+        "b21vdAUAAAA=",
+        "aXN2aQkABAA=",
+        "b3BzZQEAAAA=",
+        "aXN2aQkACAA=",
+        "aXBybwEAAAE=",
+        "aXN2aQkAAgA=",
+        "aXN2aQkABwA=",
+        "aXN2aQkABQA=",
+        "X19fcG93ZXI=",
+        "aXN2aQkAAAA=",
+        "b3BzZQEBAQE="
+      ],
+      "name": "Root Brain Region",
+      "properties": {
+        "inputs": [
+          "b21vdAUAAAA="
+        ],
+        "outputs": [
+          "aXN2aQkAAQA=",
+          "aXN2aQkABwA="
+        ]
+      },
+      "region_id": "019df3e7-1633-77b2-9a99-5d591aa697de",
+      "region_type": "undefined"
+    },
+    "019df3e7-1633-77b2-9a99-5d6a6684fbee": {
+      "cortical_areas": [
+        "Y0tZTTJfX18=",
+        "Y080TTNfX18=",
+        "Y0pXTTNfX18=",
+        "Y0tRTTJfX18=",
+        "Y19fbGVmX18=",
+        "Y1JTTW90X18=",
+        "Y0xXTTRfX18=",
+        "Y19fZm9yX18=",
+        "Y1RHTTRfX18=",
+        "Y19fcmlnX18=",
+        "Y19fYmFjX18=",
+        "Y0lITW90X18="
+      ],
+      "name": "The Essential Genome",
+      "properties": {
+        "coordinate_2d": [
+          1210,
+          0
+        ],
+        "coordinate_3d": [
+          246,
+          105,
+          -10
+        ],
+        "inputs": [
+          "Y19fYmFjX18=",
+          "Y19fZm9yX18="
+        ],
+        "outputs": [
+          "Y080TTNfX18=",
+          "Y0lITW90X18=",
+          "Y0pXTTNfX18=",
+          "Y0tRTTJfX18=",
+          "Y0tZTTJfX18=",
+          "Y0xXTTRfX18=",
+          "Y1JTTW90X18=",
+          "Y1RHTTRfX18="
+        ]
+      },
+      "region_id": "019df3e7-1633-77b2-9a99-5d6a6684fbee",
+      "region_type": "undefined"
+    }
+  },
+  "genome_description": "",
+  "genome_id": "2022-07-10_21:53:10_961677_111111_G",
+  "genome_title": "The Essential Genome",
+  "hosts": {},
+  "neuron_morphologies": {
+    "0-0-0_to_all": {
+      "class": "core",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              "*",
+              "*",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-1_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-2_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-3_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-4_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-5_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-6_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-7_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "0_0_0-_0_0_0": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "APT_low": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              7
+            ],
+            [
+              0,
+              0,
+              8
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "all_to_0-0-0": {
+      "class": "core",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "all_to_all": {
+      "class": "core",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "?",
+              "?",
+              "?"
+            ],
+            [
+              "*",
+              "*",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "apt_high": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "associative_memory": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "b21vdAUAAAA=_b3B": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              7
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B2": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              7
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B22": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              7
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B222": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              7
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B2222": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B22222": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B222222": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "b21vdAUAAAA=_b3B2222222": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "bbb3": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            -1,
+            1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "bitmask_decoder_x": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "bitmask_decoder_y": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "bitmask_decoder_z": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "bitmask_encoder_x": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "bitmask_encoder_y": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "bitmask_encoder_z": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "block_to_block": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "decrease_filter_diagonal": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "decrease_filter_diagonal2": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            2,
+            1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "diagonal_proprio": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            1,
+            1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "episodic_memory": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "increase_filter_diagonal": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "increase_filter_diagonal2": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            2,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "intensity": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              0,
+              0,
+              "*"
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "last_to_first": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "lateral_+x": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_+y": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_+z": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_-x": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            -1,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_-y": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            -1,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_-z": {
+      "class": "core",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            -1
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "lateral_pairs_x": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "left_detect": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              "*",
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "memory_replay": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "motor_backward": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "motor_forward": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "ori_0_deg": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            2,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0
+          ],
+          [
+            4,
+            0,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "ori_115": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            -2,
+            0
+          ],
+          [
+            2,
+            -4,
+            0
+          ],
+          [
+            3,
+            -6,
+            0
+          ],
+          [
+            4,
+            -9,
+            0
+          ],
+          [
+            5,
+            -11,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "ori_135_deg": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            -1,
+            0
+          ],
+          [
+            2,
+            -2,
+            0
+          ],
+          [
+            3,
+            -3,
+            0
+          ],
+          [
+            4,
+            -4,
+            0
+          ],
+          [
+            5,
+            -5,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "ori_45_deg": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            2,
+            2,
+            0
+          ],
+          [
+            3,
+            3,
+            0
+          ],
+          [
+            4,
+            4,
+            0
+          ],
+          [
+            5,
+            5,
+            0
+          ],
+          [
+            6,
+            6,
+            0
+          ],
+          [
+            7,
+            7,
+            0
+          ],
+          [
+            8,
+            8,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "ori_60_deg": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            2,
+            0
+          ],
+          [
+            2,
+            3,
+            0
+          ],
+          [
+            2,
+            4,
+            0
+          ],
+          [
+            3,
+            5,
+            0
+          ],
+          [
+            3,
+            6,
+            0
+          ],
+          [
+            4,
+            7,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "ori_90_deg": {
+      "class": "custom",
+      "parameters": {
+        "vectors": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            2,
+            0
+          ],
+          [
+            0,
+            3,
+            0
+          ],
+          [
+            0,
+            4,
+            0
+          ],
+          [
+            0,
+            5,
+            0
+          ],
+          [
+            0,
+            6,
+            0
+          ],
+          [
+            0,
+            7,
+            0
+          ],
+          [
+            0,
+            8,
+            0
+          ],
+          [
+            0,
+            9,
+            0
+          ]
+        ]
+      },
+      "type": "vectors"
+    },
+    "projector": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "randomizer": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "right_detect": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              7,
+              "*",
+              0
+            ],
+            [
+              0,
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "rotator_z": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "sweeper": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "tile": {
+      "class": "core",
+      "parameters": {
+        "mapper_morphology": "projector",
+        "src_pattern": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ],
+        "src_seed": [
+          16,
+          16,
+          1
+        ]
+      },
+      "type": "composite"
+    },
+    "to_block_[5, 7, 4]": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              5,
+              7,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "transpose_xy": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "transpose_xz": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "transpose_yz": {
+      "class": "core",
+      "parameters": {},
+      "type": "functions"
+    },
+    "turn_left_level_five": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_left_level_four": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_left_level_one": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              3
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              3
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_left_level_three": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_left_level_two": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_right_level_five": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              4,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              4
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_right_level_four": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              3,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_right_level_one": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              3
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              3
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_right_level_three": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              1
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "turn_right_level_two": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              4
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              2
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    },
+    "y_consolidator": {
+      "class": "custom",
+      "parameters": {
+        "patterns": [
+          [
+            [
+              "*",
+              "*",
+              "*"
+            ],
+            [
+              "*",
+              "?",
+              "*"
+            ]
+          ]
+        ]
+      },
+      "type": "patterns"
+    }
+  },
+  "physiology": {
+    "evolution_burst_count": 50,
+    "ipu_idle_threshold": 1000,
+    "lifespan_mgmt_interval": 1,
+    "max_age": 1000000000,
+    "plasticity_queue_depth": 3,
+    "quantization_precision": "fp32",
+    "simulation_timestep": 0.002
+  },
+  "signatures": {
+    "blueprint": "c3b37a1c29222ec3",
+    "genome": "8b7ba58ea9bb74a0",
+    "physiology": "7d650d02447aca0e"
+  },
+  "stats": {
+    "innate_cortical_area_count": 23,
+    "innate_neuron_count": 13845,
+    "innate_synapse_count": 400
+  },
+  "timestamp": 1713187080.019076,
+  "version": "3.0"
+}

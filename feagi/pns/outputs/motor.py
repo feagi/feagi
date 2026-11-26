@@ -4,11 +4,37 @@ Motor Outputs
 Servo motors, rotary motors (DC), stepper motors, etc.
 """
 
-from typing import Tuple, Literal, Optional
+from typing import Literal, Mapping, Optional, Tuple
 from feagi.pns.outputs.base import BaseOutput
 
 # Type hints
 MotorEncoding = Literal["absolute", "incremental"]
+
+# PositionalServo: area 0 is target, area 1 is incremental hop, area 2 is speed.
+ABSOLUTE_TARGET_INCREMENTAL_SPEED = "absolute_target_incremental_speed"
+
+
+def read_positional_servo_target_speed_snapshot(
+    motor_data: Mapping[Tuple[int, int, str], float],
+    *,
+    group_id: int,
+    channel_index: int,
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Read PositionalServo target-and-speed decode from the typed decoded values.
+
+    ``motor_data`` is ``brain_output.read_decoded_motor_values("positional_servo")``
+    (keys ``(group, channel, mode)``). ``Percentage2D`` motor output flattens to
+    two scalar channels per source channel: ``channel_index * 2`` is the target
+    and ``channel_index * 2 + 1`` is the normalized speed limit, both under mode
+    ``absolute``.
+    """
+    group = int(group_id)
+    target_raw = motor_data.get((group, int(channel_index) * 2, "absolute"))
+    speed_raw = motor_data.get((group, int(channel_index) * 2 + 1, "absolute"))
+    target = float(target_raw) if target_raw is not None else None
+    speed = float(speed_raw) if speed_raw is not None else None
+    return target, speed
 
 
 class ServoMotor(BaseOutput):
@@ -50,7 +76,25 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
+        z_neuron_resolution: int = 20,
+        incremental_z_neuron_resolution: Optional[int] = None,
     ):
+        if (
+            not isinstance(z_neuron_resolution, int)
+            or isinstance(z_neuron_resolution, bool)
+            or z_neuron_resolution <= 0
+        ):
+            raise ValueError("z_neuron_resolution must be a positive integer.")
+        if incremental_z_neuron_resolution is None:
+            incremental_z_neuron_resolution = z_neuron_resolution
+        if (
+            not isinstance(incremental_z_neuron_resolution, int)
+            or isinstance(incremental_z_neuron_resolution, bool)
+            or incremental_z_neuron_resolution <= 0
+        ):
+            raise ValueError(
+                "incremental_z_neuron_resolution must be a positive integer."
+            )
         super().__init__(unit_id)
         self.min_angle, self.max_angle = range
         self.encoding = encoding
@@ -58,11 +102,17 @@ class ServoMotor(BaseOutput):
         self.gain = gain  # Amplification factor for motor commands
         self.preferred_group_id = unit_id
         self.preferred_channel_index = channel_index
+        self.z_neuron_resolution = z_neuron_resolution
+        self.incremental_z_neuron_resolution = incremental_z_neuron_resolution
 
         # Current angle (from FEAGI)
         self._current_angle: float = (self.min_angle + self.max_angle) / 2
+        # Normalized speed limit in [0, 1] from the dedicated speed cortical area.
+        self._current_speed_0_1: float = 0.0
         # Contract-level semantic controls used by both sim and real adapters.
         self.control_semantics: str = "normalized_position"
+        # Used when only the absolute area fires in target-and-speed mode.
+        self.default_speed_0_1: float = 0.2
         self.absolute_command_scale: float = 1.0
         self.incremental_command_scale: float = 1.0
         # Incremental mode uses normalized delta-per-update.
@@ -73,6 +123,7 @@ class ServoMotor(BaseOutput):
         self._last_rx_mode: Optional[str] = None
         # Monotonic command sequence used by controllers to detect new events.
         self._rx_command_seq: int = 0
+        self._servo_inc_limit_clamp_streak: bool = False
     
     @classmethod
     def register(
@@ -82,6 +133,8 @@ class ServoMotor(BaseOutput):
         gain: float = 1.0,
         unit_id: int = 0,
         channel_index: Optional[int] = None,
+        z_neuron_resolution: int = 20,
+        incremental_z_neuron_resolution: Optional[int] = None,
     ) -> 'ServoMotor':
         """
         Register a new servo motor output.
@@ -94,13 +147,22 @@ class ServoMotor(BaseOutput):
                 <1.0 to dampen strong signals.
             unit_id: Cortical unit index (motor group) for this servo
             channel_index: Optional channel override within the motor group
+            z_neuron_resolution: Depth of the positional-servo motor cortical area.
         
         Returns:
             ServoMotor instance
         """
         from feagi.pns import brain_output
         
-        servo = cls(range, encoding, gain, unit_id, channel_index)
+        servo = cls(
+            range,
+            encoding,
+            gain,
+            unit_id,
+            channel_index,
+            z_neuron_resolution,
+            incremental_z_neuron_resolution,
+        )
         brain_output.register_output(servo)
         return servo
     
@@ -112,6 +174,15 @@ class ServoMotor(BaseOutput):
             Angle in degrees
         """
         return self._current_angle
+
+    def get_speed_0_1(self) -> float:
+        """
+        Get the latest normalized speed limit from the dedicated speed area.
+
+        In ``absolute_target_incremental_speed`` mode this is the decoded speed
+        component in ``[0, 1]``. Otherwise returns ``0.0`` until a command arrives.
+        """
+        return self._current_speed_0_1
     
     def _register_with_cache(
         self,
@@ -135,12 +206,13 @@ class ServoMotor(BaseOutput):
                     motor_unit=(
                         (
                             frpl.data_structures.genomic
-                            .MotorCorticalType.PositionalServo
+                            .MotorCorticalUnit.PositionalServo
                         )
                     ),
                     group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command,
+                    command_mode=self.encoding,
                 )
 
             self.group_id = group_id
@@ -155,11 +227,36 @@ class ServoMotor(BaseOutput):
         """Callback invoked when FEAGI sends a motor command.
 
         Value may be:
+        - Percentage2D (target, speed): PositionalServo target-and-speed mode
         - Percentage (0.0 to 1.0): PositionalServo uses unsigned 0-100%
         - SignedPercentage (-1.0 to 1.0): RotaryMotor uses signed
         """
         import logging
         logger = logging.getLogger(__name__)
+
+        target_speed_pair = self._extract_target_speed_pair(value)
+        if target_speed_pair is not None:
+            target_0_1, speed_0_1 = target_speed_pair
+            self._last_rx_raw_value = float(target_0_1)
+            self._last_rx_value = float(target_0_1)
+            self._last_rx_mode = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+            self._current_speed_0_1 = max(0.0, min(1.0, float(speed_0_1)))
+            new_angle = self.min_angle + (
+                (self.max_angle - self.min_angle) * target_0_1
+            )
+            # Speed-only decode keeps the cached target. Do not increment the
+            # motion sequence or the controller will command that pose.
+            if abs(new_angle - self._current_angle) > 0.05:
+                self._current_angle = new_angle
+                self._rx_command_seq += 1
+            logger.info(
+                "[SERVO] Ch=%d target_speed target=%.4f speed=%.4f angle=%.2f",
+                self.channel,
+                target_0_1,
+                speed_0_1,
+                self._current_angle,
+            )
+            return
         
         # Normalize to float: support PyPercentage (0-1) or PySignedPercentage (-1 to 1)
         raw_value = value
@@ -190,6 +287,16 @@ class ServoMotor(BaseOutput):
         # - Absolute: 0.0-1.0 as position (from absolute cortical area)
         # Use command_mode if provided, otherwise use self.encoding
         effective_mode = command_mode if command_mode is not None else self.encoding
+        # Incremental cortical output is 0..1 with 0.5 neutral. BrainOutput passes plain
+        # floats (no PyPercentage); Rust callbacks use PyPercentage (is_percentage True).
+        # Plain floats in [0, 1] must use the same neutral semantics, not signed delta=value*step.
+        inc_neutral_01 = False
+        if effective_mode == "incremental":
+            inc_neutral_01 = (
+                is_percentage
+                or command_mode == "incremental"
+                or (command_mode is None and 0.0 <= value <= 1.0)
+            )
         # Persist latest RX for controller-side diagnostics.
         self._last_rx_raw_value = float(raw_value)
         self._last_rx_value = float(value)
@@ -200,7 +307,7 @@ class ServoMotor(BaseOutput):
         # Absolute mode is treated as a direct fixed-position target.
         if effective_mode == "incremental":
             scale = max(0.0, float(self.incremental_command_scale))
-            if is_percentage:
+            if inc_neutral_01:
                 value = 0.5 + ((value - 0.5) * scale)
                 value = max(0.0, min(1.0, value))
             else:
@@ -210,28 +317,54 @@ class ServoMotor(BaseOutput):
         
         if effective_mode == "incremental":
             step = half_range * self.incremental_step_ratio
-            if is_percentage:
+            if inc_neutral_01:
                 delta = (value - 0.5) * 2.0 * step
             else:
                 delta = value * step
-            next_angle = self._current_angle + delta
-            self._current_angle = max(
+            next_angle = old_angle + delta
+            clamped = max(
                 self.min_angle,
                 min(self.max_angle, next_angle),
             )
+            if abs(next_angle - clamped) > 1e-6:
+                if not self._servo_inc_limit_clamp_streak:
+                    logger.warning(
+                        "[SERVO] Ch=%s incremental command has no effect: angle would be %.2f "
+                        "but servo range is [%.2f, %.2f] (integrated angle already at that limit). "
+                        "FEAGI 0..1 uses 0.5 neutral — use activity below 0.5 to decrease or above "
+                        "0.5 to increase. Restart the bridge to reset integrated angle to mid-range.",
+                        self.channel,
+                        next_angle,
+                        self.min_angle,
+                        self.max_angle,
+                    )
+                self._servo_inc_limit_clamp_streak = True
+            else:
+                self._servo_inc_limit_clamp_streak = False
+            self._current_angle = clamped
         else:
             if is_percentage:
                 self._current_angle = self.min_angle + (self.max_angle - self.min_angle) * value
             else:
                 self._current_angle = center + (value * half_range)
 
-        # DETAILED LOGGING for debugging
-        print(f"[SERVO-DEBUG] Channel {self.channel} received value {raw_value:.4f}", flush=True)
-        logger.info(
-            f"[SERVO] Ch={self.channel}, raw={raw_value:.4f}, value={value:.4f}, "
-            f"mode={effective_mode}, old_angle={old_angle:.2f}, new_angle={self._current_angle:.2f}, "
-            f"delta={self._current_angle - old_angle:.4f}"
+        logger.debug(
+            "[SERVO] Ch=%d, raw=%.4f, value=%.4f, mode=%s, "
+            "old_angle=%.2f, new_angle=%.2f, delta=%.4f",
+            self.channel, raw_value, value, effective_mode,
+            old_angle, self._current_angle, self._current_angle - old_angle,
         )
+
+    @staticmethod
+    def _extract_target_speed_pair(value: object) -> Optional[Tuple[float, float]]:
+        """Return ``(target_0_1, speed_0_1)`` when ``value`` is a Percentage2D pair."""
+        component_a = getattr(value, "a", None)
+        component_b = getattr(value, "b", None)
+        if component_a is None or component_b is None:
+            return None
+        if hasattr(component_a, "get_as_0_1") and hasattr(component_b, "get_as_0_1"):
+            return float(component_a.get_as_0_1()), float(component_b.get_as_0_1())
+        return None
 
     def _read_from_cache(self, cache):
         """No longer needed - callbacks handle updates"""
@@ -344,12 +477,13 @@ class RotaryMotor(BaseOutput):
                     motor_unit=(
                         (
                             frpl.data_structures.genomic
-                            .MotorCorticalType.RotaryMotor
+                            .MotorCorticalUnit.RotaryMotor
                         )
                     ),
                     group=group_id,
                     channel=self.channel,
                     callback=self._on_motor_command,
+                    command_mode=self.encoding,
                 )
 
             self.group_id = group_id

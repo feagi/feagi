@@ -5,12 +5,13 @@ Global manager for all FEAGI outputs (motor/action targets).
 Uses Rust MotorDeviceCache for high-performance decoding.
 """
 
-from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any
+from typing import Callable, List, Optional, TYPE_CHECKING, Dict, Any, Literal, Tuple
 import base64
 import binascii
 import json
 import logging
 import os
+import re
 import sys
 
 if TYPE_CHECKING:
@@ -25,6 +26,11 @@ if not logger.handlers:
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     logger.propagate = False
+
+# @ruff-skip: module has >100 E501 line-length violations - cleanup task: sdk-lint-cleanup-brain-output
+
+# The DepthMap sensory area is one layer; depth rides on each pixel's potential.
+DEPTH_MAP_LAYERS = 1
 
 
 class BrainOutput:
@@ -78,9 +84,21 @@ class BrainOutput:
         #: True when ``connect()`` used :class:`~feagi.pns.client.AgentType.SENSORY` (no motor OPUs).
         self._sensory_only_mode: bool = False
 
-        # Latest motor data (for debugging)
-        self._motor_data: Dict[str, Any] = {}
-        self._last_logged_motor_values: Dict[str, float] = {}
+        # Values decoded on this tick's motor frame (updated channels only),
+        # keyed (unit, group, channel, mode). ``unit`` is the snake-case motor
+        # unit name, so units sharing a group index never overwrite each other.
+        # Read via :meth:`read_decoded_motor_values`.
+        self._decoded_motor_values: Dict[Tuple[str, int, int, str], float] = {}
+        # MiscData motor volumes that fired on the latest receive (or drain):
+        # {(group, channel): ndarray}. Empty on ticks with no frame.
+        self._misc_frame_volumes: Dict[Tuple[int, int], Any] = {}
+        # Registered MiscData motor units: {(group, channel): (w, h, d)}.
+        self._misc_registered: Dict[Tuple[int, int], Tuple[int, int, int]] = {}
+        self._last_logged_motor_values: Dict[Tuple[str, int, int, str], float] = {}
+        # Raw motor frame from the latest successful receive, or None when
+        # this tick had no motor bytes. Embodiments scan it for core areas
+        # such as Brain_Death that are not registered motor units.
+        self._last_motor_frame: Optional[bytes] = None
         
         # Configuration
         self._agent_id = None
@@ -98,6 +116,9 @@ class BrainOutput:
         self._auth_token_b64: Optional[str] = None
         self._vision_unit: Optional[tuple[str, int, int, int, str, int]] = None
         self._vision_units: list[tuple[str, int, int, int, str, int]] = []
+        # group -> "simple" | "segmented". Selects the Rust write method so mixed
+        # cameras do not all go through sensor_segmented_vision_write.
+        self._vision_group_modes: Dict[int, Literal["simple", "segmented"]] = {}
 
         # Motor output mapping (channel -> output instance)
         self._motor_outputs_by_channel: Dict[int, 'BaseOutput'] = {}
@@ -108,10 +129,21 @@ class BrainOutput:
 
         # Lazy sensory write helpers (created only when needed)
         self._sensory_percentage_factory = None
+        self._sensory_percentage_3d_factory = None
         self._sensory_misc_factory = None
         self._vision_image_frame_factory = None
         self._vision_color_space = None
         self._vision_memory_layout = None
+
+        # Lazy IMU write helpers. RawIMU bundles three SignedPercentage3D
+        # readings (accel/gyro/mag); SmartIMU is a single SignedPercentage4D
+        # quaternion. Factories are resolved on first IMU write to avoid
+        # importing the Rust extension when no IMU is in use.
+        self._sensory_signed_percentage_factory = None
+        self._sensory_signed_percentage_3d_factory = None
+        self._sensory_signed_percentage_4d_factory = None
+        self._sensory_raw_imu_factory = None
+
         
         # Observability monitors
         self._monitors: List['Monitor'] = []
@@ -199,6 +231,141 @@ class BrainOutput:
 
         normalize_section("output_units_and_decoder_properties")
         normalize_section("input_units_and_encoder_properties")
+        return registrations
+
+    @staticmethod
+    def _typed_string_device_property(value: str) -> Dict[str, Any]:
+        return {"type": "String", "value": value}
+
+    @classmethod
+    def _apply_rgbd_registration_bundle(
+        cls,
+        registrations: Dict[str, Any],
+        *,
+        bundle_id: str,
+        bundle_type: str,
+        rgb_group: int,
+        depth_group: int,
+        rgb_sensor_role: str,
+        depth_sensor_role: str,
+    ) -> Dict[str, Any]:
+        """Attach RGBD pairing metadata to Vision + DepthMap registrations."""
+        input_units = registrations.get("input_units_and_encoder_properties")
+        if not isinstance(input_units, dict):
+            return registrations
+
+        def annotate_unit(
+            unit_key: str,
+            group_id: int,
+            sensor_role: str,
+        ) -> None:
+            unit_entries = input_units.get(unit_key)
+            if not isinstance(unit_entries, list):
+                return
+            for entry in unit_entries:
+                if not isinstance(entry, list) or not entry:
+                    continue
+                unit_def = entry[0]
+                if not isinstance(unit_def, dict):
+                    continue
+                if unit_def.get("cortical_unit_index") != group_id:
+                    continue
+                unit_def["friendly_name"] = f"{bundle_id}_{sensor_role}"
+                device_grouping = unit_def.get("device_grouping")
+                if not isinstance(device_grouping, list):
+                    continue
+                for channel_index, channel in enumerate(device_grouping):
+                    if not isinstance(channel, dict):
+                        continue
+                    channel["friendly_name"] = (
+                        f"{bundle_id}_{sensor_role}_ch{channel_index}"
+                    )
+                    props = channel.get("device_properties")
+                    if not isinstance(props, dict):
+                        props = {}
+                        channel["device_properties"] = props
+                    props["bundle_id"] = cls._typed_string_device_property(bundle_id)
+                    props["bundle_type"] = cls._typed_string_device_property(
+                        bundle_type
+                    )
+                    props["sensor_role"] = cls._typed_string_device_property(
+                        sensor_role
+                    )
+
+        annotate_unit("Vision", rgb_group, rgb_sensor_role)
+        annotate_unit("DepthMap", depth_group, depth_sensor_role)
+        return registrations
+
+    #: Placeholder string for required device_properties keys when Rust cache export omits them.
+    _DEVICE_REGISTRATION_PROPERTY_PLACEHOLDER = "unspecified"
+
+    @classmethod
+    def _apply_device_registration_contract_defaults(
+        cls, registrations: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Ensure catalog fields required by send_device_configuration validation exist.
+
+        ConnectorAgent ``export_capabilities_json()`` may serialize ``friendly_name`` as null
+        and omit ``device_properties`` keys for programmatic motor registration; the wire contract
+        still requires non-empty strings.
+        """
+        required_device_properties = (
+            "bundle_type",
+            "bundle_id",
+            "modality",
+            "signal_type",
+            "source_model",
+            "source_entity",
+        )
+        placeholder = cls._DEVICE_REGISTRATION_PROPERTY_PLACEHOLDER
+        tagged_placeholder: Dict[str, Any] = {"type": "String", "value": placeholder}
+
+        def fill_section(section_key: str) -> None:
+            section = registrations.get(section_key)
+            if not isinstance(section, dict):
+                return
+            for unit_key in sorted(section.keys()):
+                unit_entries = section.get(unit_key)
+                if not isinstance(unit_entries, list):
+                    continue
+                for unit_idx, entry in enumerate(unit_entries):
+                    if not isinstance(entry, list) or not entry:
+                        continue
+                    unit_def = entry[0]
+                    if not isinstance(unit_def, dict):
+                        continue
+                    cortical_unit_index = unit_def.get("cortical_unit_index")
+                    suffix = (
+                        cortical_unit_index
+                        if cortical_unit_index is not None
+                        else unit_idx
+                    )
+                    if cls._decode_device_property_text(unit_def.get("friendly_name")) is None:
+                        unit_def["friendly_name"] = f"{unit_key}_{suffix}"
+                    grouping = unit_def.get("device_grouping")
+                    if not isinstance(grouping, list):
+                        continue
+                    for channel_idx, channel in enumerate(grouping):
+                        if not isinstance(channel, dict):
+                            continue
+                        if (
+                            cls._decode_device_property_text(channel.get("friendly_name"))
+                            is None
+                        ):
+                            channel["friendly_name"] = (
+                                f"{unit_key}_{suffix}_ch{channel_idx}"
+                            )
+                        props = channel.get("device_properties")
+                        if not isinstance(props, dict):
+                            channel["device_properties"] = {}
+                            props = channel["device_properties"]
+                        for rk in required_device_properties:
+                            if cls._decode_device_property_text(props.get(rk)) is None:
+                                props[rk] = tagged_placeholder
+
+        fill_section("output_units_and_decoder_properties")
+        fill_section("input_units_and_encoder_properties")
         return registrations
 
     @staticmethod
@@ -408,24 +575,98 @@ class BrainOutput:
                         )
                         cortical_ids.add(base64.b64encode(cid_bytes).decode())
                 elif isinstance(output, RotaryMotor):
-                    # RotaryMotor: construct similarly (may need adjustment based on actual requirements)
-                    # For now, use default "omot" format
-                    cid_bytes = bytes([111, 109, 111, 116, 0, 0, 0, group_id & 0xFF])
+                    enc = getattr(output, "encoding", "absolute") or "absolute"
+                    frame_bit = 1 if enc == "incremental" else 0
+                    variant = 5
+                    cfg_lo = variant & 0xFF
+                    cfg_hi = frame_bit & 0xFF
+                    cid_bytes = bytes(
+                        [
+                            111,
+                            109,
+                            111,
+                            116,
+                            cfg_lo,
+                            cfg_hi,
+                            0,
+                            group_id & 0xFF,
+                        ]
+                    )
                     cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
-        # If no specific IDs, use default PositionalServo Percentage areas
+        # Legacy fallback: only when motor outputs exist but no IDs were assembled
+        # (e.g. missing ``_get_cortical_id``). Do not invent default motor IDs when
+        # there are no motors; that makes ``len(motor_cortical_ids) > 0``, sets
+        # ``output_count`` non-zero, and incorrectly rejects sensory-only registration.
         if not cortical_ids:
-            for sub in (0, 1):  # 0=Absolute, 1=Incremental
-                cfg = 1 | (sub << 8)
-                cid_bytes = bytes(
-                    [111, 112, 115, 101, cfg & 0xFF, (cfg >> 8) & 0xFF, sub, 0]
-                )
-                cortical_ids.add(base64.b64encode(cid_bytes).decode())
+            from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+            if any(isinstance(o, (ServoMotor, RotaryMotor)) for o in self._outputs):
+                for sub in (0, 1):  # 0=Absolute, 1=Incremental
+                    cfg = 1 | (sub << 8)
+                    cid_bytes = bytes(
+                        [111, 112, 115, 101, cfg & 0xFF, (cfg >> 8) & 0xFF, sub, 0]
+                    )
+                    cortical_ids.add(base64.b64encode(cid_bytes).decode())
 
         return list(cortical_ids)
 
+    # Motor unit names the FEAGI registration contract accepts. Mirrors the
+    # ``MotorUnit`` enum (serde ``snake_case``) in
+    # feagi-core/crates/feagi-services/src/types/agent_registry.rs. Cache units
+    # outside this set (e.g. SpatialPointer) cannot be sent in ``motor_units``.
+    _REGISTRABLE_MOTOR_UNITS = frozenset(
+        {
+            "rotary_motor",
+            "positional_servo",
+            "gaze",
+            "misc_data",
+            "text_english_output",
+            "count_output",
+            "object_segmentation",
+            "simple_vision_output",
+        }
+    )
+
+    def _cache_motor_unit_channels(self) -> Dict[tuple[str, int], int]:
+        """
+        Motor units registered on the Rust ConnectorAgent cache.
+
+        Reads ``output_units_and_decoder_properties`` from the cache export, so
+        every ``register_motor_*`` call is covered without a parallel record.
+        Returns ``{(unit_name, group): channel_count}`` for units the
+        registration contract accepts.
+        """
+        if self._cache is None or not hasattr(self._cache, "export_capabilities_json"):
+            return {}
+        try:
+            exported = json.loads(self._cache.export_capabilities_json())
+        except Exception as exc:
+            logger.warning("Failed to read motor units from cache export: %s", exc)
+            return {}
+        outputs = exported.get("output_units_and_decoder_properties") or {}
+        units: Dict[tuple[str, int], int] = {}
+        for unit_key, entries in outputs.items():
+            unit_name = re.sub(r"(?<!^)(?=[A-Z])", "_", str(unit_key)).lower()
+            if unit_name not in self._REGISTRABLE_MOTOR_UNITS:
+                continue
+            for entry in entries or []:
+                frame = entry[0] if isinstance(entry, (list, tuple)) and entry else {}
+                if not isinstance(frame, dict):
+                    continue
+                group = int(frame.get("cortical_unit_index", 0) or 0)
+                channels = len(frame.get("device_grouping") or []) or 1
+                key = (unit_name, group)
+                units[key] = max(units.get(key, 0), channels)
+        return units
+
     def _collect_motor_unit_specs(self) -> List[tuple[str, int]]:
-        """Collect motor unit specs (unit, group) for registration."""
+        """
+        Collect motor unit specs (unit, group) for registration.
+
+        Merges the Python ServoMotor/RotaryMotor outputs with every unit
+        registered on the Rust ConnectorAgent cache (deduplicated).
+        """
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
 
         unit_specs: set[tuple[str, int]] = set()
@@ -434,52 +675,288 @@ class BrainOutput:
                 unit_specs.add(("positional_servo", int(getattr(output, "group_id", 0) or 0)))
             elif isinstance(output, RotaryMotor):
                 unit_specs.add(("rotary_motor", int(getattr(output, "group_id", 0) or 0)))
+        unit_specs.update(self._cache_motor_unit_channels())
         return sorted(unit_specs)
-    
+
+    def _motor_feagi_output_count(self) -> int:
+        """
+        OPU channel count FEAGI must allocate: ``max(channel_index) + 1`` over motor outputs.
+
+        Must stay consistent with :meth:`_register_motor_decoder` (Rust cache slot count)
+        and with :meth:`connect` registration payload ``output_count``. Using only the
+        number of Python motor objects would register e.g. ``output_count=1`` while
+        the single RotaryMotor uses ``channel_index=1``, so FEAGI would drive channel 0
+        and the connector would never receive callbacks on channel 1 (e.g. ROS bridge
+        ``channelId: \"1\"`` + cmd_vel).
+
+        Motors registered only on the cache (no Python objects) count by their
+        channel count, so the largest unit sets the floor.
+        """
+        from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
+
+        max_idx = -1
+        for output in self._outputs:
+            if isinstance(output, (ServoMotor, RotaryMotor)):
+                ch = int(getattr(output, "channel", 0) or 0)
+                max_idx = max(max_idx, ch)
+        count = (max_idx + 1) if max_idx >= 0 else 0
+        cache_channels = self._cache_motor_unit_channels().values()
+        return max([count, *cache_channels])
+
     def _allocate_group_id(self) -> int:
         """Allocate next cortical group ID"""
         group_id = self._next_group_id
         self._next_group_id += 1
         return group_id
+
+    def _positional_servo_default_speeds_for_group(
+        self,
+        group_id: int,
+        *,
+        channel_count: int,
+    ) -> Optional[List[float]]:
+        """
+        Build per-channel default speeds when any servo in the group uses
+        absolute-target + incremental-speed semantics.
+        """
+        from feagi.pns.outputs.motor import ABSOLUTE_TARGET_INCREMENTAL_SPEED, ServoMotor
+
+        servos = [
+            output
+            for output in self._outputs
+            if isinstance(output, ServoMotor)
+            and int(getattr(output, "group_id", 0) or 0) == int(group_id)
+        ]
+        if not any(
+            getattr(servo, "control_semantics", "") == ABSOLUTE_TARGET_INCREMENTAL_SPEED
+            for servo in servos
+        ):
+            return None
+
+        default_speeds = [0.2] * int(channel_count)
+        for servo in servos:
+            channel = int(getattr(servo, "preferred_channel_index", servo.channel) or 0)
+            if 0 <= channel < len(default_speeds):
+                default_speeds[channel] = float(getattr(servo, "default_speed_0_1", 0.2))
+        return default_speeds
+
+    def _positional_servo_incremental_step_for_group(
+        self,
+        group_id: int,
+    ) -> Optional[float]:
+        """
+        Return one incremental target step for target-and-speed servos in a group.
+
+        All PositionalServo channels in a group share one Rust decoder instance,
+        so target-and-speed channels must agree on a single incremental step.
+        """
+        from feagi.pns.outputs.motor import ABSOLUTE_TARGET_INCREMENTAL_SPEED, ServoMotor
+
+        steps: List[float] = []
+        for output in self._outputs:
+            if not isinstance(output, ServoMotor):
+                continue
+            if int(getattr(output, "group_id", 0) or 0) != int(group_id):
+                continue
+            if getattr(output, "control_semantics", "") != ABSOLUTE_TARGET_INCREMENTAL_SPEED:
+                continue
+            steps.append(float(getattr(output, "incremental_step_ratio")))
+
+        if not steps:
+            return None
+        first = steps[0]
+        for step in steps[1:]:
+            if abs(step - first) > 1e-9:
+                raise RuntimeError(
+                    "PositionalServo outputs in device group %s use different "
+                    "incremental_step_ratio values; use one value per motor group."
+                    % group_id
+                )
+        return first
+
+    def _register_positional_servo_group_decoder(
+        self,
+        *,
+        group_id: int,
+        channel_count: int,
+        z_neuron_resolution: int,
+        incremental_z_neuron_resolution: int,
+        frame_mode: object,
+        positioning: object,
+        default_speeds_by_channel: Optional[List[float]],
+        incremental_step_0_1: Optional[float],
+    ) -> None:
+        """Register one PositionalServo decoder group (legacy or target-and-speed)."""
+        if default_speeds_by_channel is not None:
+            if len(default_speeds_by_channel) != int(channel_count):
+                raise RuntimeError(
+                    "PositionalServo target-speed registration for group %s requires "
+                    "%d default speeds, got %d."
+                    % (group_id, channel_count, len(default_speeds_by_channel))
+                )
+            if incremental_step_0_1 is None:
+                raise RuntimeError(
+                    "PositionalServo target-speed registration for group %s requires "
+                    "incremental_step_0_1."
+                    % group_id
+                )
+            logger.info(
+                "[MOTOR-DECODER] PositionalServo target-speed group=%d channels=%d "
+                "absolute_z=%d incremental_z=%d default_speeds=%s incremental_step=%.6f",
+                int(group_id),
+                int(channel_count),
+                int(z_neuron_resolution),
+                int(incremental_z_neuron_resolution),
+                default_speeds_by_channel,
+                float(incremental_step_0_1),
+            )
+            try:
+                self._cache.motor_positional_servo_target_speed_register(
+                    group_id,
+                    channel_count,
+                    z_neuron_resolution,
+                    incremental_z_neuron_resolution,
+                    positioning,
+                    default_speeds_by_channel,
+                    float(incremental_step_0_1),
+                )
+            except TypeError as exc:
+                # Temporary bridge-compat path:
+                # installed controller bundles may still ship older
+                # feagi_rust_py_libs that do not yet accept incremental_step_0_1.
+                message = str(exc)
+                if "positional arguments" not in message:
+                    raise
+                logger.warning(
+                    "[MOTOR-DECODER] PositionalServo target-speed registration "
+                    "falling back to legacy Rust signature (no incremental_step_0_1). "
+                    "Update feagi_rust_py_libs in the controller bundle to enable "
+                    "settings-driven incremental step."
+                )
+                self._cache.motor_positional_servo_target_speed_register(
+                    group_id,
+                    channel_count,
+                    z_neuron_resolution,
+                    incremental_z_neuron_resolution,
+                    positioning,
+                    default_speeds_by_channel,
+                )
+            return
+        self._cache.motor_positional_servo_register(
+            group_id,
+            channel_count,
+            frame_mode,
+            z_neuron_resolution,
+            positioning,
+        )
     
     def _register_motor_decoder(self):
-        """Register motor decoder with Rust cache (called once with total channel count)"""
+        """Register motor decoder with Rust cache (once per group).
+
+        Channel count per group must be ``max(channel_index) + 1`` among outputs
+        in that group, not merely the number of outputs. A single RotaryMotor
+        mapped to I/O channel 1 still requires two decoder slots (indices 0 and 1).
+        """
         import feagi_rust_py_libs as frpl
         from feagi.pns.outputs.motor import ServoMotor, RotaryMotor
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
-        z_neuron_resolution = 10
+        servo_frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        # Match the default feagi-structures motor templates unless a ServoMotor
+        # explicitly configures its positional-servo cortical depth.
+        z_neuron_resolution_rotary = 9
 
-        servo_counts_by_group: Dict[int, int] = {}
-        rotary_counts_by_group: Dict[int, int] = {}
+        servo_channels_by_group: Dict[int, List[int]] = {}
+        servo_z_neuron_resolution_by_group: Dict[int, int] = {}
+        servo_incremental_z_neuron_resolution_by_group: Dict[int, int] = {}
+        rotary_by_group: Dict[int, List[Any]] = {}
         for output in self._outputs:
             if not isinstance(output, (ServoMotor, RotaryMotor)):
                 continue
             group_id = int(getattr(output, "group_id", 0) or 0)
+            ch = int(getattr(output, "channel", 0) or 0)
             if isinstance(output, ServoMotor):
-                servo_counts_by_group[group_id] = servo_counts_by_group.get(group_id, 0) + 1
+                servo_channels_by_group.setdefault(group_id, []).append(ch)
+                z_neuron_resolution = getattr(output, "z_neuron_resolution", 10)
+                incremental_z_neuron_resolution = getattr(
+                    output,
+                    "incremental_z_neuron_resolution",
+                    z_neuron_resolution,
+                )
+                existing_resolution = servo_z_neuron_resolution_by_group.get(group_id)
+                if (
+                    existing_resolution is not None
+                    and existing_resolution != z_neuron_resolution
+                ):
+                    raise RuntimeError(
+                        "PositionalServo outputs in device group %s use different "
+                        "absolute z-neuron resolutions; use one resolution per motor group."
+                        % group_id
+                    )
+                existing_incremental = servo_incremental_z_neuron_resolution_by_group.get(
+                    group_id
+                )
+                if (
+                    existing_incremental is not None
+                    and existing_incremental != incremental_z_neuron_resolution
+                ):
+                    raise RuntimeError(
+                        "PositionalServo outputs in device group %s use different "
+                        "incremental z-neuron resolutions; use one resolution per motor group."
+                        % group_id
+                    )
+                servo_z_neuron_resolution_by_group[group_id] = z_neuron_resolution
+                servo_incremental_z_neuron_resolution_by_group[group_id] = (
+                    incremental_z_neuron_resolution
+                )
             else:
-                rotary_counts_by_group[group_id] = rotary_counts_by_group.get(group_id, 0) + 1
+                rotary_by_group.setdefault(group_id, []).append(output)
 
-        for group_id, count in sorted(servo_counts_by_group.items()):
+        for group_id, chans in sorted(servo_channels_by_group.items()):
+            count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
-            self._cache.motor_positional_servo_register(
-                group_id,
-                count,
-                frame_mode,
-                z_neuron_resolution,
-                positioning,
+            self._register_positional_servo_group_decoder(
+                group_id=group_id,
+                channel_count=count,
+                z_neuron_resolution=servo_z_neuron_resolution_by_group[group_id],
+                incremental_z_neuron_resolution=servo_incremental_z_neuron_resolution_by_group[
+                    group_id
+                ],
+                frame_mode=servo_frame_mode,
+                positioning=positioning,
+                default_speeds_by_channel=self._positional_servo_default_speeds_for_group(
+                    group_id,
+                    channel_count=count,
+                ),
+                incremental_step_0_1=self._positional_servo_incremental_step_for_group(group_id),
             )
 
-        for group_id, count in sorted(rotary_counts_by_group.items()):
+        for group_id, motors in sorted(rotary_by_group.items()):
+            encodings = {
+                getattr(m, "encoding", "absolute") or "absolute" for m in motors
+            }
+            if len(encodings) > 1:
+                raise RuntimeError(
+                    "RotaryMotor outputs in device group %s mix absolute and incremental "
+                    "encoding; use different device group IDs in mappings, or use the same "
+                    "frame (absolute) or (incremental) for all rotary motors in that group."
+                    % group_id
+                )
+            enc = next(iter(encodings))
+            rotary_frame = (
+                frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Incremental()
+                if enc == "incremental"
+                else frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+            )
+            chans = [int(getattr(m, "channel", 0) or 0) for m in motors]
+            count = (max(chans) + 1) if chans else 0
             if count <= 0:
                 continue
             self._cache.motor_rotary_motor_register(
                 group_id,
                 count,
-                frame_mode,
-                z_neuron_resolution,
+                rotary_frame,
+                z_neuron_resolution_rotary,
                 positioning,
             )
 
@@ -567,6 +1044,35 @@ class BrainOutput:
             feagi_motor_port,
         )
     
+    def configure_from_args(self, args, *, transport: str = "zmq"):
+        """
+        Configure the connection from a parsed shared-argument namespace.
+
+        ``args`` comes from a parser that called
+        :func:`feagi.agent.args.add_feagi_connection_args`. Raises
+        ``ValueError`` when the auth token is missing (neither the argument
+        nor ``FEAGI_AUTH_TOKEN_B64`` supplied one).
+        """
+        if not getattr(args, "auth_token_b64", None):
+            raise ValueError(
+                "Missing auth token. Provide --auth-token-b64 or set "
+                "FEAGI_AUTH_TOKEN_B64."
+            )
+        self.configure(
+            agent_id=args.agent_id,
+            feagi_host=args.ip,
+            feagi_registration_port=args.feagi_zmq_registration_port,
+            feagi_sensory_port=args.feagi_zmq_sensory_port,
+            feagi_motor_port=args.feagi_zmq_motor_port,
+            transport=transport,
+            feagi_connection_timeout_ms=args.feagi_zmq_connection_timeout_ms,
+            feagi_registration_retries=args.feagi_zmq_registration_retries,
+            feagi_heartbeat_interval_s=args.feagi_zmq_heartbeat_interval_s,
+            feagi_api_port=args.port,
+            feagi_http_timeout_s=args.feagi_http_timeout_s,
+            auth_token_b64=args.auth_token_b64,
+        )
+
     def connect(self):
         """
         Connect to FEAGI.
@@ -644,13 +1150,27 @@ class BrainOutput:
                             set(motor_cortical_ids) | set(derived_sensory_ids)
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "Failed to derive sensory cortical IDs from cache: %s",
-                            exc,
-                        )
+                        raise RuntimeError(
+                            "Failed to derive sensory cortical IDs from the connector "
+                            "cache export (empty device_grouping, export/serde mismatch, "
+                            "or incompatible feagi-rust-py-libs)."
+                        ) from exc
+                    if not expected_cortical_ids:
+                        preview = json.loads(self._cache.export_capabilities_json())
+                        in_u = preview.get("input_units_and_encoder_properties") or {}
+                        if isinstance(in_u, dict) and in_u:
+                            raise RuntimeError(
+                                "Sensory units appear in device_registrations export but "
+                                "cortical ID derivation returned no IDs; auto-create "
+                                "cannot be verified."
+                            )
                 else:
                     expected_cortical_ids = list(motor_cortical_ids)
-            output_count = self._motor_total_channels or len(motor_cortical_ids)
+            output_count = (
+                self._motor_feagi_output_count()
+                or self._motor_total_channels
+                or len(motor_cortical_ids)
+            )
             has_vision = bool(self._vision_units)
             has_sensory_cache = bool(derived_sensory_ids)
             sensory_only_eligible = (
@@ -675,7 +1195,7 @@ class BrainOutput:
                     )
                 agent_type = (
                     AgentType.BOTH
-                    if self._vision_units
+                    if (self._vision_units or has_sensory_cache)
                     else AgentType.MOTOR
                 )
                 motor_units_payload = ("motor", output_count, motor_units)
@@ -710,7 +1230,12 @@ class BrainOutput:
                 client.set_motor_cortical_ids(motor_cortical_ids)
             self._client = client
             # Send device registrations via ZMQ so motor cortical IDs are derived correctly
-            if (self._motor_total_channels > 0 or self._sensory_only_mode) and self._cache:
+            has_cache_motors = bool(self._cache_motor_unit_channels())
+            if (
+                self._motor_total_channels > 0
+                or has_cache_motors
+                or self._sensory_only_mode
+            ) and self._cache:
                 if self._feagi_api_port is None or self._feagi_http_timeout_s is None:
                     raise RuntimeError(
                         "brain_output.configure(...) must include feagi_api_port "
@@ -723,6 +1248,7 @@ class BrainOutput:
                     if self._device_registration_enricher is not None:
                         device_regs = self._device_registration_enricher(device_regs)
                     device_regs = self._normalize_device_registration_properties(device_regs)
+                    device_regs = self._apply_device_registration_contract_defaults(device_regs)
                     device_regs = self._validate_device_registration_contract(device_regs)
                     logger.info(
                         "[CFG] Verifying cortical auto-create for %d IDs "
@@ -754,6 +1280,48 @@ class BrainOutput:
         self._connected = False
         self._sensory_only_mode = False
 
+    def reconnect(self, reason: Optional[str] = None) -> None:
+        """
+        Re-establish the FEAGI registration without re-running configure().
+
+        Use this when :class:`feagi.pns.health_monitor.FeagiHealthMonitor`
+        emits an ``attempt_now`` decision (e.g. genome reload, FEAGI
+        restart, prolonged unreachability). The decision logic lives in
+        the Rust ``feagi-agent`` crate so all language SDKs behave
+        identically.
+
+        Behavior:
+        - If a client is already attached, delegate to its ``reconnect()``
+          method (which performs disconnect + connect + replay of cached
+          device registrations entirely in Rust).
+        - Otherwise, perform a fresh ``connect()`` cycle so the controller
+          can recover from a state where it had never connected.
+
+        Args:
+            reason: Optional human-readable reason forwarded to logs.
+
+        Raises:
+            RuntimeError: If the agent is not configured or the rebuild
+                fails. Callers feeding into a recovery loop should report
+                this back to the policy via ``record_attempt_failed()``.
+        """
+        if not self._cache_available:
+            raise RuntimeError(
+                "Cache not initialized. Call configure() first.",
+            )
+        if self._client is None:
+            logger.info(
+                "[RECONNECT] No active client; running full connect()"
+                " (reason=%s)",
+                reason,
+            )
+            self.connect()
+            return
+
+        logger.info("[RECONNECT] Rebuilding FEAGI session (reason=%s)", reason)
+        self._client.reconnect(reason)
+        self._connected = True
+
     def register_sensor_units(
         self,
         unit_channel_counts: Dict[str, int],
@@ -762,6 +1330,13 @@ class BrainOutput:
         group_index_start: int = 0,
         image_resolution_xy: tuple[int, int] = (32, 32),
         misc_dimensions_xyz: tuple[int, int, int] = (1, 1, 1),
+        frame_change_handling: Literal["absolute", "incremental"] = "absolute",
+        audio_sample_rate_hz: int = 16000,
+        audio_window_size: int = 1024,
+        audio_hop_size: int = 512,
+        audio_phase_steps: int = 16,
+        audio_magnitude_floor_db: int = -80,
+        audio_magnitude_ceiling_db: int = 0,
     ) -> Dict[str, int]:
         """
         Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
@@ -771,13 +1346,36 @@ class BrainOutput:
 
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
-                Supported keys: ``Vision``, ``Gyroscope``, ``Proximity``, ``Servo``,
-                ``Shock``, ``MiscData``.
+                Supported keys: ``Vision``, ``RawIMU``, ``SmartIMU``, ``Proximity``,
+                ``Servo``, ``Shock``, ``MiscData``, ``DepthMap``, ``CartesianPosition``,
+                ``AudioInput``.
+
+                Notes on ``AudioInput``:
+                  * Absolute-only. Registers one spectrum area per channel using
+                    linear ``AudioSpectrumProperties`` from the ``audio_*`` kwargs
+                    (default 16 kHz, 1024-sample window, hop 512, 16 phase steps).
+
+                Notes on IMU keys:
+                  * ``RawIMU`` registers ONE cortical unit with three sub-areas
+                    (accelerometer, gyroscope, magnetometer), each `[3, 1, z]`.
+                  * ``SmartIMU`` registers ONE cortical unit with one sub-area
+                    holding an orientation quaternion as `[4, 1, z]`.
+                  * IMU data is intentionally NOT routed through ``Shock``.
+
+                Notes on ``CartesianPosition``:
+                  * Registers ONE cortical unit with one sub-area, an unsigned
+                    3-axis (x/y/z) position each in `[0, 1]`, as `[3, 1, z]`.
+                  * Absolute-only (the Rust template rejects Incremental); pass
+                    ``frame_change_handling="absolute"`` (the default) when this
+                    key is present.
             z_neuron_resolution: Resolution parameter required by scalar sensory units.
             group_index_start: Starting sensory group index. Use this to reserve
                 lower group IDs for other sensory unit families.
             image_resolution_xy: Vision registration resolution as (x, y).
             misc_dimensions_xyz: MiscData registration dimensions as (x, y, z).
+            frame_change_handling: FEAGI frame mode for registered units.
+                Use ``"absolute"`` for direct values and ``"incremental"``
+                for delta-style channels mirrored as incremental cortical areas.
 
         Returns:
             Mapping of unit key -> assigned cache group index (deterministic sorted order).
@@ -792,7 +1390,23 @@ class BrainOutput:
 
         import feagi_rust_py_libs as frpl
 
-        frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        frame_mode_value = str(frame_change_handling).strip().lower()
+        if frame_mode_value == "incremental":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Incremental()
+            )
+        elif frame_mode_value == "absolute":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Absolute()
+            )
+        else:
+            raise ValueError(
+                "frame_change_handling must be 'absolute' or 'incremental'."
+            )
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
         descriptors = frpl.connector_core.data_types.descriptors
         image_props = descriptors.ImageFrameProperties(
@@ -808,6 +1422,18 @@ class BrainOutput:
             int(misc_dimensions_xyz[1]),
             int(misc_dimensions_xyz[2]),
         )
+        if "AudioInput" in unit_channel_counts and frame_mode_value != "absolute":
+            raise ValueError("AudioInput only supports frame_change_handling='absolute'.")
+        audio_properties = None
+        if "AudioInput" in unit_channel_counts:
+            audio_properties = frpl.connector_core.data_types.AudioSpectrumProperties.new_linear(
+                int(audio_sample_rate_hz),
+                int(audio_window_size),
+                int(audio_hop_size),
+                int(audio_phase_steps),
+                int(audio_magnitude_floor_db),
+                int(audio_magnitude_ceiling_db),
+            )
 
         sensory_registers = {
             "Vision": lambda group, count: self._cache.sensor_Vision_register(
@@ -816,7 +1442,20 @@ class BrainOutput:
                 frame_mode,
                 image_props,
             ),
-            "Gyroscope": lambda group, count: self._cache.sensor_Gyroscope_register(
+            # Raw IMU = ONE cortical unit, THREE sub-areas (accel, gyro, mag).
+            # The Rust binding's snake-cased method name surfaces as
+            # ``sensor_RawIMU_register`` (matching the existing camel pattern of
+            # ``sensor_Vision_register``); the underlying cache spreads the
+            # composite across the 3 sub-cortical-areas at burst time.
+            "RawIMU": lambda group, count: self._cache.sensor_RawIMU_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            # Smart IMU = single 4-axis quaternion sub-area for orientation.
+            "SmartIMU": lambda group, count: self._cache.sensor_SmartIMU_register(
                 group,
                 count,
                 frame_mode,
@@ -850,6 +1489,29 @@ class BrainOutput:
                 frame_mode,
                 misc_dims,
             ),
+            "DepthMap": lambda group, count: self._cache.sensor_DepthMap_register(
+                group,
+                count,
+                frame_mode,
+                misc_dims,
+            ),
+            # CartesianPosition = single unsigned 3-axis (Percentage3D) sub-area,
+            # one channel per registered unit -- an absolute end-effector/TCP
+            # position with each axis normalized to [0, 1] over the caller's
+            # workspace. Absolute-only: the Rust template rejects Incremental.
+            "CartesianPosition": lambda group, count: self._cache.sensor_CartesianPosition_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "AudioInput": lambda group, count: self._cache.sensor_AudioInput_register(
+                group,
+                count,
+                frame_mode,
+                audio_properties,
+            ),
         }
 
         unit_groups: Dict[str, int] = {}
@@ -865,20 +1527,130 @@ class BrainOutput:
                     f"Supported units: {sorted(sensory_registers.keys())}"
                 )
             register(group_index, channel_count)
+            if unit_key == "Vision":
+                self._vision_group_modes[group_index] = "simple"
             unit_groups[unit_key] = group_index
         return unit_groups
+
+    def register_rgbd_sensor_pair(
+        self,
+        *,
+        rgb_group: int,
+        depth_group: int,
+        rgb_resolution_xy: tuple[int, int],
+        depth_resolution_xy: tuple[int, int],
+        bundle_id: str,
+        bundle_type: str = "rgbd_camera",
+        frame_change_handling: Literal["absolute", "incremental"] = "absolute",
+    ) -> Dict[str, int]:
+        """
+        Register one RGBD camera as sibling Vision + DepthMap sensory units.
+
+        This keeps registration deterministic and explicitly paired so FEAGI can
+        treat both streams as one physical camera rig. The DepthMap is one layer
+        (``W x H x 1``); depth rides on each pixel's potential.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if rgb_group < 0 or depth_group < 0:
+            raise ValueError("rgb_group and depth_group must be >= 0.")
+        if not bundle_id or not bundle_id.strip():
+            raise ValueError("bundle_id must be a non-empty string.")
+        if not bundle_type or not bundle_type.strip():
+            raise ValueError("bundle_type must be a non-empty string.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode_value = str(frame_change_handling).strip().lower()
+        if frame_mode_value == "incremental":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Incremental()
+            )
+        elif frame_mode_value == "absolute":
+            frame_mode = (
+                frpl.data_structures.genomic.cortical_area
+                .FrameChangeHandling
+                .Absolute()
+            )
+        else:
+            raise ValueError(
+                "frame_change_handling must be 'absolute' or 'incremental'."
+            )
+
+        descriptors = frpl.connector_core.data_types.descriptors
+        image_props = descriptors.ImageFrameProperties(
+            descriptors.ImageXYResolution(
+                int(rgb_resolution_xy[0]),
+                int(rgb_resolution_xy[1]),
+            ),
+            descriptors.ColorSpace.Gamma,
+            descriptors.ColorChannelLayout.RGB,
+        )
+        depth_dims = descriptors.MiscDataDimensions(
+            int(depth_resolution_xy[0]),
+            int(depth_resolution_xy[1]),
+            DEPTH_MAP_LAYERS,
+        )
+        self._cache.sensor_Vision_register(
+            int(rgb_group),
+            1,
+            frame_mode,
+            image_props,
+        )
+        self._vision_group_modes[int(rgb_group)] = "simple"
+        self._cache.sensor_DepthMap_register(
+            int(depth_group),
+            1,
+            frame_mode,
+            depth_dims,
+        )
+
+        previous_enricher = self._device_registration_enricher
+
+        def _rgbd_enricher(registrations: Dict[str, Any]) -> Dict[str, Any]:
+            enriched = registrations
+            if previous_enricher is not None:
+                enriched = previous_enricher(enriched)
+            return BrainOutput._apply_rgbd_registration_bundle(
+                enriched,
+                bundle_id=bundle_id.strip(),
+                bundle_type=bundle_type.strip(),
+                rgb_group=int(rgb_group),
+                depth_group=int(depth_group),
+                rgb_sensor_role="rgb",
+                depth_sensor_role="depth",
+            )
+
+        self.set_device_registration_enricher(_rgbd_enricher)
+        return {"Vision": int(rgb_group), "DepthMap": int(depth_group)}
 
     def register_motor_groups(
         self,
         group_channels: Dict[int, Dict[str, List[str]]],
         *,
         z_neuron_resolution: int,
+        positional_servo_default_speed_0_1: Optional[Dict[int, List[float]]] = None,
+        positional_servo_incremental_step_0_1: Optional[Dict[int, float]] = None,
     ) -> None:
         """
         Register grouped motor channels in ConnectorAgent without exposing Rust APIs.
 
         This supports advanced controllers that need deterministic group/channel
         registration before FEAGI auto-creation verification.
+
+        Args:
+            positional_servo_default_speed_0_1: Optional per-group default speed
+                lists for ``absolute_target_incremental_speed`` PositionalServo
+                groups. When a group key is present, target-and-speed decoding is
+                registered instead of legacy positional-servo integration.
+            positional_servo_incremental_step_0_1: Optional per-group incremental
+                target step in ``(0, 1]`` for target-and-speed PositionalServo
+                groups. Required for every group that uses target-and-speed
+                decoding. Groups omitted here are resolved from registered
+                ``ServoMotor`` outputs, matching ``_register_motor_decoder``.
         """
         self._init_cache()
         if self._cache is None:
@@ -890,17 +1662,37 @@ class BrainOutput:
 
         frame_mode = frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
         positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        default_speeds_by_group = positional_servo_default_speed_0_1 or {}
+        incremental_step_by_group = positional_servo_incremental_step_0_1 or {}
 
         for group_id, channels in sorted(group_channels.items()):
             group_servo_count = len(channels.get("positional_servo", []))
             group_rotary_count = len(channels.get("rotary_motor", []))
             if group_servo_count > 0:
-                self._cache.motor_positional_servo_register(
-                    group_id,
-                    group_servo_count,
-                    frame_mode,
-                    z_neuron_resolution,
-                    positioning,
+                if group_id in default_speeds_by_group:
+                    default_speeds_by_channel = default_speeds_by_group[group_id]
+                else:
+                    default_speeds_by_channel = (
+                        self._positional_servo_default_speeds_for_group(
+                            group_id,
+                            channel_count=group_servo_count,
+                        )
+                    )
+                if group_id in incremental_step_by_group:
+                    incremental_step_0_1 = incremental_step_by_group[group_id]
+                else:
+                    incremental_step_0_1 = (
+                        self._positional_servo_incremental_step_for_group(group_id)
+                    )
+                self._register_positional_servo_group_decoder(
+                    group_id=group_id,
+                    channel_count=group_servo_count,
+                    z_neuron_resolution=z_neuron_resolution,
+                    incremental_z_neuron_resolution=z_neuron_resolution,
+                    frame_mode=frame_mode,
+                    positioning=positioning,
+                    default_speeds_by_channel=default_speeds_by_channel,
+                    incremental_step_0_1=incremental_step_0_1,
                 )
             if group_rotary_count > 0:
                 self._cache.motor_rotary_motor_register(
@@ -915,17 +1707,588 @@ class BrainOutput:
         # depends on removed MotorCorticalType symbols in some builds.
         self._motor_decoder_registered = True
 
+    def register_motor_spatial_pointer(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        encoding: Literal["absolute", "incremental"] = "absolute",
+        number_channels: int = 1,
+        window_ms: Optional[int] = None,
+    ) -> None:
+        """
+        Register a SpatialPointer motor unit on the Rust ConnectorAgent cache.
+
+        Registering on the cache (rather than only injecting capability JSON) is
+        what makes the shared Rust decoder produce SpatialPointer values: after
+        registration the unit is decoded on every :meth:`receive` and its axes
+        appear in :meth:`read_decoded_motor_values` (unit ``"spatial_pointer"``),
+        keyed ``(group, axis, mode)`` with ``axis`` in ``{0, 1, 2}`` for x/y/z.
+
+        Decode contract by ``encoding``:
+          * ``"absolute"`` -> unsigned position per axis (``[0, 1]``);
+            ``window_ms`` is ignored.
+          * ``"incremental"`` -> signed motion vector per axis (``[-1, 1]``,
+            0 = no motion). Cortical layout is ``6x1xdepth`` (X+/X-, Y+/Y-,
+            Z+/Z-). Low Z is a large increment; high Z is a small increment.
+            REQUIRES ``window_ms`` (controller look-ahead; decoder emits a
+            raw signed magnitude).
+
+        Args:
+            group: Cortical unit index for the pointer.
+            width, height, depth: Pointer cortical area voxel dimensions.
+            encoding: ``"absolute"`` or ``"incremental"``.
+            number_channels: Number of pointer channels (default 1).
+            window_ms: Controller look-ahead window in ms (incremental only).
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("SpatialPointer dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("SpatialPointer number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        encoding_value = str(encoding).strip().lower()
+        cortical_area = frpl.data_structures.genomic.cortical_area
+        if encoding_value == "incremental":
+            if window_ms is None:
+                raise ValueError("Incremental SpatialPointer requires window_ms.")
+            frame_mode = cortical_area.FrameChangeHandling.Incremental()
+        elif encoding_value == "absolute":
+            frame_mode = cortical_area.FrameChangeHandling.Absolute()
+        else:
+            raise ValueError("encoding must be 'absolute' or 'incremental'.")
+
+        positioning = cortical_area.PercentageNeuronPositioning.Linear()
+        self._cache.motor_spatial_pointer_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            positioning,
+            int(width),
+            int(height),
+            int(depth),
+            int(window_ms) if window_ms is not None else None,
+        )
+
+    def register_motor_angular_pointer(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        encoding: Literal["absolute", "incremental"] = "absolute",
+        number_channels: int = 1,
+        window_ms: Optional[int] = None,
+    ) -> None:
+        """
+        Register an AngularPointer motor unit (yaw / pitch / roll).
+
+        Decode contract by ``encoding``:
+          * ``"absolute"`` -> signed attitude per axis (``[-1, 1]``, 0 = center).
+          * ``"incremental"`` -> signed rate per axis (``[-1, 1]``, 0 = no
+            motion). Cortical layout is ``6x1xdepth``. REQUIRES ``window_ms``.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("AngularPointer dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("AngularPointer number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        encoding_value = str(encoding).strip().lower()
+        cortical_area = frpl.data_structures.genomic.cortical_area
+        if encoding_value == "incremental":
+            if window_ms is None:
+                raise ValueError("Incremental AngularPointer requires window_ms.")
+            frame_mode = cortical_area.FrameChangeHandling.Incremental()
+        elif encoding_value == "absolute":
+            frame_mode = cortical_area.FrameChangeHandling.Absolute()
+        else:
+            raise ValueError("encoding must be 'absolute' or 'incremental'.")
+
+        positioning = cortical_area.PercentageNeuronPositioning.Linear()
+        self._cache.motor_angular_pointer_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            positioning,
+            int(width),
+            int(height),
+            int(depth),
+            int(window_ms) if window_ms is not None else None,
+        )
+
+    def register_motor_audio_output(
+        self,
+        *,
+        group: int,
+        number_channels: int = 1,
+        sample_rate_hz: int = 16000,
+        window_size: int = 1024,
+        hop_size: int = 512,
+        phase_steps: int = 16,
+        magnitude_floor_db: int = -80,
+        magnitude_ceiling_db: int = 0,
+    ) -> None:
+        """Register an AudioOutput motor area (linear spectrum, absolute)."""
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(number_channels) <= 0:
+            raise ValueError("AudioOutput number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        audio_properties = frpl.connector_core.data_types.AudioSpectrumProperties.new_linear(
+            int(sample_rate_hz),
+            int(window_size),
+            int(hop_size),
+            int(phase_steps),
+            int(magnitude_floor_db),
+            int(magnitude_ceiling_db),
+        )
+        self._cache.motor_AudioOutput_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            audio_properties,
+        )
+
+    def register_motor_simple_vision_output(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        number_channels: int = 1,
+    ) -> None:
+        """Register a SimpleVisionOutput motor area as one RGB image frame."""
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0:
+            raise ValueError("SimpleVisionOutput dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("SimpleVisionOutput number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        descriptors = frpl.connector_core.data_types.descriptors
+        image_properties = descriptors.ImageFrameProperties(
+            descriptors.ImageXYResolution(int(width), int(height)),
+            descriptors.ColorSpace.Gamma,
+            descriptors.ColorChannelLayout.RGB,
+        )
+        self._cache.motor_SimpleVisionOutput_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            image_properties,
+        )
+
+    def register_motor_pose_estimation(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        pose_schema: str = "HumanBody",
+        number_channels: int = 1,
+    ) -> None:
+        """Register a PoseEstimation motor area.
+
+        ``pose_schema`` is one of HumanBody, HumanHand, HumanFace, Quadruped,
+        Avian, Arthropod, Object6DoF, or Custom.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("PoseEstimation dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("PoseEstimation number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        schema_name = str(pose_schema).strip()
+        schema_factory = getattr(
+            frpl.data_structures.genomic.cortical_area.PoseSchema,
+            schema_name,
+            None,
+        )
+        if schema_factory is None:
+            raise ValueError(f"Unknown pose schema '{schema_name}'.")
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        pose_properties = frpl.connector_core.data_types.PoseEstimationProperties(
+            int(width),
+            int(height),
+            int(depth),
+        )
+        self._cache.motor_PoseEstimation_register(
+            int(group),
+            int(number_channels),
+            frame_mode,
+            schema_factory(),
+            pose_properties,
+        )
+
+    def write_sensor_audio_spectrum(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        frame,
+    ) -> None:
+        """Write one ``AudioSpectrumFrame`` into a registered AudioInput channel."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._cache.sensor_audio_input_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=frame,
+        )
+
+    def read_motor_audio_spectrum(self, *, group: int, channel_index: int):
+        """Read the latest decoded AudioOutput spectrum frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_audio_output_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
+        )
+
+    def read_motor_simple_vision_output(self, *, group: int, channel_index: int):
+        """Read the latest decoded SimpleVisionOutput image frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_simple_vision_output_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
+        )
+
+    def read_motor_pose_estimation(self, *, group: int, channel_index: int):
+        """Read the latest decoded PoseEstimation joint frame."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        return self._cache.motor_pose_estimation_read_postprocessed_cache_value(
+            int(group),
+            int(channel_index),
+        )
+
+    @property
+    def motor_frame_received(self) -> bool:
+        """True when the latest :meth:`receive` got a FEAGI motor frame."""
+        return self._last_motor_frame is not None
+
+    def register_motor_misc_data(
+        self,
+        *,
+        group: int,
+        width: int,
+        height: int,
+        depth: int,
+        number_channels: int = 1,
+    ) -> None:
+        """
+        Register a MiscData motor unit on the Rust ConnectorAgent cache.
+
+        The shared Rust decoder then fills the unit on every :meth:`receive`.
+        MiscData is not part of ``motors_read_decoded_snapshot`` (so it never
+        appears in :meth:`read_decoded_motor_values`); read it with :meth:`read_misc_data`.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if int(width) <= 0 or int(height) <= 0 or int(depth) <= 0:
+            raise ValueError("MiscData dimensions must be positive integers.")
+        if int(number_channels) <= 0:
+            raise ValueError("MiscData number_channels must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        dims = frpl.connector_core.data_types.descriptors.MiscDataDimensions(
+            int(width), int(height), int(depth)
+        )
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area
+            .FrameChangeHandling.Absolute()
+        )
+        self._cache.motor_misc_data_register(
+            int(group), int(number_channels), frame_mode, dims
+        )
+        self._motor_decoder_registered = True
+        for ch in range(int(number_channels)):
+            self._misc_registered[(int(group), ch)] = (
+                int(width), int(height), int(depth)
+            )
+
+    def read_misc_data(self, group: int, channel: int = 0):
+        """
+        Read the latest decoded MiscData motor volume.
+
+        Returns a float32 numpy array shaped ``(width, height, depth)``.
+        Active voxels are the non-zero entries. Raises ``ValueError`` when the
+        group or channel is not registered.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        value = self._cache.motor_misc_data_read_postprocessed_cache_value(
+            int(group),
+            int(channel),
+        )
+        return value.copy_to_numpy_array()
+
+    def read_misc_data_this_frame(self, group: int, channel: int = 0):
+        """
+        Return the MiscData volume that fired on the latest received frame.
+
+        Unlike :meth:`read_misc_data` (the cached volume, which keeps the last
+        value on frames where the misc area did not fire), this is event-like:
+        the volume only when the last :meth:`receive` decoded a frame in which
+        the channel had firing voxels (after :meth:`drain_motor_frames`, the
+        union over the drained frames); otherwise an all-zero volume. Same shape
+        and dtype as :meth:`read_misc_data`. Raises ``ValueError`` when the
+        group or channel is not registered.
+        """
+        key = (int(group), int(channel))
+        dims = self._misc_registered.get(key)
+        if dims is None:
+            raise ValueError(
+                f"MiscData group {group} channel {channel} is not registered."
+            )
+        volume = self._misc_frame_volumes.get(key)
+        if volume is not None:
+            return volume.copy()
+        import numpy as np
+
+        return np.zeros(dims, dtype=np.float32)
+
+    def _capture_misc_frame(self) -> None:
+        """Record the volumes of misc channels that fired on the latest decode."""
+        volumes: Dict[Tuple[int, int], Any] = {}
+        for (group, channel) in self._misc_registered:
+            if self._cache.motor_channel_updated_last_decode(
+                "misc_data", group, channel
+            ):
+                volumes[(group, channel)] = self.read_misc_data(group, channel)
+        self._misc_frame_volumes = volumes
+
+    def read_positional_servo_targets(self, group: int) -> Dict[int, float]:
+        """
+        Return the last-held decoded target of every channel in a servo group.
+
+        Keys are channel indices, values are targets in ``[0, 1]``. Unlike
+        :meth:`read_decoded_motor_values` (updated-this-tick channels only,
+        cleared on ticks with no frame), these are the cached values and persist across empty
+        ticks. A channel never commanded reads the decoder's initial value.
+        Raises ``ValueError`` when the group is not registered.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        targets: Dict[int, float] = {}
+        channel = 0
+        while True:
+            try:
+                value = (
+                    self._cache.motor_positional_servo_read_postprocessed_cache_value(
+                        int(group), channel
+                    )
+                )
+            except ValueError:
+                if channel == 0:
+                    raise
+                break
+            targets[channel] = float(value.get_as_0_1())
+            channel += 1
+        return targets
+
+    def read_rotary_motor_targets(
+        self, group: int, *, mode: str = "held"
+    ) -> Dict[int, float]:
+        """
+        Return the signed speed of every channel in a rotary-motor group.
+
+        Keys are channel indices, values are signed speeds in ``[-1, 1]``
+        (the decoder's signed-percentage value, as used by ``RotaryMotor``).
+
+        Modes:
+          * ``"held"``: the last cached decoded value of each channel. Values
+            persist across ticks with no motor frame; a channel never commanded
+            reads the decoder's initial value.
+          * ``"tick"``: only channels decoded in this tick's frame
+            (``read_decoded_motor_values("rotary_motor", group)``, which holds
+            updated channels only and is cleared on ticks with no frame). Every
+            registered channel absent from the frame reads ``0.0``. Values are
+            keyed by unit, so a positional-servo group with the same index
+            does not interfere.
+
+        Silence and hover policy (for example, how many missed periods count as
+        silence) belongs to the controller, not the SDK.
+
+        Raises ``ValueError`` when the group is not registered or ``mode`` is
+        not ``"held"`` or ``"tick"``.
+        """
+        if mode not in ("held", "tick"):
+            raise ValueError(f"mode must be 'held' or 'tick', got {mode!r}.")
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        group = int(group)
+        held: Dict[int, float] = {}
+        channel = 0
+        while True:
+            try:
+                value = self._cache.motor_rotary_motor_read_postprocessed_cache_value(
+                    group, channel
+                )
+            except ValueError:
+                if channel == 0:
+                    raise
+                break
+            held[channel] = float(value.get_as_m1_1())
+            channel += 1
+        if mode == "held":
+            return held
+
+        targets = {ch: 0.0 for ch in held}
+        for (g, ch, _mode), value in self.read_decoded_motor_values(
+            "rotary_motor", group
+        ).items():
+            if ch in targets:
+                targets[ch] = float(value)
+        return targets
+
+    def read_decoded_motor_values(
+        self, unit: str, group: Optional[int] = None
+    ) -> Dict[Tuple[int, int, str], float]:
+        """
+        Return the values decoded on this tick's motor frame for one unit type.
+
+        ``unit`` is the snake-case motor unit name as the Rust decoder reports
+        it (for example ``"positional_servo"``, ``"rotary_motor"``,
+        ``"spatial_pointer"``, ``"angular_pointer"``). Keys are
+        ``(group, channel, mode)`` and values the decoded floats. Only channels
+        updated by this tick's frame appear; the map is empty on ticks with no
+        frame. Units sharing a group index are kept apart by ``unit``.
+        ``group`` limits the result to one group.
+        """
+        return {
+            (g, ch, mode): value
+            for (u, g, ch, mode), value in self._decoded_motor_values.items()
+            if u == unit and (group is None or g == int(group))
+        }
+
+    def drain_motor_frames(
+        self,
+        max_frames: int = 1000,
+        on_frame: Optional[Callable[[bytes], None]] = None,
+    ) -> int:
+        """
+        Consume every queued motor frame and merge their decoded values.
+
+        FEAGI publishes motor frames at the burst rate, usually faster than a
+        controller loop, while :meth:`receive` takes one frame per call. This
+        calls :meth:`receive` until it reports no frame or ``max_frames`` calls
+        were made. Each frame is decoded in order (output callbacks see the
+        newest command last). Afterwards :meth:`read_decoded_motor_values` holds
+        the union of every drained frame's updated channels: later frames
+        overwrite, ``incremental`` deltas are summed so none is lost. MiscData
+        volumes are unioned the same way (non-zero voxels of any drained frame
+        survive), read with :meth:`read_misc_data_this_frame`.
+        ``_last_motor_frame`` is restored to the newest drained frame (the
+        final empty receive would clear it). ``on_frame`` is called with each
+        raw frame's bytes (for example to scan for a core area).
+
+        Returns the number of frames drained.
+        """
+        frames = 0
+        last_frame: Optional[bytes] = None
+        merged: Dict[Tuple[str, int, int, str], float] = {}
+        merged_misc: Dict[Tuple[int, int], Any] = {}
+        for _ in range(max(1, int(max_frames))):
+            self.receive()
+            frame = self._last_motor_frame
+            if frame is None:
+                break
+            frames += 1
+            last_frame = frame
+            if on_frame is not None:
+                on_frame(bytes(frame))
+            for key, value in self._decoded_motor_values.items():
+                if key[3] == "incremental" and key in merged:
+                    merged[key] = merged[key] + value
+                else:
+                    merged[key] = value
+            for key, volume in self._misc_frame_volumes.items():
+                if key in merged_misc:
+                    import numpy as np
+
+                    merged_misc[key] = np.where(
+                        volume != 0, volume, merged_misc[key]
+                    )
+                else:
+                    merged_misc[key] = volume
+        if frames:
+            self._last_motor_frame = last_frame
+            self._decoded_motor_values = merged
+            self._misc_frame_volumes = merged_misc
+        return frames
+
     def _init_sensory_write_helpers(self) -> None:
         """Lazy-init write helper factories for sensory cache writes."""
         if (
             self._sensory_percentage_factory is not None
+            and self._sensory_percentage_3d_factory is not None
             and self._sensory_misc_factory is not None
         ):
             return
         import feagi_rust_py_libs as frpl
 
         self._sensory_percentage_factory = frpl.connector_core.data_types.Percentage
+        self._sensory_percentage_3d_factory = frpl.connector_core.data_types.Percentage3D
         self._sensory_misc_factory = frpl.connector_core.data_types.MiscData
+
+    def _init_imu_write_helpers(self) -> None:
+        """
+        Lazy-init IMU-specific factories.
+
+        Resolves the Rust-side ``SignedPercentage``/``SignedPercentage3D``/
+        ``SignedPercentage4D``/``RawIMU`` constructors only when the controller
+        actually pushes IMU data, so non-IMU controllers don't pay the import
+        cost.
+        """
+        if (
+            self._sensory_signed_percentage_factory is not None
+            and self._sensory_signed_percentage_3d_factory is not None
+            and self._sensory_signed_percentage_4d_factory is not None
+            and self._sensory_raw_imu_factory is not None
+        ):
+            return
+        import feagi_rust_py_libs as frpl
+
+        data_types = frpl.connector_core.data_types
+        self._sensory_signed_percentage_factory = data_types.SignedPercentage
+        self._sensory_signed_percentage_3d_factory = data_types.SignedPercentage3D
+        self._sensory_signed_percentage_4d_factory = data_types.SignedPercentage4D
+        self._sensory_raw_imu_factory = data_types.RawIMU
 
     def _init_vision_write_helpers(self) -> None:
         """Lazy-init write helper factories for vision cache writes."""
@@ -1046,8 +2409,147 @@ class BrainOutput:
                 segmented_image_properties=segmented_properties,
                 initial_gaze=initial_gaze,
             )
-            registered_groups.append(int(group))
+            group_id = int(group)
+            self._vision_group_modes[group_id] = "segmented"
+            registered_groups.append(group_id)
         return registered_groups
+
+    def register_simple_vision_groups(
+        self,
+        vision_units: list[tuple[str, int, int, int, str, int]],
+    ) -> list[int]:
+        """
+        Register simple (non-segmented) vision groups with deterministic group IDs.
+
+        Uses one RGB ``ImageFrameProperties`` block per camera (128x128 by default
+        from the unit tuple width/height).
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if not vision_units:
+            return []
+
+        import feagi_rust_py_libs as frpl
+
+        frame_mode = (
+            frpl.data_structures.genomic.cortical_area.FrameChangeHandling.Absolute()
+        )
+        descriptors = frpl.connector_core.data_types.descriptors
+        register_method = None
+        for candidate in ("sensor_vision_register", "sensor_Vision_register"):
+            if hasattr(self._cache, candidate):
+                register_method = getattr(self._cache, candidate)
+                break
+        if register_method is None:
+            raise RuntimeError(
+                "ConnectorAgent cache does not expose simple vision registration."
+            )
+
+        color_space = descriptors.ColorSpace.Gamma
+        center_layout = descriptors.ColorChannelLayout.RGB
+        registered_groups: list[int] = []
+        for (
+            _modality,
+            width,
+            height,
+            _channels,
+            _unit,
+            group,
+        ) in vision_units:
+            image_props = descriptors.ImageFrameProperties(
+                descriptors.ImageXYResolution(int(width), int(height)),
+                color_space,
+                center_layout,
+            )
+            register_method(
+                group=int(group),
+                number_channels=1,
+                frame_change_handling=frame_mode,
+                image_properties=image_props,
+            )
+            group_id = int(group)
+            self._vision_group_modes[group_id] = "simple"
+            registered_groups.append(group_id)
+        return registered_groups
+
+    _VISION_CACHE_JSON_KEYS = ("Vision", "SegmentedVision")
+
+    def drop_cached_vision_units(self) -> None:
+        """Remove Vision and SegmentedVision groups from the ConnectorAgent cache.
+
+        Camera-mode edits are not additive. If a previous SegmentedVision group
+        stays in the cache, FEAGI keeps auto-creating those IPU areas whenever
+        they are missing from the connectome.
+        """
+        self._vision_group_modes.clear()
+        if self._cache is None:
+            return
+        raw = json.loads(self._cache.export_capabilities_json())
+        inputs = raw.get("input_units_and_encoder_properties")
+        if not isinstance(inputs, dict):
+            return
+        removed = False
+        for key in self._VISION_CACHE_JSON_KEYS:
+            if key in inputs:
+                inputs.pop(key)
+                removed = True
+        if not removed:
+            return
+        self._cache.import_capabilities_json(json.dumps(raw))
+
+    def readvertise_device_registrations(self) -> None:
+        """Push the current cache export to FEAGI when the agent is connected."""
+        if not self._connected or self._client is None or self._cache is None:
+            return
+        device_regs_str = self._cache.export_capabilities_json()
+        if not device_regs_str:
+            return
+        device_regs = json.loads(device_regs_str)
+        if self._device_registration_enricher is not None:
+            device_regs = self._device_registration_enricher(device_regs)
+        device_regs = self._normalize_device_registration_properties(device_regs)
+        device_regs = self._apply_device_registration_contract_defaults(device_regs)
+        device_regs = self._validate_device_registration_contract(device_regs)
+        expected_cortical_ids: list[str] = []
+        if hasattr(self._cache, "get_motor_cortical_ids_for_verification"):
+            expected_cortical_ids.extend(
+                self._cache.get_motor_cortical_ids_for_verification()
+            )
+        if hasattr(self._cache, "get_sensory_cortical_ids_for_verification"):
+            expected_cortical_ids.extend(
+                self._cache.get_sensory_cortical_ids_for_verification()
+            )
+        self._client.send_device_configuration(
+            json.dumps(device_regs, sort_keys=True),
+            expected_cortical_ids=sorted(set(expected_cortical_ids)) or None,
+        )
+
+    def _resolve_sensor_vision_write_method(self, group: int):
+        """Return the cache write callable for a previously registered vision group."""
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        vision_mode = self._vision_group_modes.get(int(group))
+        if vision_mode is None:
+            raise RuntimeError(
+                f"Vision group {int(group)} has not been registered via "
+                "register_vision_groups or register_simple_vision_groups."
+            )
+        if vision_mode == "simple":
+            candidates = ("sensor_vision_write", "sensor_Vision_write")
+        elif vision_mode == "segmented":
+            candidates = ("sensor_segmented_vision_write",)
+        else:
+            raise RuntimeError(
+                f"Vision group {int(group)} has unknown write mode {vision_mode!r}."
+            )
+        for candidate in candidates:
+            if hasattr(self._cache, candidate):
+                return getattr(self._cache, candidate)
+        raise RuntimeError(
+            "ConnectorAgent cache does not expose a "
+            f"{vision_mode} vision write method (tried {candidates})."
+        )
 
     def write_sensor_vision_frame(
         self,
@@ -1056,9 +2558,14 @@ class BrainOutput:
         channel_index: int,
         frame_rgb,
     ) -> None:
-        """Write one RGB image frame into vision sensory cache."""
-        if self._cache is None:
-            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        """Write one RGB image frame into the matching vision sensory cache.
+
+        Simple cameras register as ``Vision`` (``sensor_vision_write``). Segmented
+        cameras register as ``SegmentedVision``. When both exist, the segmented
+        write method is always present on the cache; selecting it for a simple
+        group silently drops those frames.
+        """
+        write_method = self._resolve_sensor_vision_write_method(int(group))
         self._init_vision_write_helpers()
 
         import numpy as np
@@ -1074,18 +2581,118 @@ class BrainOutput:
             self._vision_color_space,
             self._vision_memory_layout,
         )
-        write_method = None
-        for candidate in ("sensor_segmented_vision_write", "sensor_vision_write"):
-            if hasattr(self._cache, candidate):
-                write_method = getattr(self._cache, candidate)
-                break
-        if write_method is None:
-            raise RuntimeError("ConnectorAgent cache does not expose a vision write method.")
-
         write_method(
             group=int(group),
             channel_index=int(channel_index),
             data=vision_frame,
+        )
+
+    def write_sensor_depth_map(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        depth_map_xy,
+    ) -> None:
+        """
+        Write one depth plane into the DepthMap sensory cache.
+
+        ``depth_map_xy`` is ``(H, W)`` or ``(H, W, 1)`` with values in ``[0, 1]``;
+        each pixel's value is the potential FEAGI receives. Zero means no return.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_sensory_write_helpers()
+
+        depth_array = BrainOutput._depth_plane(depth_map_xy)
+        depth_data = self._sensory_misc_factory.new_from_array(depth_array)
+        self._cache.sensor_depth_map_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=depth_data,
+        )
+
+    @staticmethod
+    def _depth_plane(depth_map_xy):
+        """Validate a depth plane and return it as ``(H, W, 1)`` float32."""
+        import numpy as np
+
+        depth_array = np.asarray(depth_map_xy, dtype=np.float32)
+        if depth_array.ndim == 2:
+            depth_array = depth_array[:, :, None]
+        if depth_array.ndim != 3 or depth_array.shape[2] != DEPTH_MAP_LAYERS:
+            raise ValueError(
+                "Depth map must be (H, W) or (H, W, 1); depth rides on potential, "
+                f"got {depth_array.shape}"
+            )
+        if np.any(depth_array < 0.0) or np.any(depth_array > 1.0):
+            raise ValueError("Depth map values must be in [0, 1].")
+        return depth_array
+
+    @staticmethod
+    def rgb_frame_to_depth_map_levels(frame_rgb, depth_levels: int):
+        """
+        Convert an RGB frame to a quantized one-layer depth plane using luminance.
+
+        Mirrors the desktop depth path: luminance maps to ``level`` in
+        ``1..=depth_levels`` and the pixel potential is ``level / depth_levels``,
+        so every pixel is in ``(0, 1]``. Returns ``(H, W, 1)`` float32.
+        """
+        if int(depth_levels) <= 0:
+            raise ValueError("depth_levels must be > 0.")
+        import numpy as np
+
+        frame_array = np.asarray(frame_rgb, dtype=np.uint8)
+        if frame_array.ndim != 3 or frame_array.shape[2] != 3:
+            raise ValueError(
+                "frame_rgb must be an RGB ndarray with shape (H, W, 3)."
+            )
+
+        luminance = (
+            0.299 * frame_array[:, :, 0].astype(np.float32)
+            + 0.587 * frame_array[:, :, 1].astype(np.float32)
+            + 0.114 * frame_array[:, :, 2].astype(np.float32)
+        ) / 255.0
+        levels = int(depth_levels)
+        level = np.clip(np.round(luminance * (levels - 1)), 0, levels - 1) + 1.0
+        return (level / float(levels)).astype(np.float32)[:, :, None]
+
+    def write_rgbd_tick(
+        self,
+        *,
+        rgb_group: int,
+        depth_group: int,
+        channel_index: int,
+        frame_rgb,
+        depth_map_xy=None,
+        depth_levels: Optional[int] = None,
+    ) -> None:
+        """
+        Write paired RGB + DepthMap data for one tick.
+
+        If ``depth_map_xy`` is omitted, this derives a quantized depth plane from
+        RGB luminance deterministically.
+        """
+        self.write_sensor_vision_frame(
+            group=rgb_group,
+            channel_index=channel_index,
+            frame_rgb=frame_rgb,
+        )
+
+        resolved_depth_map = depth_map_xy
+        if resolved_depth_map is None:
+            if depth_levels is None:
+                raise ValueError(
+                    "depth_levels must be provided when depth_map_xy is None."
+                )
+            resolved_depth_map = BrainOutput.rgb_frame_to_depth_map_levels(
+                frame_rgb,
+                int(depth_levels),
+            )
+        self.write_sensor_depth_map(
+            group=depth_group,
+            channel_index=channel_index,
+            depth_map_xy=resolved_depth_map,
         )
 
     def write_sensor_scalar(
@@ -1147,6 +2754,244 @@ class BrainOutput:
         raise ValueError(
             f"Unsupported sensor write unit '{unit_key}'. "
             "Supported units: ['Proximity', 'Servo', 'Shock', 'MiscData']"
+        )
+
+    def write_sensor_raw_imu(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        accelerometer_xyz: tuple[float, float, float],
+        gyroscope_xyz: tuple[float, float, float],
+        magnetometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Write one composite Raw IMU reading (accel + gyro + mag) into the cache.
+
+        Each axis triple must already be normalized to the inclusive range
+        ``[-1.0, 1.0]`` by the controller; values outside the range raise
+        ``ValueError``. The composite is stored as a single cache entry per
+        ``(group, channel_index)``; the Rust encoder spreads it across the
+        three sub-cortical-areas (sub-area 0 = accel, 1 = gyro, 2 = mag) at
+        burst time.
+
+        The full composite is written each call (no partial-update API). When
+        only some axes change in a tick, the controller is responsible for
+        passing through the unchanged axes for the other sensors so the
+        previously-cached value is not overwritten with stale zeros.
+
+        Args:
+            group: Registered RawIMU sensory group index.
+            channel_index: Channel index within the group.
+            accelerometer_xyz: Linear-acceleration triple, normalized.
+            gyroscope_xyz: Angular-velocity triple, normalized.
+            magnetometer_xyz: Magnetic-field triple, normalized.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        composite = self._sensory_raw_imu_factory.try_from_axis_triples(
+            (
+                float(accelerometer_xyz[0]),
+                float(accelerometer_xyz[1]),
+                float(accelerometer_xyz[2]),
+            ),
+            (
+                float(gyroscope_xyz[0]),
+                float(gyroscope_xyz[1]),
+                float(gyroscope_xyz[2]),
+            ),
+            (
+                float(magnetometer_xyz[0]),
+                float(magnetometer_xyz[1]),
+                float(magnetometer_xyz[2]),
+            ),
+        )
+        # Method name surfaces from paste's :snake casing of the all-caps
+        # acronym 'IMU' -> 'i_m_u'. Pre-existing project convention; matched
+        # one-for-one with the Rust binding output.
+        self._cache.sensor_raw_i_m_u_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=composite,
+        )
+
+    def _build_signed_percentage_3d(
+        self,
+        xyz: tuple[float, float, float],
+    ):
+        """
+        Construct a Rust-side ``SignedPercentage3D`` from a normalized triple.
+
+        The triple must already be in the inclusive range ``[-1.0, 1.0]``;
+        out-of-range components surface as a ``ValueError`` from the Rust
+        ``new_from_m1_1`` constructor (no implicit clamping). Used by all
+        partial Raw IMU axis writers below.
+        """
+        signed_pct = self._sensory_signed_percentage_factory
+        return self._sensory_signed_percentage_3d_factory(
+            signed_pct.new_from_m1_1(float(xyz[0])),
+            signed_pct.new_from_m1_1(float(xyz[1])),
+            signed_pct.new_from_m1_1(float(xyz[2])),
+        )
+
+    def write_sensor_raw_imu_accelerometer(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        accelerometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the accelerometer sub-axis of a registered Raw IMU channel.
+
+        Performs a read-modify-write at the cache layer: the gyroscope and
+        magnetometer sub-components are left untouched at whatever was last
+        written for them (or the registered initial zero, if never written).
+        Use this when the controller has accelerometer data but no gyroscope/
+        magnetometer for a given IMU site, to avoid the implicit-zero fallback
+        that ``write_sensor_raw_imu`` would otherwise impose on missing axes.
+
+        Args:
+            group: Registered RawIMU sensory group index.
+            channel_index: Channel index within the group.
+            accelerometer_xyz: Linear-acceleration triple, normalized to
+                ``[-1.0, 1.0]`` per axis.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(accelerometer_xyz)
+        self._cache.sensor_raw_i_m_u_write_accelerometer(
+            group=int(group),
+            channel_index=int(channel_index),
+            accelerometer=triple,
+        )
+
+    def write_sensor_raw_imu_gyroscope(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        gyroscope_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the gyroscope sub-axis of a registered Raw IMU channel.
+
+        Companion to :meth:`write_sensor_raw_imu_accelerometer`; see that
+        docstring for the read-modify-write rationale. Accelerometer and
+        magnetometer slots are left unchanged.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(gyroscope_xyz)
+        self._cache.sensor_raw_i_m_u_write_gyroscope(
+            group=int(group),
+            channel_index=int(channel_index),
+            gyroscope=triple,
+        )
+
+    def write_sensor_raw_imu_magnetometer(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        magnetometer_xyz: tuple[float, float, float],
+    ) -> None:
+        """
+        Update only the magnetometer sub-axis of a registered Raw IMU channel.
+
+        Companion to :meth:`write_sensor_raw_imu_accelerometer`; see that
+        docstring for the read-modify-write rationale. Accelerometer and
+        gyroscope slots are left unchanged.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        triple = self._build_signed_percentage_3d(magnetometer_xyz)
+        self._cache.sensor_raw_i_m_u_write_magnetometer(
+            group=int(group),
+            channel_index=int(channel_index),
+            magnetometer=triple,
+        )
+
+    def write_sensor_smart_imu(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        quaternion_wxyz: tuple[float, float, float, float],
+    ) -> None:
+        """
+        Write one orientation quaternion into the SmartIMU cache.
+
+        The quaternion is expected to be already-normalized to unit length and
+        each component clamped into ``[-1.0, 1.0]`` (i.e., a valid unit
+        quaternion). Convention: ``(w, x, y, z)`` mapped to
+        ``SignedPercentage4D(a=w, b=x, c=y, d=z)``.
+
+        Args:
+            group: Registered SmartIMU sensory group index.
+            channel_index: Channel index within the group.
+            quaternion_wxyz: ``(w, x, y, z)`` quaternion components.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_imu_write_helpers()
+
+        signed_pct = self._sensory_signed_percentage_factory
+        quat = self._sensory_signed_percentage_4d_factory(
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[0])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[1])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[2])),
+            signed_pct.new_from_m1_1(float(quaternion_wxyz[3])),
+        )
+        self._cache.sensor_smart_i_m_u_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=quat,
+        )
+
+    def write_sensor_cartesian_position(
+        self,
+        *,
+        group: int,
+        channel_index: int,
+        position_xyz_0_1: tuple[float, float, float],
+    ) -> None:
+        """
+        Write one absolute end-effector/TCP position into the CartesianPosition
+        cache.
+
+        Each axis is expected to already be normalized to ``[0.0, 1.0]`` over
+        the caller's own workspace bounds (e.g., a robot arm's configured
+        Cartesian fence) -- this method performs no normalization itself.
+        Convention: ``(x, y, z)`` mapped to ``Percentage3D(a=x, b=y, c=z)``.
+
+        Args:
+            group: Registered CartesianPosition sensory group index.
+            channel_index: Channel index within the group.
+            position_xyz_0_1: ``(x, y, z)`` position, each in ``[0.0, 1.0]``.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        self._init_sensory_write_helpers()
+
+        pct = self._sensory_percentage_factory
+        position = self._sensory_percentage_3d_factory(
+            pct.new_from_0_1(float(position_xyz_0_1[0])),
+            pct.new_from_0_1(float(position_xyz_0_1[1])),
+            pct.new_from_0_1(float(position_xyz_0_1[2])),
+        )
+        self._cache.sensor_cartesian_position_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=position,
         )
 
     def flush_sensory_bytes(self) -> int:
@@ -1271,14 +3116,27 @@ class BrainOutput:
     
     def receive(self):
         """
-        Receive motor commands from FEAGI.
-        
-        This is the main loop method:
-        1. Receives bytes from transport
-        2. Decodes bytes to neurons (Rust)
-        3. Updates motor cache
-        4. Reads values from cache to outputs
-        
+        Receive motor commands from FEAGI and decode them through Rust.
+
+        Main-loop method. All motor decoding happens in the shared Rust
+        ``MotorDeviceCache`` so every SDK (Python, Java, ...) decodes
+        identically with no per-language duplication. The Python flow is a thin
+        wrapper:
+
+        1. Pull the raw, undecoded byte payload from the transport
+           (:meth:`client.FeagiAgentClient.receive_motor_data_raw`).
+        2. Hand the bytes to the Rust decoder
+           (``motors_load_in_bytes_and_verify`` + ``motors_decode_cached_byte_data_to_motor``).
+           Decoding fires the per-output callbacks registered at connect time,
+           which update each registered output's state (servo angle, motor
+           speed, etc.).
+        3. Read a flat snapshot of channels updated on this decode tick
+           (``motors_read_decoded_snapshot(updated_only=True)``) into
+           ``self._decoded_motor_values`` keyed ``(unit, group, channel, mode)``
+           (read with :meth:`read_decoded_motor_values`). Stale cached
+           absolute values are not re-emitted. When no motor bytes arrive,
+           the map is cleared so controllers hold pose.
+
         Call this in your main loop to update all output values.
         """
         if not self._connected:
@@ -1289,139 +3147,56 @@ class BrainOutput:
         if self._sensory_only_mode:
             return
 
-        # All timing and monitoring removed for performance
+        if not self._client:
+            raise RuntimeError("Client not initialized. Call connect() first.")
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
 
-        try:
-            if not self._client:
-                raise RuntimeError("Client not initialized. Call connect() first.")
+        # 1. Pull raw motor bytes from the transport (no Python-side decode).
+        self._last_motor_frame = None
+        raw_bytes = self._client.receive_motor_data_raw()
+        if not raw_bytes:
+            # No FEAGI motor frame this tick: clear the command map so controllers
+            # hold current pose instead of replaying the last absolute latch.
+            self._decoded_motor_values = {}
+            self._misc_frame_volumes = {}
+            return
+        self._last_motor_frame = bytes(raw_bytes)
 
-            motor_data = self._client.receive_motor_data()
-            if not motor_data:
-                return
+        # 2. Decode through the shared Rust decoder. This fires the per-output
+        #    callbacks registered in _register_motor_decoder(), which update
+        #    each registered output's state directly.
+        self._cache.motors_load_in_bytes_and_verify(raw_bytes)
+        self._cache.motors_decode_cached_byte_data_to_motor()
 
-            motor_map = motor_data.get("motor")
-            if not isinstance(motor_map, dict):
-                raise RuntimeError("Motor data format invalid (expected dict).")
-            # Canonical snapshot keyed by normalized "group:channel:mode".
-            # Keep this deterministic for controller-side diagnostics.
-            self._motor_data = {}
+        # 3. Build the canonical motor snapshot from the Rust cache. Keys are
+        #    (unit, group, channel, mode); multi-axis units (e.g. SpatialPointer
+        #    3D) are flattened to one entry per axis by the Rust snapshot.
+        # Updated-only channels: absolute/incremental commands are one-shot per
+        # decode tick (stale cache values are not re-emitted).
+        snapshot = self._cache.motors_read_decoded_snapshot(updated_only=True)
+        self._decoded_motor_values = {}
+        for unit, group_id, channel_index, mode, value in snapshot:
+            value_f = float(value)
+            key = (str(unit), int(group_id), int(channel_index), str(mode))
+            self._decoded_motor_values[key] = value_f
 
-            # Aggregate commands by (group, channel) first so mixed mode updates
-            # in the same receive cycle can be resolved deterministically.
-            pending_by_channel: dict[tuple[int, int], dict[str, tuple[float, str]]] = {}
-
-            for key, value in motor_map.items():
-                if value is None:
-                    continue
-                key_str = str(key)
-                command_mode = None
-                parts = key_str.split(":")
-                if len(parts) == 3:
-                    group_str, channel_str, command_mode = parts
-                    try:
-                        group_id = int(group_str)
-                        channel_index = int(channel_str)
-                    except ValueError:
-                        continue
-                elif len(parts) == 2:
-                    left, right = parts
-                    if right in ("absolute", "incremental"):
-                        group_id = 0
-                        command_mode = right
-                        try:
-                            channel_index = int(left)
-                        except ValueError:
-                            continue
-                    else:
-                        try:
-                            group_id = int(left)
-                            channel_index = int(right)
-                        except ValueError:
-                            continue
-                else:
-                    group_id = 0
-                    try:
-                        channel_index = int(key_str)
-                    except ValueError:
-                        continue
-
-                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
-                if output is None and group_id == 0:
-                    output = self._motor_outputs_by_channel.get(channel_index)
-                if output is None:
-                    continue
-                value_f = float(value)
-                mode_key = (
-                    command_mode if command_mode in ("absolute", "incremental") else "none"
-                )
-                pending_by_channel.setdefault((group_id, channel_index), {})[mode_key] = (
+            prev_value = self._last_logged_motor_values.get(key)
+            if prev_value is None or abs(value_f - prev_value) > 1e-6:
+                # Per-change detail is DEBUG only: at INFO it flooded support logs.
+                logger.debug(
+                    "[MOTOR-RX] unit=%s group=%d channel=%d mode=%s value=%.6f",
+                    key[0],
+                    key[1],
+                    key[2],
+                    key[3],
                     value_f,
-                    key_str,
                 )
+                self._last_logged_motor_values[key] = value_f
 
-            for (group_id, channel_index), mode_entries in pending_by_channel.items():
-                output = self._motor_outputs_by_group_channel.get((group_id, channel_index))
-                if output is None and group_id == 0:
-                    output = self._motor_outputs_by_channel.get(channel_index)
-                if output is None:
-                    continue
+        # 4. MiscData volumes that fired on this frame (event-like reads).
+        self._capture_misc_frame()
 
-                # Arbitration: if both absolute and incremental are present
-                # for the same channel in this cycle, absolute takes precedence.
-                if "absolute" in mode_entries:
-                    selected_mode = "absolute"
-                elif "incremental" in mode_entries:
-                    selected_mode = "incremental"
-                else:
-                    selected_mode = "none"
-
-                value_f, key_str = mode_entries[selected_mode]
-                canonical_key = f"{group_id}:{channel_index}:{selected_mode}"
-                self._motor_data[canonical_key] = value_f
-
-                if "absolute" in mode_entries and "incremental" in mode_entries:
-                    inc_val, _ = mode_entries["incremental"]
-                    logger.info(
-                        (
-                            "[MOTOR-RX-ARBITRATION] group=%d channel=%d "
-                            "absolute=%.6f incremental=%.6f selected=absolute"
-                        ),
-                        group_id,
-                        channel_index,
-                        value_f,
-                        inc_val,
-                    )
-
-                log_key = f"{group_id}:{channel_index}:{selected_mode}"
-                prev_value = self._last_logged_motor_values.get(log_key)
-                if prev_value is None or abs(value_f - prev_value) > 1e-6:
-                    logger.info(
-                        "[MOTOR-RX] group=%d channel=%d mode=%s value=%.6f key=%s",
-                        group_id,
-                        channel_index,
-                        selected_mode,
-                        value_f,
-                        key_str,
-                    )
-                    self._last_logged_motor_values[log_key] = value_f
-                try:
-                    output._on_motor_command(
-                        value_f,
-                        command_mode=None if selected_mode == "none" else selected_mode,
-                    )
-                except TypeError:
-                    # Backward compatibility for output classes with old callback signature.
-                    output._on_motor_command(value_f)
-                except Exception as e:
-                    logger.debug(f"Error updating motor output {key_str}: {e}")
-            
-            # Note: _read_from_cache() is no longer needed as callbacks handle updates
-            # The motor values are already updated via callbacks during process_neurons()
-            
-        except Exception:
-            # Monitor error notifications disabled - was causing performance issues
-            raise
-    
     def get_output_count(self) -> int:
         """Get number of registered outputs"""
         return len(self._outputs)
@@ -1429,6 +3204,19 @@ class BrainOutput:
     def is_connected(self) -> bool:
         """Check if connected to FEAGI"""
         return self._connected
+
+    def is_registered(self) -> bool:
+        """
+        True while the underlying agent client holds a live FEAGI registration.
+
+        Unlike :meth:`is_connected` (which only reports whether ``connect()``
+        ran), this asks the Rust client whether its registration is still
+        valid, so a failed reconnect reads as not registered. A recovery
+        driver passes ``not registered`` to
+        :meth:`feagi.pns.health_monitor.FeagiHealthMonitor.tick` on every tick.
+        """
+        client = self._client
+        return client is not None and client.is_connected()
 
 
 # Global singleton instance

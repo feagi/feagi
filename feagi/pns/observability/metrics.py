@@ -4,7 +4,6 @@ Metrics Collection
 Collects and aggregates statistics on data flow through brain_input and brain_output.
 """
 
-import time
 import json
 import csv
 from typing import Dict, Any, Optional
@@ -271,7 +270,7 @@ class MetricsCollector(Monitor):
         
         print(f"\n📊 Uptime: {stats.uptime_seconds:.2f} seconds")
         
-        print(f"\n📥 Sensory Input:")
+        print("\n📥 Sensory Input:")
         print(f"  Total packets sent:     {stats.input.total_packets}")
         print(f"  Total bytes sent:       {stats.input.total_bytes:,}")
         print(f"  Total neurons sent:     {stats.input.total_neurons:,}")
@@ -281,7 +280,7 @@ class MetricsCollector(Monitor):
         print(f"  Packets/sec:            {stats.input.packets_per_sec:.2f}")
         print(f"  Avg send duration:      {stats.input.avg_duration_ms:.2f} ms")
         
-        print(f"\n📤 Motor Output:")
+        print("\n📤 Motor Output:")
         print(f"  Total receives:         {stats.output.total_receives}")
         print(f"  Total commands:         {stats.output.total_commands}")
         print(f"  Avg commands/receive:   {stats.output.avg_commands_per_receive:.2f}")

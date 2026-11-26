@@ -1,5 +1,23 @@
 import pytest
 from feagi.pns.outputs import ServoMotor
+from feagi.pns.outputs.motor import (
+    ABSOLUTE_TARGET_INCREMENTAL_SPEED,
+    read_positional_servo_target_speed_snapshot,
+)
+
+
+class _FakePercentage:
+    def __init__(self, value: float) -> None:
+        self._value = value
+
+    def get_as_0_1(self) -> float:
+        return self._value
+
+
+class _FakePercentage2D:
+    def __init__(self, target: float, speed: float) -> None:
+        self.a = _FakePercentage(target)
+        self.b = _FakePercentage(speed)
 
 
 def test_servo_motor_registration():
@@ -38,6 +56,52 @@ def test_servo_motor_incremental():
     assert servo.max_angle == 270
 
 
+def test_servo_target_speed_mode_maps_target_and_speed():
+    """Percentage2D decode should set angle from target and speed from component b."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="absolute")
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo._on_motor_command(_FakePercentage2D(0.75, 0.5))
+    assert servo.get_angle() == pytest.approx(135.0, abs=1e-6)
+    assert servo.get_speed_0_1() == pytest.approx(0.5, abs=1e-6)
+
+
+def test_servo_speed_only_does_not_increment_motion_seq():
+    """A speed-area fire must cache rate and leave the pose command sequence still."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="absolute")
+    servo.control_semantics = ABSOLUTE_TARGET_INCREMENTAL_SPEED
+    servo._current_angle = 90.0
+    start_seq = servo._rx_command_seq
+    servo._on_motor_command(_FakePercentage2D(0.5, 0.2))
+    assert servo.get_speed_0_1() == pytest.approx(0.2, abs=1e-6)
+    assert servo.get_angle() == pytest.approx(90.0, abs=1e-6)
+    assert servo._rx_command_seq == start_seq
+
+
+def test_read_positional_servo_target_speed_snapshot():
+    """Flattened Percentage2D decoded values use channel*2 and channel*2+1 keys."""
+    motor_data = {
+        (0, 0, "absolute"): 0.25,
+        (0, 1, "absolute"): 0.5,
+        (0, 2, "absolute"): 0.75,
+        (0, 3, "absolute"): 0.1,
+    }
+    target, speed = read_positional_servo_target_speed_snapshot(
+        motor_data,
+        group_id=0,
+        channel_index=0,
+    )
+    assert target == pytest.approx(0.25)
+    assert speed == pytest.approx(0.5)
+
+    target_j1, speed_j1 = read_positional_servo_target_speed_snapshot(
+        motor_data,
+        group_id=0,
+        channel_index=1,
+    )
+    assert target_j1 == pytest.approx(0.75)
+    assert speed_j1 == pytest.approx(0.1)
+
+
 def test_servo_absolute_endpoint_mapping():
     """Absolute mode should map -1/0/+1 to min/center/max."""
     servo = ServoMotor(range=(-1.0, 1.0), encoding="absolute")
@@ -66,6 +130,37 @@ def test_servo_incremental_applies_delta_and_clamps():
     assert servo.get_angle() == pytest.approx(0.5, abs=1e-6)
     servo._on_motor_command(-1.0)
     assert servo.get_angle() == pytest.approx(0.0, abs=1e-6)
+
+
+def test_servo_incremental_plain_float_uses_half_neutral_like_brain_output():
+    """BrainOutput passes decoded 0..1 as float with command_mode='incremental' (not PyPercentage)."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo.incremental_step_ratio = 0.05
+    # Default center 90°; FEAGI decoded 0.1111 is below neutral 0.5 -> negative delta.
+    servo._on_motor_command(0.1111, command_mode="incremental")
+    half_range = 90.0
+    step = half_range * 0.05
+    expected_delta = (0.1111 - 0.5) * 2.0 * step
+    assert servo.get_angle() == pytest.approx(90.0 + expected_delta, abs=1e-4)
+
+
+def test_servo_incremental_at_max_positive_command_stays_put():
+    """1.0 increases angle; at max_angle further increases clamp (delta 0 in logs)."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo._current_angle = 180.0
+    servo._on_motor_command(1.0, command_mode="incremental")
+    assert servo.get_angle() == pytest.approx(180.0, abs=1e-6)
+
+
+def test_servo_incremental_at_max_can_decrease():
+    """Below-neutral FEAGI values decrease from 180°."""
+    servo = ServoMotor(range=(0.0, 180.0), encoding="incremental")
+    servo.incremental_step_ratio = 0.05
+    servo._current_angle = 180.0
+    servo._on_motor_command(0.0, command_mode="incremental")
+    step = 90.0 * 0.05
+    expected = 180.0 + (0.0 - 0.5) * 2.0 * step
+    assert servo.get_angle() == pytest.approx(expected, abs=1e-4)
 
 
 def test_servo_motor_cache_methods():

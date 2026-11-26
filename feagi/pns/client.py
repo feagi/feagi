@@ -35,6 +35,7 @@ Example:
     # Auto-deregisters on exit
 """
 
+import base64
 import logging
 import json
 import time
@@ -42,8 +43,6 @@ import urllib.error
 import urllib.request
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
-
-from .xyzp_decoders import decode_motor_xyzp
 
 # Try to import Rust SDK (optional dependency)
 _rust_sdk_available = False
@@ -56,12 +55,14 @@ try:
         PyAgentConfig as _PyAgentConfig,
         AgentType as _RustAgentType,
         init_rust_logging as _init_rust_logging,
+        cortical_subtype_friendly_names as _cortical_subtype_friendly_names,
     )
     rust_sdk = type("rust_sdk", (), {
         "PyAgentClient": _PyAgentClient,
         "PyAgentConfig": _PyAgentConfig,
         "AgentType": _RustAgentType,
         "init_rust_logging": _init_rust_logging,
+        "cortical_subtype_friendly_names": _cortical_subtype_friendly_names,
     })()
     _rust_sdk_available = True
 except ImportError:
@@ -113,6 +114,71 @@ else:
     RustAgentType = None
 
 logger = logging.getLogger("feagi.pns.client")
+
+
+def _load_subtype_friendly_names_from_rust() -> Dict[bytes, Dict[int, str]]:
+    """Load canonical cortical subtype names from Rust bindings."""
+    if not _rust_sdk_available or rust_sdk is None:
+        return {}
+
+    provider = getattr(rust_sdk, "cortical_subtype_friendly_names", None)
+    if provider is None:
+        raise RuntimeError(
+            "Rust SDK does not expose cortical_subtype_friendly_names(). "
+            "Update feagi_rust_py_libs to a compatible version.",
+        )
+
+    raw_names = provider()
+    parsed: Dict[bytes, Dict[int, str]] = {}
+    for subtype_key, per_category in raw_names.items():
+        if isinstance(subtype_key, str):
+            subtype_bytes = subtype_key.encode("ascii")
+        elif isinstance(subtype_key, bytes):
+            subtype_bytes = subtype_key
+        else:
+            raise RuntimeError(
+                "Invalid subtype key returned by Rust SDK: "
+                f"{type(subtype_key)!r}",
+            )
+        parsed[subtype_bytes] = {
+            int(category_byte): str(friendly_name)
+            for category_byte, friendly_name in per_category.items()
+        }
+    return parsed
+
+
+# Cortical-area subtype (bytes 1-3) -> friendly name.
+# Duplicates (e.g. "mis", "img") are shared between sensory and motor; the
+# category byte (byte 0: 'i' vs 'o') disambiguates.
+_SUBTYPE_FRIENDLY_NAMES: Dict[bytes, Dict[int, str]] = (
+    _load_subtype_friendly_names_from_rust()
+)
+
+
+def decode_cortical_id_label(cortical_id: str) -> str:
+    """Return a human-readable label for a base64 cortical area ID.
+
+    Format: ``"Friendly Name [category] (base64)"`` when the subtype is
+    recognised, otherwise ``"subtype_hex [category] (base64)"``.
+    """
+    try:
+        raw = base64.b64decode(cortical_id)
+    except Exception:
+        return cortical_id
+
+    if len(raw) < 4:
+        return cortical_id
+
+    category_byte = raw[0]
+    subtype = bytes(raw[1:4])
+    category_tag = "input" if category_byte == 105 else "output"
+
+    per_category = _SUBTYPE_FRIENDLY_NAMES.get(subtype, {})
+    friendly = per_category.get(category_byte) or per_category.get(
+        next(iter(per_category), -1)
+    )
+    name = friendly if friendly else subtype.decode("ascii", errors="replace")
+    return f"{name} [{category_tag}] ({cortical_id})"
 
 
 class AgentType(Enum):
@@ -463,6 +529,22 @@ class FeagiAgentClient:
             resolved_vision_units.extend(list(vision_units))
         if vision_unit:
             resolved_vision_units.append(vision_unit)
+        if (
+            not resolved_vision_units
+            and self.agent_type in (AgentType.SENSORY, AgentType.BOTH)
+        ):
+            # Compatibility shim for rust-py-libs tuple validation, which currently
+            # requires a vision capability for sensory/both agents.
+            # Use a reserved high group index to avoid collisions with controller
+            # sensory group assignments in normal operation.
+            resolved_vision_units.append(
+                ("scalar_sensory", 1, 1, 1, "proximity", 255)
+            )
+            logger.info(
+                "[CFG] Injected scalar sensory capability tuple to satisfy "
+                "tuple validation for agent type '%s'.",
+                self.agent_type.value,
+            )
         if resolved_vision_units:
             seen_vision_groups: set[int] = set()
             for (
@@ -665,7 +747,7 @@ class FeagiAgentClient:
         except Exception as e:
             logger.debug("Resolution detection failed: %s", e)
             return None
-    
+
     def connect(self, graceful: bool = False) -> bool:
         """
         Connect to FEAGI and register the agent
@@ -734,13 +816,19 @@ class FeagiAgentClient:
             # Connect (with automatic retry)
             # This is where threads are spawned after successful registration
             logger.debug("Attempting registration with FEAGI...")
+            # A rejected registration (including "already registered") is reported
+            # to the caller. Recovery after a rejected attempt belongs to the
+            # level-triggered reconnect policy, not to a retry loop here.
+            reg_error: Optional[BaseException] = None
             try:
                 self._client.connect()
                 logger.debug("[OK] Registration successful")
-            except Exception as reg_error:
+            except Exception as exc:
+                reg_error = exc
+
+            if reg_error is not None:
                 # Enhanced error message for registration failures
                 error_str = str(reg_error).lower()
-                
                 if (
                     "unknown error" in error_str
                     or "registration failed" in error_str
@@ -784,7 +872,7 @@ class FeagiAgentClient:
                     if graceful:
                         logger.warning("Connection failed: %s", reg_error)
                         return False
-                    raise
+                    raise reg_error
             
             self._connected = True
             logger.info("Connected and registered as: %s", self.agent_id)
@@ -901,7 +989,7 @@ class FeagiAgentClient:
         try:
             self._client.send_sensory_bytes(payload)
         except Exception as e:
-            logger.error("Failed to send sensory bytes: %s", e)
+            logger.debug("Failed to send sensory bytes: %s", e)
             raise
 
     def set_motor_cortical_ids(self, cortical_ids: List[str]) -> None:
@@ -921,106 +1009,50 @@ class FeagiAgentClient:
             normalized.append(cid)
         self._motor_cortical_ids = normalized or None
     
-    def receive_motor_data(
+    def receive_motor_data_raw(
         self,
         blocking: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[bytes]:
         """
-        Receive motor data from FEAGI (non-blocking)
-        
+        Receive the raw, undecoded motor byte payload from FEAGI.
+
+        Unlike :meth:`receive_motor_data`, this performs NO Python-side XYZP
+        decoding. The verified bytes are returned untouched so the shared Rust
+        ``MotorDeviceCache`` decoder can decode them directly. This is the
+        transport half of the "all decoding happens in Rust" contract: every
+        SDK feeds these bytes into the same Rust decoder, eliminating
+        per-language decode duplication.
+
         Args:
-            blocking: If False, returns None on error instead of raising
-        
+            blocking: If False, returns None on error instead of raising.
+
         Returns:
-            Motor data as dictionary if available, None otherwise
-            
+            Raw motor bytes if available, otherwise None.
+
         Raises:
-            RuntimeError: If not connected or not a motor agent
-                (only when blocking=True)
-        
-        Example:
-            ```python
-            # Blocking mode (default) - raises on error
-            motor_data = client.receive_motor_data()
-            
-            # Non-blocking mode - for simulator event loops
-            motor_data = client.receive_motor_data(blocking=False)
-            if motor_data:
-                # Process commands
-                pass
-            ```
+            RuntimeError: If not connected or the agent is sensory-only
+                (only when ``blocking`` is True).
         """
         if not self._connected or self._client is None:
             if blocking:
-                raise RuntimeError(
-                    "Agent not connected. Call connect() first.",
-                )
+                raise RuntimeError("Agent not connected. Call connect() first.")
             return None
-        
+
         if self.agent_type == AgentType.SENSORY:
             if blocking:
                 raise RuntimeError(
                     "Cannot receive motor data - agent is sensory-only",
                 )
             return None
-        
+
         try:
-            motor_json = self._client.receive_motor_data()
-            if motor_json is None:
-                return None
-            logger.info("[RAW-MOTOR-JSON] %s", str(motor_json)[:500])
-            
-            # Parse raw XYZP SoA JSON from Rust SDK
-            import json
-            xyzp_data = json.loads(motor_json)
-            # Deterministic debug view of incoming motor packet shape/content.
-            # Keep this concise to avoid log spam.
-            try:
-                for cid, nd in xyzp_data.items():
-                    if not isinstance(nd, dict):
-                        continue
-                    x_vals = nd.get("x", []) or []
-                    z_vals = nd.get("z", []) or []
-                    p_vals = nd.get("p", []) or []
-                    logger.info(
-                        "[RAW-MOTOR] cid=%s n=%d x=%s z=%s p=%s",
-                        cid,
-                        len(x_vals),
-                        x_vals[:12],
-                        z_vals[:12],
-                        p_vals[:12],
-                    )
-            except Exception:
-                pass
-            
-            # Decode XYZP SoA to motor index → power mapping
-            # Only decode cortical areas this agent subscribed to
-            cortical_ids = self._motor_cortical_ids
-            motors = decode_motor_xyzp(xyzp_data, cortical_ids)
-            if not motors and cortical_ids:
-                # If FEAGI created motor cortical IDs that differ from the
-                # locally-derived verification list, retry decoding without a
-                # filter to preserve motor control.
-                logger.warning(
-                    "[RAW-MOTOR-DECODE] No matches for configured motor cortical IDs; "
-                    "retrying decode without cortical filter."
-                )
-                motors = decode_motor_xyzp(xyzp_data, None)
-            if motors:
-                logger.info("[RAW-MOTOR-DECODED] %s", motors)
-            
-            # Return in simple format for controllers:
-            # {"motor": {0: power, 1: power, ...}}
-            return {"motor": motors} if motors else None
-            
+            return self._client.receive_motor_data_raw()
         except Exception as e:
             if blocking:
-                logger.error("Failed to receive motor data: %s", e)
+                logger.error("Failed to receive raw motor data: %s", e)
                 raise
-            else:
-                # Non-blocking mode: log debug but don't raise
-                logger.debug("Non-blocking receive failed (continuing): %s", e)
-                return None
+            logger.debug("Non-blocking raw receive failed (continuing): %s", e)
+            return None
 
     def _fetch_existing_cortical_areas(
         self,
@@ -1089,16 +1121,17 @@ class FeagiAgentClient:
             device_registrations_json: JSON string matching
                 JSONInputOutputDefinition
                 (e.g. from ConnectorAgent.export_capabilities_json()).
-            expected_cortical_ids: Optional cortical IDs that must exist before
-                returning. If provided, device registration is retried and
-                verified against FEAGI API.
+            expected_cortical_ids: Cortical IDs that must exist before returning.
+                If ``None``, the payload is sent once with no API verification.
+                If a list (including empty), the client uses the retry loop so
+                registration is still delivered the same way as verified sends.
 
         Raises:
             RuntimeError: If not connected.
         """
         if not self._connected or self._client is None:
             raise RuntimeError("Agent not connected. Call connect() first.")
-        if not expected_cortical_ids:
+        if expected_cortical_ids is None:
             self._client.send_device_configuration(device_registrations_json)
             return
 
@@ -1132,18 +1165,23 @@ class FeagiAgentClient:
                 )
                 return
 
+            readable = [decode_cortical_id_label(cid) for cid in missing_set]
             logger.warning(
                 "[CFG] Missing cortical areas after attempt %d/%d: %s",
                 attempt,
                 retries,
-                missing_set,
+                readable,
             )
             if attempt < retries:
                 time.sleep(retry_interval_s)
 
+        readable = [decode_cortical_id_label(cid) for cid in missing_set]
         raise RuntimeError(
-            "Device registration incomplete; missing cortical areas: "
-            f"{missing_set}",
+            "Device registration incomplete: FEAGI did not create the "
+            "following cortical areas after all retries:\n"
+            + "\n".join(f"  - {label}" for label in readable)
+            + "\nEnsure a compatible genome is loaded in FEAGI that "
+            "includes these device types.",
         )
 
     def is_connected(self) -> bool:
@@ -1153,7 +1191,35 @@ class FeagiAgentClient:
             and self._client is not None
             and self._client.is_registered()
         )
-    
+
+    def reconnect(self, reason: Optional[str] = None) -> None:
+        """
+        Force a fresh registration cycle with FEAGI.
+
+        Delegates to the underlying Rust ``PyAgentClient.reconnect()`` which
+        performs a best-effort disconnect, a fresh connect, and replays any
+        cached device registrations. The decision logic for *when* to call
+        this lives in :mod:`feagi.pns.health_monitor` (which wraps the
+        ``feagi-agent`` Rust recovery primitives) so behavior is identical
+        across all SDKs.
+
+        Args:
+            reason: Optional human-readable reason forwarded to logs/telemetry.
+
+        Raises:
+            RuntimeError: If the underlying Rust client is not initialized
+                or the rebuild attempt fails. Callers should treat this as
+                a single failed attempt and feed the result back into the
+                policy via ``record_attempt_failed()``.
+        """
+        if self._client is None:
+            raise RuntimeError(
+                "Cannot reconnect: agent has no underlying Rust client. "
+                "Call connect() first.",
+            )
+        self._client.reconnect(reason)
+        self._connected = True
+
     def disconnect(self, timeout: float = 0.1):
         """
         Disconnect from FEAGI (non-blocking for fast shutdown)

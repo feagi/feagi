@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 
 def migrate_sensor_config(old_config: Dict[str, Any]) -> Dict[str, Any]:

@@ -12,12 +12,11 @@ from __future__ import annotations
 
 import os
 import signal
-import sys
 import time
 from typing import Optional
 
 from feagi.paths import get_feagi_paths
-from feagi.cli.process_utils import check_process_exists_windows, force_kill_process
+from feagi.cli.process_utils import force_kill_process, pid_alive
 
 
 class FeagiProcessError(RuntimeError):
@@ -215,18 +214,5 @@ class FeagiProcessManager:
     
     @staticmethod
     def _is_process_running(pid: int) -> bool:
-        """Check if process with given PID is running."""
-        try:
-            os.kill(pid, 0)
-            return True
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            # On Windows, os.kill(pid,0) can raise PermissionError for
-            # non-existent PIDs (reused) or processes we can't access.
-            # Use tasklist to verify - if not found, treat as gone.
-            if sys.platform == "win32" and not check_process_exists_windows(pid):
-                return False
-            return True
-        except Exception:
-            return False
+        """Check if process with given PID is running (never kills it)."""
+        return pid_alive(pid)

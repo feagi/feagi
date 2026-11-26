@@ -7,8 +7,7 @@ Integrates with FEAGI PNS observability framework.
 
 import logging
 import sys
-from typing import Any, Dict, Optional
-from datetime import datetime
+from typing import Any, Dict
 
 from feagi.pns.observability.monitor import Monitor
 
@@ -86,7 +85,7 @@ class ControllerLogger(Monitor):
         # Set formatter based on timestamp preference
         if self.show_timestamps:
             formatter = logging.Formatter(
-                f'[%(asctime)s] %(message)s',
+                '[%(asctime)s] %(message)s',
                 datefmt=self.timestamp_format
             )
         else:

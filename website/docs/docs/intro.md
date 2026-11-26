@@ -35,5 +35,5 @@ Advanced users can refer to our comprehensive [System Documentation](/system/arc
 FEAGI is an open-source project that welcomes contributions from the community. Join us in developing the future of brain-inspired AI!
 
 - Visit our [GitHub repository](https://github.com/feagi/feagi)
-- Join our [Discord community](https://discord.gg/feagi)
+- Join our [Discord community](https://discord.BrainsForRobots.com)
 - Follow us on [Twitter](https://twitter.com/feagi)

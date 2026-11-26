@@ -9,7 +9,6 @@ This test simulates real FEAGI conditions that would catch the critical bugs:
 """
 
 import pytest
-import numpy as np
 from feagi.bdu.connectome_manager import ConnectomeManager
 
 

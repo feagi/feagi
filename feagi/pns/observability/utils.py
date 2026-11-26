@@ -8,7 +8,6 @@ import logging
 from typing import Optional, Any
 from contextlib import contextmanager
 
-from feagi.pns.observability.monitor import InputMonitor, OutputMonitor
 from feagi.pns.observability.metrics import MetricsCollector
 from feagi.pns.observability.logger import DataLogger
 

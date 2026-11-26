@@ -6,7 +6,7 @@ the existing synaptic patterns are properly extended to the newly created neuron
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from feagi.api.core.services.expansion.pattern_extender import PatternExtender
 from feagi.api.core.services.expansion.connection_analyzer import ConnectionAnalyzer
 

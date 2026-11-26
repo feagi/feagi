@@ -10,10 +10,8 @@ This test should FAIL if the synaptic propagation issue exists, catching the cri
 """
 
 import pytest
-import numpy as np
 
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.npu.burst_engine_npu_integration import configure_npu_burst_engine
 from feagi.api.core.services.core_api_service import CoreAPIService
 
 

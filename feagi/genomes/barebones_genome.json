@@ -1563,7 +1563,7 @@
     "_____10c-_power-cx-_n_cnt-i": 1,
     "_____10c-_power-cx-synatt-f": 100,
     "_____10c-_power-cx-de_gen-f": 0,
-    "_____10c-_power-cx-pspuni-b": false,
+    "_____10c-_power-cx-pspuni-b": true,
     "_____10c-_power-nx-pstcrm-f": 35,
     "_____10c-_power-cx-dstmap-d": {},
     "_____10c-_power-cx-___bbx-i": 1,

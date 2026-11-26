@@ -232,7 +232,6 @@ print(f"Manual control: {frame_count} frames.\n")
 print("\nExample 4: Complete sensorimotor loop")
 print("-" * 60)
 
-from feagi.pns import brain_output
 
 # Start FEAGI (load a genome if you want to see activity in BV)
 engine = FeagiEngine()

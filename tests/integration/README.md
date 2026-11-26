@@ -31,7 +31,7 @@ from feagi.engine import FeagiEngine
 
 engine = FeagiEngine()
 engine.start()
-engine.load_genome("genome.json")
+engine.load_genome("brain.genome")
 ```
 
 ### 3. Prepare Test Assets

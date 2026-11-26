@@ -41,16 +41,16 @@ print("=" * 70)
 print("FEAGI Engine: Genome vs Connectome")
 print("=" * 70)
 
-# ==============================================================================
+# -----------------------------------------------------------------------------
 # Option 1: Start with a Genome (fresh brain)
-# ==============================================================================
+# -----------------------------------------------------------------------------
 print("\n" + "=" * 70)
 print("Option 1: Load Genome (fresh neural structure)")
 print("=" * 70)
 
 engine = FeagiEngine()
 engine.load_config(str(CONFIG_PATH))
-engine.load_genome("my_genome.json")  # Start fresh!
+engine.load_genome("my_brain.genome")  # Start fresh!
 
 print("\nGenome loaded")
 print("   - Fresh neural structure")
@@ -62,8 +62,9 @@ print("   - Ready for new experiments")
 
 # Do training/learning...
 
-# Save trained state to connectome
-# engine.save_connectome("trained_brain.connectome")
+# Save trained state through the running FEAGI API:
+# api = ConnectomeAPI(api_url, timeout=request_timeout)
+# api.download_to_file("trained_brain.connectome", mode="full")
 
 # Stop FEAGI
 # engine.stop()
@@ -71,9 +72,9 @@ print("   - Ready for new experiments")
 print("\nSkipping actual start for demonstration...")
 
 
-# ==============================================================================
+# -----------------------------------------------------------------------------
 # Option 2: Load Connectome (trained brain)
-# ==============================================================================
+# -----------------------------------------------------------------------------
 print("\n" + "=" * 70)
 print("Option 2: Load Connectome (trained neural state)")
 print("=" * 70)
@@ -98,16 +99,16 @@ print("   - Ready to continue or deploy")
 print("\nSkipping actual start for demonstration...")
 
 
-# ==============================================================================
+# -----------------------------------------------------------------------------
 # Mutually Exclusive: Genome OR Connectome (not both)
-# ==============================================================================
+# -----------------------------------------------------------------------------
 print("\n" + "=" * 70)
 print("Note: Genome and Connectome are Mutually Exclusive")
 print("=" * 70)
 
 engine3 = FeagiEngine()
 engine3.load_config(str(CONFIG_PATH))
-engine3.load_genome("genome1.json")      # Load genome first
+engine3.load_genome("brain_one.genome")  # Load genome first
 print("\nGenome loaded")
 
 engine3.load_connectome("brain.connectome")  # This will replace genome!
@@ -117,25 +118,25 @@ print("Connectome loaded - genome was cleared (mutually exclusive)")
 print("\nFinal state: Connectome will be used (genome was cleared)")
 
 
-# ==============================================================================
+# -----------------------------------------------------------------------------
 # Use Case Examples
-# ==============================================================================
+# -----------------------------------------------------------------------------
 print("\n" + "=" * 70)
 print("Use Case Examples")
 print("=" * 70)
 
 print("""
 1. New Experiment (Use Genome):
-   engine.load_genome("experiment_v1.json")
+   engine.load_genome("experiment_v1.genome")
    engine.start()
    # Train the neural network
-   # Save result as connectome
+   # Save through ConnectomeAPI.download_to_file()
 
 2. Continue Training (Use Connectome):
    engine.load_connectome("experiment_v1_checkpoint.connectome")
    engine.start()
    # Continue training from saved state
-   # Save updated connectome
+   # Save updated state through ConnectomeAPI.download_to_file()
 
 3. Deploy Trained Model (Use Connectome):
    engine.load_connectome("production_model.connectome")
@@ -145,7 +146,7 @@ print("""
 
 4. A/B Testing:
    # Test A: Fresh genome
-   engine_a.load_genome("base_genome.json")
+   engine_a.load_genome("base_brain.genome")
 
    # Test B: Trained connectome
    engine_b.load_connectome("trained_v2.connectome")
@@ -166,7 +167,7 @@ Connectome (Trained Brain):
   State: Trained/learned
 
 Method Chaining:
-  engine.load_config("config.toml").load_genome("genome.json").start()
+  engine.load_config("config.toml").load_genome("brain.genome").start()
   engine.load_config("config.toml").load_connectome("brain.connectome").start()
 """)
 

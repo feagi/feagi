@@ -13,17 +13,12 @@ This validates the strict, SIMD-optimized mapping path with no fallbacks.
 """
 import pytest
 import numpy as np
-import tempfile
-import os
-import time
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, List, Any, Tuple
+from unittest.mock import Mock, patch
 
 from feagi.npu.fire_candidate_list import FireCandidateList
 from feagi.api.core.services.brain.brain_service import BrainService
 from feagi.npu.burst_engine import PowerInjectionService
 from feagi.bdu.connectome_manager import ConnectomeManager
-from feagi.api.zmq.streams.sensory_neural import SensoryNeuralStream
 from feagi.core.state_manager import FeagiStateManager
 
 

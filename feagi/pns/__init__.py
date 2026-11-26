@@ -104,8 +104,18 @@ from feagi.pns import outputs
 # Client for agent integration
 from feagi.pns.client import FeagiAgentClient, AgentType
 
+# Health-monitoring + reconnect primitives (delegate to feagi-agent Rust core)
+from feagi.pns.health_monitor import (
+    FeagiHealthMonitor,
+    FeagiHealthMonitorTickResult,
+    FeagiReconnectDecision,
+    FeagiHealthEvent,
+    FeagiHealthSnapshot,
+    fetch_health_snapshot_blocking,
+)
+
 # Also export common classes directly
-from feagi.pns.inputs import Camera, NumericStream as NumericInput, Infrared
+from feagi.pns.inputs import Camera, NumericStream as NumericInput, Infrared, SmartImu
 from feagi.pns.outputs import ServoMotor, RotaryMotor, NumericStream as NumericOutput
 
 __all__ = [
@@ -118,6 +128,13 @@ __all__ = [
     # Client
     "FeagiAgentClient",
     "AgentType",
+    # Health monitor / reconnect (Rust-backed)
+    "FeagiHealthMonitor",
+    "FeagiHealthMonitorTickResult",
+    "FeagiReconnectDecision",
+    "FeagiHealthEvent",
+    "FeagiHealthSnapshot",
+    "fetch_health_snapshot_blocking",
     # Submodules
     "inputs",
     "outputs",
@@ -125,6 +142,7 @@ __all__ = [
     "Camera",
     "NumericInput",
     "Infrared",
+    "SmartImu",
     # Common outputs
     "ServoMotor",
     "RotaryMotor",

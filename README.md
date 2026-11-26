@@ -2,7 +2,7 @@
 
 **Build AI agents that learn like biological brains**
 
-[![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.gg/PTVC8fyGN8) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI](https://img.shields.io/pypi/v/feagi)](https://pypi.org/project/feagi/) [![Python](https://img.shields.io/pypi/pyversions/feagi)](https://pypi.org/project/feagi/) [![Discord](https://img.shields.io/discord/1242546683791933480)](https://discord.BrainsForRobots.com) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ![FEAGI Brain Visualizer: spatial brain view, neural architecture graph, and real-time activity](Documentation/assets/feagi_image.jpg)
 
@@ -97,15 +97,39 @@ from feagi.engine import FeagiEngine
 
 engine = FeagiEngine()
 engine.load_config()  # Uses default config
-engine.load_genome("my_brain.json")  # Loads from genomes directory
+engine.load_genome("my_brain.genome")  # Loads from genomes directory
 engine.start()
 ```
 
-Or from command line:
+To restore a trained connectome instead:
+
+```python
+engine = FeagiEngine()
+engine.load_config()
+engine.load_connectome("trained_brain.connectome")
+engine.start()
+```
+
+Genome and connectome startup artifacts are mutually exclusive. The equivalent
+command-line forms are:
 
 ```bash
-feagi start --config ~/.feagi/config/feagi_configuration.toml --genome my_brain.json
+feagi start --config ~/.feagi/config/feagi_configuration.toml --genome my_brain.genome
+feagi start --config ~/.feagi/config/feagi_configuration.toml --connectome trained_brain.connectome
 ```
+
+Download the active brain using the API connection from the selected config.
+The timeout is explicit so large artifacts do not depend on an implicit
+network limit:
+
+```bash
+feagi download genome --output current.genome --timeout <SECONDS>
+feagi download connectome --mode full --output current.connectome --timeout <SECONDS>
+feagi download connectome --mode lite --output current-lite.connectome --timeout <SECONDS>
+```
+
+Genome artifacts contain JSON but must use `.genome`. The SDK rejects `.json`
+genome filenames; connectome artifacts continue to use `.connectome`.
 
 ### SDK Architecture
 
@@ -117,8 +141,8 @@ feagi/
 ├── config/          # Configuration management
 ├── paths/           # Cross-platform path utilities
 ├── cli/             # Command-line tools
-├── genome/          # Runtime genome manipulation (coming soon)
-├── connectome/      # Brain state management (coming soon)
+├── genome/          # Genome artifact I/O, validation, and live operations
+├── connectome/      # Connectome artifact I/O, migration, and live operations
 └── packaging/       # Marketplace packages (coming soon)
 ```
 
@@ -136,9 +160,9 @@ See [`examples/`](./examples/) for complete agent implementations:
 
 ## Community & Support
 
-- **Discord**: [Join our community](https://discord.gg/PTVC8fyGN8)
+- **Discord**: [Join our community](https://discord.BrainsForRobots.com)
 - **Issues**: [Report bugs](https://github.com/feagi/feagi-python-sdk/issues)
-- **Neurorobotics Studio**: [Cloud platform](https://brainsforrobots.com)
+- **Neurorobotics Studio**: [Design and deployment desktop application](https://brainsforrobots.com/nrs)
 - **Homepage**: [feagi.org](https://feagi.org)
 
 ---
