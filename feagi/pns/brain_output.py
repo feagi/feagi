@@ -1337,6 +1337,7 @@ class BrainOutput:
         audio_phase_steps: int = 16,
         audio_magnitude_floor_db: int = -80,
         audio_magnitude_ceiling_db: int = 0,
+        percentage_neuron_positioning: Literal["linear", "fractional"] = "linear",
     ) -> Dict[str, int]:
         """
         Register sensory units in ConnectorAgent cache using SDK-owned Rust bindings.
@@ -1347,8 +1348,15 @@ class BrainOutput:
         Args:
             unit_channel_counts: Mapping of FEAGI unit key -> channel count.
                 Supported keys: ``Vision``, ``RawIMU``, ``SmartIMU``, ``Proximity``,
-                ``Servo``, ``Shock``, ``MiscData``, ``DepthMap``, ``CartesianPosition``,
-                ``AudioInput``.
+                ``Servo``, ``Shock``, ``Force``, ``MiscData``, ``DepthMap``,
+                ``CartesianPosition``, ``AudioInput``.
+
+                Notes on ``Force``:
+                  * Signed scalar in ``[-1, 1]``; write it with
+                    ``write_sensor_signed_scalar``. With ``"linear"`` positioning
+                    each channel is one X column and the sign runs along Z; with
+                    ``"fractional"`` each channel has a positive and a negative
+                    column.
 
                 Notes on ``AudioInput``:
                   * Absolute-only. Registers one spectrum area per channel using
@@ -1376,6 +1384,9 @@ class BrainOutput:
             frame_change_handling: FEAGI frame mode for registered units.
                 Use ``"absolute"`` for direct values and ``"incremental"``
                 for delta-style channels mirrored as incremental cortical areas.
+            percentage_neuron_positioning: ``"linear"`` (default) or
+                ``"fractional"``. Applies to the percentage-based scalar units
+                registered in this call.
 
         Returns:
             Mapping of unit key -> assigned cache group index (deterministic sorted order).
@@ -1407,7 +1418,18 @@ class BrainOutput:
             raise ValueError(
                 "frame_change_handling must be 'absolute' or 'incremental'."
             )
-        positioning = frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning.Linear()
+        positioning_value = str(percentage_neuron_positioning).strip().lower()
+        positioning_cls = (
+            frpl.data_structures.genomic.cortical_area.PercentageNeuronPositioning
+        )
+        if positioning_value == "linear":
+            positioning = positioning_cls.Linear()
+        elif positioning_value == "fractional":
+            positioning = positioning_cls.Fractional()
+        else:
+            raise ValueError(
+                "percentage_neuron_positioning must be 'linear' or 'fractional'."
+            )
         descriptors = frpl.connector_core.data_types.descriptors
         image_props = descriptors.ImageFrameProperties(
             descriptors.ImageXYResolution(
@@ -1477,6 +1499,13 @@ class BrainOutput:
                 positioning,
             ),
             "Shock": lambda group, count: self._cache.sensor_Shock_register(
+                group,
+                count,
+                frame_mode,
+                z_neuron_resolution,
+                positioning,
+            ),
+            "Force": lambda group, count: self._cache.sensor_Force_register(
                 group,
                 count,
                 frame_mode,
@@ -2754,6 +2783,45 @@ class BrainOutput:
         raise ValueError(
             f"Unsupported sensor write unit '{unit_key}'. "
             "Supported units: ['Proximity', 'Servo', 'Shock', 'MiscData']"
+        )
+
+    def write_sensor_signed_scalar(
+        self,
+        *,
+        unit_key: str,
+        group: int,
+        channel_index: int,
+        scalar_neg1_1: float,
+    ) -> None:
+        """
+        Write one signed scalar sample in ``[-1.0, 1.0]`` into the sensory cache.
+
+        Values outside the range (or NaN) raise ``ValueError``; they are not
+        clamped, so a mis-scaled caller is visible.
+
+        Args:
+            unit_key: Signed scalar sensory unit key (``Force``).
+            group: Registered sensory group index.
+            channel_index: Channel index within group.
+            scalar_neg1_1: Signed scalar value in ``[-1.0, 1.0]``.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        value = float(scalar_neg1_1)
+        if not (-1.0 <= value <= 1.0):
+            raise ValueError(
+                f"scalar_neg1_1 must be within [-1.0, 1.0], got {scalar_neg1_1!r}."
+            )
+        if unit_key != "Force":
+            raise ValueError(
+                f"Unsupported signed sensor write unit '{unit_key}'. "
+                "Supported units: ['Force']"
+            )
+        self._init_imu_write_helpers()
+        self._cache.sensor_force_write(
+            group=int(group),
+            channel_index=int(channel_index),
+            data=self._sensory_signed_percentage_factory.new_from_m1_1(value),
         )
 
     def write_sensor_raw_imu(

@@ -40,6 +40,7 @@ _SUBTYPE_TO_SENSOR_REGISTER_CANDIDATES = {
     b"rim": ["sensor_raw_i_m_u_register", "sensor_RawIMU_register"],
     b"sim": ["sensor_smart_i_m_u_register", "sensor_SmartIMU_register"],
     b"aud": ["sensor_audio_input_register", "sensor_AudioInput_register"],
+    b"frc": ["sensor_force_register", "sensor_Force_register"],
 }
 
 
