@@ -619,6 +619,7 @@ class BrainOutput:
         {
             "rotary_motor",
             "positional_servo",
+            "muscle",
             "gaze",
             "misc_data",
             "text_english_output",
@@ -1731,10 +1732,78 @@ class BrainOutput:
                     z_neuron_resolution,
                     positioning,
                 )
+            group_muscle_count = len(channels.get("muscle", []))
+            if group_muscle_count > 0:
+                self.register_motor_muscle_group(
+                    group=group_id,
+                    channel_count=group_muscle_count,
+                    z_neuron_resolution=z_neuron_resolution,
+                )
 
         # Mark as externally registered to avoid callback registration path that
         # depends on removed MotorCorticalType symbols in some builds.
         self._motor_decoder_registered = True
+
+    def register_motor_muscle_group(
+        self,
+        *,
+        group: int,
+        channel_count: int,
+        z_neuron_resolution: int,
+    ) -> None:
+        """
+        Register a Muscle (muscle activation) motor unit on the ConnectorAgent cache.
+
+        Each channel decodes to an excitation in ``[0, 1]``. A channel without a
+        spike on a frame decodes to 0.0 on that frame (zero excitation), also on
+        the trailing empty frame FEAGI sends when its output ends, so the newest
+        frame always carries the level. Absolute encoding only. Decoded values
+        appear under unit ``"muscle"`` in :meth:`read_decoded_motor_values`, and
+        :meth:`read_muscle_excitations` returns the cached level per channel.
+        """
+        self._init_cache()
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        if channel_count <= 0:
+            raise ValueError("channel_count must be > 0.")
+        if z_neuron_resolution <= 0:
+            raise ValueError("z_neuron_resolution must be > 0.")
+
+        import feagi_rust_py_libs as frpl
+
+        area = frpl.data_structures.genomic.cortical_area
+        self._cache.motor_muscle_register(
+            int(group),
+            int(channel_count),
+            area.FrameChangeHandling.Absolute(),
+            int(z_neuron_resolution),
+            area.PercentageNeuronPositioning.Linear(),
+        )
+        self._motor_decoder_registered = True
+
+    def read_muscle_excitations(self, group: int) -> Dict[int, float]:
+        """
+        Return the cached excitation in ``[0, 1]`` of every channel in a Muscle group.
+
+        Keys are channel indices. Raises ``ValueError`` when the group is not
+        registered.
+        """
+        if self._cache is None:
+            raise RuntimeError("ConnectorAgent cache is not initialized.")
+        levels: Dict[int, float] = {}
+        channel = 0
+        while True:
+            try:
+                value = self._cache.motor_muscle_read_postprocessed_cache_value(
+                    int(group), channel
+                )
+            except ValueError:
+                if channel == 0:
+                    raise
+                break
+            levels[channel] = float(value.get_as_0_1())
+            channel += 1
+        return levels
 
     def register_motor_spatial_pointer(
         self,
